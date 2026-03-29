@@ -61,17 +61,26 @@ event-hub-lublin/
 │   │   │   ├── notification.py        # NotificationLog (SMS/email, status wysyłki)
 │   │   │   └── api_key.py             # ApiKey (dla operatorów zewnętrznych)
 │   │   │
-│   │   ├── routers/                   # Endpointy FastAPI (wszystkie PUSTE — do zrobienia)
-│   │   │   └── __init__.py
+│   │   ├── dependencies.py            # get_db (re-export), get_current_user (JWT→User)
 │   │   │
-│   │   ├── schemas/                   # Pydantic v2 schemas (PUSTE — do zrobienia)
-│   │   │   └── __init__.py
+│   │   ├── routers/
+│   │   │   ├── __init__.py
+│   │   │   ├── auth.py                # POST /api/v1/auth/login → Token
+│   │   │   ├── streets.py             # GET /api/v1/streets?q=&limit= → autocomplete
+│   │   │   └── events.py              # GET/POST /api/v1/events, GET/PUT /api/v1/events/{id}
+│   │   │
+│   │   ├── schemas/
+│   │   │   ├── __init__.py
+│   │   │   ├── auth.py                # Token, TokenData, LoginRequest
+│   │   │   ├── street.py              # StreetResponse
+│   │   │   └── event.py               # EventCreate, EventUpdate, EventResponse, EventHistoryResponse
 │   │   │
 │   │   ├── services/                  # Logika biznesowa (PUSTE — do zrobienia)
 │   │   │   └── __init__.py
 │   │   │
-│   │   └── utils/                     # Narzędzia pomocnicze (PUSTE — do zrobienia)
-│   │       └── __init__.py
+│   │   └── utils/
+│   │       ├── __init__.py
+│   │       └── security.py            # hash_password, verify_password, create_access_token
 │   │
 │   ├── scripts/                       # Skrypty pomocnicze (seed, import TERYT — do zrobienia)
 │   └── tests/                         # Testy (PUSTE — do zrobienia)
@@ -126,6 +135,13 @@ Wszystkie tabele z `docs/TECH_SPEC.md` zaimplementowane jako klasy ORM z `Mapped
 
 Indeksy bazy danych zgodne ze specyfikacją (status, source, street_id, created_at, itp.)
 
+### 6. Auth — JWT + Bcrypt
+- `app/utils/security.py` — `hash_password`, `verify_password`, `create_access_token` (passlib bcrypt cost=12, python-jose HS256)
+- `app/schemas/auth.py` — `LoginRequest`, `Token`, `TokenData` (Pydantic v2)
+- `app/dependencies.py` — `get_current_user` (dekoduje JWT, pobiera User z bazy, sprawdza is_active), re-export `get_db`
+- `app/routers/auth.py` — `POST /api/v1/auth/login` (OAuth2PasswordRequestForm → Token)
+- `app/main.py` — zarejestrowano router auth pod `/api/v1/auth`
+
 ### 5. Alembic — konfiguracja i pierwsza migracja
 - `backend/alembic.ini` — `sqlalchemy.url` celowo puste
 - `backend/alembic/env.py` — obsługuje async (podmiana `+asyncpg` → `""`), importuje wszystkie modele, offline i online mode
@@ -136,7 +152,7 @@ Indeksy bazy danych zgodne ze specyfikacją (status, source, street_id, created_
 
 ## Co jest do zrobienia (w kolejności)
 
-### Następne: Auth — security.py, dependencies.py, router auth.py, schema auth.py
+### Następne: Subscribers — router subscribers.py, schema subscriber.py
 
 ---
 
@@ -145,9 +161,9 @@ Indeksy bazy danych zgodne ze specyfikacją (status, source, street_id, created_
 | # | Zadanie | Status |
 |---|---------|--------|
 | 1 | Alembic — pierwsza migracja (`initial`) | ✅ zrobione |
-| 2 | Auth — `security.py`, `dependencies.py`, router `auth.py`, schema `auth.py` | ☐ |
-| 3 | Streets — router `streets.py`, schema (autocomplete TERYT) | ☐ |
-| 4 | Events — router `events.py`, schema (CRUD + walidacja) | ☐ |
+| 2 | Auth — `security.py`, `dependencies.py`, router `auth.py`, schema `auth.py` | ✅ zrobione |
+| 3 | Streets — router `streets.py`, schema (autocomplete TERYT) | ✅ zrobione |
+| 4 | Events — router `events.py`, schema (CRUD + walidacja) | ✅ zrobione |
 | 5 | Subscribers — router `subscribers.py`, schema (rejestracja, wyrejestrowanie RODO) | ☐ |
 | 6 | Notification engine — `sms_gateway`, `email_sender`, `matching`, `notification_engine` | ☐ |
 | 7 | Podłączenie notification engine do events router (trigger po zmianie statusu) | ☐ |
@@ -176,6 +192,9 @@ Indeksy bazy danych zgodne ze specyfikacją (status, source, street_id, created_
 
 ## Changelog
 
+- **2026-03-29**: Auth — `security.py` (bcrypt cost=12, JWT HS256), `schemas/auth.py`, `dependencies.py` (`get_current_user`), `routers/auth.py` (`POST /api/v1/auth/login`), `main.py` — router auth zarejestrowany pod `/api/v1/auth`.
+- **2026-03-29**: Streets — `schemas/street.py` (StreetResponse), `routers/streets.py` (GET `/api/v1/streets?q=&limit=`, publiczny, ilike na full_name), `main.py` — router streets zarejestrowany pod `/api/v1/streets`.
+- **2026-03-29**: Events — `schemas/event.py` (EventCreate, EventUpdate, EventResponse, EventHistoryResponse; Literal na event_type i status), `routers/events.py` (GET lista aktywnych, GET szczegóły, POST tworzenie z JWT + created_by, PUT aktualizacja z JWT + EventHistory przy zmianie statusu; TODO notify), `main.py` — router events zarejestrowany pod `/api/v1/events`.
 - **2026-03-29**: Alembic — migracja `initial tables` (rev `937cb6bd3ab4`), `upgrade head` zakończony sukcesem. Wszystkie 8 tabel w bazie PostgreSQL. Bugfix: `Mapped[func.now]` → `Mapped[datetime]` w `user.py`. Dodano `psycopg2-binary==2.9.9` do `requirements.txt` (wymagane przez Alembic jako sync driver).
 
 ---
