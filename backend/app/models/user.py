@@ -1,6 +1,8 @@
+from datetime import datetime
+from typing import TYPE_CHECKING
+
 from sqlalchemy import Boolean, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing import TYPE_CHECKING
 
 from app.database import Base
 
@@ -17,7 +19,7 @@ class User(Base):
     full_name: Mapped[str | None] = mapped_column(String(100))
     role: Mapped[str] = mapped_column(String(20), server_default="dispatcher")
     is_active: Mapped[bool] = mapped_column(Boolean, server_default="true")
-    created_at: Mapped[func.now] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     events: Mapped[list["Event"]] = relationship("Event", back_populates="creator")
     event_history: Mapped[list["EventHistory"]] = relationship("EventHistory", back_populates="changed_by_user")

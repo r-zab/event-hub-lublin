@@ -1,76 +1,45 @@
-# CLAUDE.md - Event Hub Lublin
+# CLAUDE.md — Event Hub Lublin
 
 ## Projekt
-System powiadamiania mieszkancow o awariach sieci wodociagowej dla MPWiK Lublin.
-Prototyp na Festiwal Biznesu (Politechnika Lubelska).
-Architektura zaprojektowana jako miejski hub powiadamiania (multi-operator).
+System powiadamiania mieszkańców o awariach sieci wodociągowej dla MPWiK Lublin.
 
-## Kontekst biznesowy
-Przeczytaj plik `docs/PROJECT_CONTEXT.md` - pelny kontekst ze spotkania z MPWiK.
-Przeczytaj plik `docs/TECH_SPEC.md` - szczegolowa specyfikacja techniczna.
+## OBOWIĄZKOWO PRZECZYTAJ PRZED PRACĄ
+@docs/PROJECT_CONTEXT.md
+@docs/TECH_SPEC.md
+@docs/RULES.md
+@docs/PROGRESS.md
 
-## Stack technologiczny
+## Stack (backend only — frontend robiony osobno)
+- Python 3.12.10 + FastAPI (async)
+- SQLAlchemy 2.0 + Alembic
+- PostgreSQL 16 (Docker)
+- Pydantic v2
+- python-jose + passlib[bcrypt] (JWT)
+- httpx, aiosmtplib, slowapi
 
-### Backend (`backend/`)
-- **Python 3.12.10** + **FastAPI** (async)
-- **SQLAlchemy 2.0** (ORM) + **Alembic** (migracje)
-- **PostgreSQL 16** (baza danych)
-- **Pydantic v2** (walidacja, schematy)
-- **python-jose** + **passlib[bcrypt]** (JWT auth)
-- **aiosmtplib** (async email)
-- **httpx** (async HTTP client)
-- **slowapi** (rate limiting)
-- **uvicorn** (ASGI server)
+## WAŻNE
+- Pracujemy TYLKO nad backendem. NIE twórz nic w frontend/
+- Przed pracą sprawdź docs/PROGRESS.md — co jest zrobione
+- PLAN FIRST — opisz co zrobisz zanim zaczniesz kodować
+- Po każdym zadaniu zaktualizuj docs/PROGRESS.md
+- Jeden moduł na raz. Nie rób więcej niż proszę.
 
-### Frontend (`frontend/`)
-- **React 18** + **TypeScript**
-- **Tailwind CSS**
-- **React-Leaflet** + **Leaflet** (mapa)
-- **React Router v6**
-- **Axios**
+## Kluczowe zasady biznesowe
+1. Adresy z bazy TERYT (autocomplete, słownikowane)
+2. Mapa: linie na ulicach, NIE okręgi/promienie
+3. Wiele adresów na subskrybenta
+4. Fizyczne usunięcie danych (RODO) — NIE soft delete
+5. Zgoda na SMS nocne — osobna, domyślnie wyłączona
+6. Pole source w events — multi-operator ready
+7. 100% open source, zero kosztów licencyjnych
+8. Bramka SMS — mockujemy na etapie dev
 
-### Infrastruktura
-- **Docker** + **Docker Compose**
-- **Nginx** (reverse proxy)
-- **Oracle Linux** (docelowy OS)
+## Zmienne środowiskowe
+Czytane przez backend/app/config.py z pliku .env
+DATABASE_URL, SECRET_KEY, SMS_GATEWAY_TYPE, SMTP_*, CORS_ORIGINS
 
-## Konwencje kodowania
-
-### Python
-- Formatowanie: Black (line-length=99)
-- Type hints: Wymagane wszedzie
-- Async: Uzywaj async/await dla I/O
-- Parametryzowane zapytania SQL (SQLAlchemy ORM) - NIGDY string concatenation
-- Fizyczne usuwanie danych (RODO) - NIE soft delete
-
-### API Design
-- Prefix: `/api/v1/`
-- Auth admin: Bearer JWT
-- Auth external: X-API-Key header
-- Pagination: `?skip=0&limit=20`
-
-### Git
-- Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`
-- Nie commituj: `.env`, `__pycache__`, `node_modules`, `.venv`
-
-## Wazne zasady biznesowe
-1. BRAK okregow/promieni na mapie - dyspozytor podaje ulice + numery od-do
-2. Mapa GIS MPWiK niedostepna - autorski system, brak API
-3. Adresy slownikowane z TERYT
-4. Fizyczne usuniecie danych przy wyrejestrowaniu (RODO)
-5. Zgoda na SMS nocne - osobna od RODO, domyslnie wylaczona
-6. Wiele adresow na subskrybenta
-7. System to OSOBNA strona - nie integracja z mpwik.lublin.pl
-8. Zero kosztow licencyjnych - 100% open source
-9. Pole `source` w events - przygotowanie pod multi-operator hub
-10. WCAG 2.1 AA
-11. Bramka SMS MPWiK - na etapie dev mockujemy
-
-## Zasady pracy
-
-1. Po każdym zadaniu pokaż podsumowanie:
-   - Jakie pliki utworzyłeś/zmieniłeś
-   - Co dokładnie zrobiłeś
-2. Przed edycją istniejącego pliku - pokaż co chcesz zmienić
-3. Nie twórz plików poza katalogiem projektu
-4. Aktualizuj docs/CHANGELOG.md po każdej sesji
+### Po zakończeniu zadania:
+1. Zaktualizuj docs/PROGRESS.md — oznacz co zrobione, dodaj wpis do changelog.
+2. Zaktualizuj historia.md — zsynchronizuj listę plików (jeśli doszły nowe) oraz tabelę "Co zostało zrobione" i "Do zrobienia".
+3. Opisz w kilku słowach w historia.md (sekcja Changelog lub Stan projektu), co dokładnie zmieniło się w tej konkretnej poprawce.
+4. Powiedz mi co testować i jak.

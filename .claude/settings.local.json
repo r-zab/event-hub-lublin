@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Write",
+      "Edit",
+      "MultiEdit",
+      "Bash(pip install*)",
+      "Bash(cd*)",
+      "Bash(dir*)",
+      "Bash(type*)",
+      "Bash(cat*)",
+      "Bash(python*)",
+      "Bash(alembic*)",
+      "Bash(docker*)",
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(python -m alembic init alembic)",
+      "Bash(../.venv/Scripts/alembic init:*)",
+      "Bash(../.venv/Scripts/python.exe -c \":*)",
+      "Bash(/c/Users/rafal/PycharmProjects/event-hub-lublin/.venv/Scripts/python.exe -c \":*)",
+      "Bash(/c/Users/rafal/PycharmProjects/event-hub-lublin/.venv/Scripts/pip.exe list:*)",
+      "Bash(alembic revision:*)",
+      "Bash(.venv/Scripts/pip.exe install:*)",
+      "Bash(.venv/Scripts/pip.exe show:*)"
+    ],
+    "deny": [
+      "Bash(git push*)",
+      "Bash(git commit*)",
+      "Bash(rm -rf*)",
+      "Bash(del /s*)"
+    ]
+  }
+}
