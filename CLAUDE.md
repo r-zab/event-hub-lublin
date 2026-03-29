@@ -65,3 +65,12 @@ Przeczytaj plik `docs/TECH_SPEC.md` - szczegolowa specyfikacja techniczna.
 9. Pole `source` w events - przygotowanie pod multi-operator hub
 10. WCAG 2.1 AA
 11. Bramka SMS MPWiK - na etapie dev mockujemy
+
+## Zasady pracy
+
+1. Po każdym zadaniu pokaż podsumowanie:
+   - Jakie pliki utworzyłeś/zmieniłeś
+   - Co dokładnie zrobiłeś
+2. Przed edycją istniejącego pliku - pokaż co chcesz zmienić
+3. Nie twórz plików poza katalogiem projektu
+4. Aktualizuj docs/CHANGELOG.md po każdej sesji

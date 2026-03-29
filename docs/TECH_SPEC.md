@@ -18,7 +18,7 @@ GET    /api/v1/events/feed    -> plain text dla IVR 994 (public)
 GET /api/v1/streets?q=pilsud&limit=10  -> autocomplete ulic (public)
 
 ### Subscribers
-POST   /api/v1/subscribers/{unsubscribe_token}  -> rejestracja (public)
+POST   /api/v1/subscribers                     -> rejestracja (public)
 DELETE /api/v1/subscribers/{unsubscribe_token}  -> wyrejestrowanie (public)
 GET    /api/v1/subscribers/{unsubscribe_token}  -> info przed usunieciem (public)
 
