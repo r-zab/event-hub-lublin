@@ -1,34 +1,53 @@
 # Progress — Event Hub Lublin
 
-## Aktualny etap: BACKEND MVP
+## Aktualny etap: INTEGRACJA FULL-STACK
 
-### ✅ Zrobione
+### ✅ Zrobione — Backend
 - [x] Struktura katalogów i pliki startowe
-- [x] Notification engine — gateways.py (SMSGateway ABC, MockSMSGateway, EmailSender), notification_service.py (matching alfanumeryczny, nocna cisza, zapis do notification_log), events router podłączony
-- [x] docker-compose.yml z PostgreSQL
+- [x] docker-compose.yml z PostgreSQL 16
 - [x] FastAPI starter (main.py, config.py, database.py)
 - [x] Dokumentacja (CLAUDE.md, PROJECT_CONTEXT.md, TECH_SPEC.md)
-- [x] Modele SQLAlchemy (user, street, event, subscriber, notification, api_key)
-- [x] Alembic — konfiguracja (alembic.ini, env.py, script.py.mako) z async SQLAlchemy
-- [x] Alembic — pierwsza migracja `initial tables` (20260329_937cb6bd3ab4) + upgrade head
-- [x] Streets — router streets.py, schema street.py (autocomplete GET /api/v1/streets)
-- [x] Events — router events.py, schema event.py (CRUD: GET list, GET detail, POST, PUT + EventHistory)
-- [x] Subscribers — router subscribers.py, schema subscriber.py (POST rejestracja, GET info, DELETE fizyczny RODO)
-- [x] Seed data — scripts/seed.py (dyspozytor, 5 ulic, 3 zdarzenia z historią, 2 subskrybenci z adresami)
+- [x] Modele SQLAlchemy 2.0 (user, street, event, event_history, subscriber, subscriber_addresses, notification_log, api_key)
+- [x] Alembic — konfiguracja async + pierwsza migracja `initial tables` (rev 937cb6bd3ab4) + upgrade head
+- [x] Auth — security.py (bcrypt cost=12, JWT HS256), dependencies.py, router auth.py (OAuth2 form), schema auth.py
+- [x] Streets — router streets.py, schema street.py (autocomplete ILIKE, GET /api/v1/streets?q=)
+- [x] Events — router events.py, schema event.py (GET lista paginowana, GET szczegóły, POST tworzenie JWT, PUT aktualizacja JWT + EventHistory)
+- [x] Subscribers — router subscribers.py, schema subscriber.py (POST rejestracja wieloadresowa, GET podgląd tokenem, DELETE fizyczny RODO)
+- [x] Seed data — scripts/seed.py (admin/admin123 bcrypt, 5 ulic, 3 zdarzenia z historią, 2 subskrybenci)
+- [x] Import TERYT — scripts/import_streets.py (XML GUS, upsert batch=100, 1378 ulic Lublina, idempotentny)
+- [x] Notification Engine — gateways.py (SMSGateway ABC, MockSMSGateway, EmailSender aiosmtplib+mock), notification_service.py (matching alfanumeryczny, nocna cisza 22-06 → queued_morning, zapis notification_log)
+- [x] Podłączenie notification engine do events router (asyncio.create_task w create_event i update_event)
 
-### 📋 Do zrobienia (w tej kolejności)
-1. [x] Alembic — pierwsza migracja (autogenerate + upgrade head)
-2. [x] Auth — security.py, dependencies.py, router auth.py, schema auth.py
-3. [x] Streets — router streets.py, schema street.py (autocomplete)
-4. [x] Events — router events.py, schema event.py (CRUD)
-5. [x] Subscribers — router subscribers.py, schema subscriber.py
-6. [x] Notification engine — sms_gateway, email_sender, matching, notification_engine
-7. [x] Podłączenie notification engine do events router
-8. [x] Seed data — użytkownicy, ulice, zdarzenia, subskrybenci testowi
-9. [x] Import ulic TERYT z GUS API
-10. [ ] Geocoding (Nominatim → GeoJSON w tabeli streets)
-11. [ ] Endpoint /events/feed (tekst dla IVR 994)
-12. [ ] Admin endpoints (stats, lista subskrybentów, log powiadomień)
+### ✅ Zrobione — Frontend (integracja z Lovable)
+- [x] Przeniesienie frontendu z Lovable do lokalnego środowiska Vite (frontend/)
+- [x] Konfiguracja komunikacji z backendem: BASE_URL z VITE_API_URL, usunięcie nagłówków ngrok
+- [x] Vite proxy: /api → localhost:8000 (vite.config.ts)
+- [x] frontend/.env z VITE_API_URL=http://localhost:8000/api/v1
+- [x] CORS backend: localhost:8080 i localhost:5173 z allow_credentials=True
+- [x] useAuth.tsx — logowanie OAuth2 x-www-form-urlencoded (zgodne z FastAPI)
+- [x] useStreets.ts — autocomplete GET /streets?q= (min 3 znaki, anulowanie żądań)
+- [x] useEvents.ts — pobieranie, filtrowanie in-memory, paginacja (10/strona)
+- [x] AdminDashboard — tabela zdarzeń, historia statusów, filtry, wyszukiwanie
+- [x] AdminEventForm — formularz tworzenia/edycji z autocomplete ulic TERYT
+- [x] Register.tsx — formularz subskrypcji z wieloma adresami, zgody RODO + nocne SMS
+- [x] EventMap.tsx — mapa Leaflet z kolorowaniem statusów, obsługa GeoJSON/fallback marker
+- [x] Unsubscribe.tsx — wyrejestrowanie RODO przez token
+
+### 📋 Do zrobienia — kolejne 3 priorytety
+
+| # | Zadanie | Priorytet | Opis |
+|---|---------|-----------|------|
+| 1 | **Admin endpoints** — GET /admin/subscribers, GET /admin/notifications, GET /admin/stats | WYSOKI | Panel admina potrzebuje danych o subskrybentach i logu powiadomień; bez tego dashboard jest niekompletny |
+| 2 | **Geocoding ulic** — Nominatim → GeoJSON w tabeli streets | ŚREDNI | Mapa Leaflet wyświetla fallback marker dla zdarzeń bez geojson_segment; geocoding wypełni tę lukę dla 1378 ulic |
+| 3 | **Endpoint GET /api/v1/events/feed** — plain text dla IVR 994 | ŚREDNI | Wymaganie biznesowe MPWiK: dyspozytor dzwoni na 994, system odczytuje aktywne awarie głosowo |
+
+### Backlog (po powyższych)
+- [ ] Testy jednostkowe i integracyjne backendu (pytest + httpx)
+- [ ] Migracja Alembic dla ewentualnych zmian schematu
+- [ ] Prawdziwa bramka SMS (dokumentacja API od MPWiK oczekiwana)
+- [ ] Konfiguracja nginx jako reverse proxy (frontend + backend)
+- [ ] Wdrożenie na Oracle Linux (docelowy OS MPWiK)
+- [ ] WCAG — audyt dostępności frontendu
 
 ### Changelog
 - 2026-03-29: Struktura projektu, pliki startowe
@@ -42,3 +61,4 @@
 - 2026-03-30: Seed data — scripts/seed.py + scripts/__init__.py; dodano: 1 dyspozytor (admin/admin123, bcrypt), 5 ulic Lublina (Piłsudskiego, Lipowa, Nadbystrzycka, Zana, Kraśnicka), 3 zdarzenia z wpisami EventHistory, 2 subskrybenci z adresami; uruchamianie: `python -m scripts.seed` z katalogu backend/
 - 2026-03-30: Import TERYT — scripts/import_streets.py; parsowanie XML (xml.etree.ElementTree), mapowanie SYM_UL→teryt_sym_ul, CECHA→street_type, NAZWA_1→name, NAZWA_2+" "+NAZWA_1→full_name; upsert przez pg INSERT ON CONFLICT (teryt_sym_ul) DO UPDATE; batch=100; zaimportowano 1378 ulic Lublina z pliku data/ULIC_29-03-2026.xml; idempotentny (drugie uruchomienie nie duplikuje rekordów)
 - 2026-03-30: Notification Engine — services/gateways.py (SMSGateway ABC, MockSMSGateway loguje do logging, EmailSender via aiosmtplib z trybem mock gdy brak SMTP_USER), services/notification_service.py (parse_house_number + is_in_range obsługa alfanumeryczna, match_subscribers ORM + filtr Pythonowy, build_sms/email message, notify_event z logiką nocnej ciszy 22-06 → status queued_morning, zapis wszystkich prób do notification_log); routers/events.py — asyncio.create_task(notify_event) w create_event i update_event
+- 2026-03-30: Integracja Full-Stack — przeniesienie frontendu z Lovable do frontend/; konfiguracja VITE_API_URL + proxy Vite; naprawa BASE_URL (ngrok→localhost); CORS backend (localhost:8080/5173, allow_credentials=True); useAuth z x-www-form-urlencoded; wszystkie hooki (useEvents, useStreets, useAuth) zintegrowane z lokalnym API

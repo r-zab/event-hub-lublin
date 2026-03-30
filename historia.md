@@ -25,83 +25,106 @@ event-hub-lublin/
 ├── .env                               # Zmienne środowiskowe (lokalne, nie w git)
 ├── .env.example                       # Przykładowe zmienne środowiskowe
 ├── .gitignore
-├── create-structure.ps1               # Skrypt PowerShell tworzący strukturę katalogów
-├── historia.md                        # Ten plik
+├── historia.md                        # Ten plik — źródło prawdy o stanie projektu
 │
 ├── docs/
 │   ├── PROJECT_CONTEXT.md             # Kontekst biznesowy, rozmowy z MPWiK, decyzje
 │   ├── TECH_SPEC.md                   # Specyfikacja techniczna: API, baza danych, algorytmy
 │   ├── RULES.md                       # Zasady pracy: styl kodu, workflow, bezpieczeństwo
-│   ├── PROGRESS.md                    # Co jest zrobione, co jest następne
-│   └── CHANGELOG.md                  # Dziennik zmian
+│   └── PROGRESS.md                    # Co jest zrobione, co jest następne
 │
-├── backend/                           # === JEDYNY AKTYWNY KATALOG ===
-│   ├── Dockerfile                     # Obraz Docker dla backendu
-│   ├── requirements.txt               # Zależności Pythona
-│   ├── alembic.ini                    # Konfiguracja Alembic (sqlalchemy.url puste — ustawiany w env.py)
+├── backend/                           # === AKTYWNY — Python/FastAPI ===
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   ├── alembic.ini
 │   │
 │   ├── alembic/
-│   │   ├── env.py                     # Konfiguracja migracji (async→sync, importuje modele)
-│   │   ├── script.py.mako             # Szablon generowanych plików migracji
+│   │   ├── env.py
+│   │   ├── script.py.mako
 │   │   └── versions/
-│   │       └── 20260329_937cb6bd3ab4_initial_tables.py  # Pierwsza migracja — 8 tabel
+│   │       └── 20260329_937cb6bd3ab4_initial_tables.py
 │   │
 │   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py                    # FastAPI app, CORS, health check, lifespan
-│   │   ├── config.py                  # Pydantic Settings — wszystkie zmienne z .env
-│   │   ├── database.py                # AsyncEngine, AsyncSession, Base, get_db()
+│   │   ├── main.py                    # FastAPI app, CORS (localhost:8080/5173), health check
+│   │   ├── config.py                  # Pydantic Settings z .env
+│   │   ├── database.py                # AsyncEngine, AsyncSession, get_db()
+│   │   ├── dependencies.py            # get_current_user (JWT), re-export get_db
 │   │   │
-│   │   ├── models/                    # Modele SQLAlchemy 2.0 (ORM, Mapped[])
-│   │   │   ├── __init__.py            # Reeksportuje wszystkie modele (ważne dla Alembic)
-│   │   │   ├── user.py                # User (id, username, password_hash, role, is_active)
+│   │   ├── models/
+│   │   │   ├── user.py                # User (dispatcher/admin, bcrypt hash)
 │   │   │   ├── street.py              # Street (teryt_sym_ul, name, full_name, geojson)
-│   │   │   ├── event.py               # Event + EventHistory (awaria, status, historia zmian)
-│   │   │   ├── subscriber.py          # Subscriber + SubscriberAddress (wiele adresów)
-│   │   │   ├── notification.py        # NotificationLog (SMS/email, status wysyłki)
-│   │   │   └── api_key.py             # ApiKey (dla operatorów zewnętrznych)
-│   │   │
-│   │   ├── dependencies.py            # get_db (re-export), get_current_user (JWT→User)
+│   │   │   ├── event.py               # Event + EventHistory
+│   │   │   ├── subscriber.py          # Subscriber + SubscriberAddress
+│   │   │   ├── notification.py        # NotificationLog (sms/email audit)
+│   │   │   └── api_key.py             # ApiKey (multi-operator, future)
 │   │   │
 │   │   ├── routers/
-│   │   │   ├── __init__.py
-│   │   │   ├── auth.py                # POST /api/v1/auth/login → Token
-│   │   │   ├── streets.py             # GET /api/v1/streets?q=&limit= → autocomplete
-│   │   │   ├── events.py              # GET/POST /api/v1/events, GET/PUT /api/v1/events/{id}
+│   │   │   ├── auth.py                # POST /api/v1/auth/login (OAuth2 form)
+│   │   │   ├── streets.py             # GET /api/v1/streets?q= (ILIKE autocomplete)
+│   │   │   ├── events.py              # GET/POST/PUT /api/v1/events + notify trigger
 │   │   │   └── subscribers.py         # POST/GET/DELETE /api/v1/subscribers/{token}
 │   │   │
 │   │   ├── schemas/
-│   │   │   ├── __init__.py
 │   │   │   ├── auth.py                # Token, TokenData, LoginRequest
 │   │   │   ├── street.py              # StreetResponse
 │   │   │   ├── event.py               # EventCreate, EventUpdate, EventResponse, EventHistoryResponse
-│   │   │   └── subscriber.py          # AddressCreate, AddressResponse, SubscriberCreate, SubscriberResponse
+│   │   │   └── subscriber.py          # AddressCreate, SubscriberCreate, SubscriberResponse
 │   │   │
-│   │   ├── services/                  # Logika biznesowa
-│   │   │   ├── __init__.py
-│   │   │   ├── gateways.py            # SMSGateway (ABC), MockSMSGateway, EmailSender
-│   │   │   └── notification_service.py # match_subscribers, notify_event, logika nocnej ciszy
+│   │   ├── services/
+│   │   │   ├── gateways.py            # SMSGateway ABC, MockSMSGateway, EmailSender
+│   │   │   └── notification_service.py # match_subscribers, notify_event, nocna cisza
 │   │   │
 │   │   └── utils/
-│   │       ├── __init__.py
 │   │       └── security.py            # hash_password, verify_password, create_access_token
 │   │
-│   ├── scripts/                       # Skrypty pomocnicze
-│   │   ├── __init__.py
+│   ├── scripts/
 │   │   ├── seed.py                    # Dane testowe (idempotentny)
-│   │   └── import_streets.py          # Import ulic TERYT z XML (idempotentny, upsert)
-│   └── tests/                         # Testy (PUSTE — do zrobienia)
-│       └── __init__.py
+│   │   └── import_streets.py          # Import TERYT z XML (1378 ulic, idempotentny)
+│   │
+│   └── data/
+│       └── ULIC_29-03-2026.xml        # Źródłowy plik TERYT z GUS
 │
-├── frontend/                          # NIE DOTYKAMY — robiony osobno w Lovable
-│   ├── public/
+├── frontend/                          # === AKTYWNY — React 18 + TypeScript (Vite) ===
+│   ├── .env                           # VITE_API_URL=http://localhost:8000/api/v1
+│   ├── vite.config.ts                 # Proxy /api → localhost:8000, port 8080
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── index.html
 │   └── src/
-│       ├── api/
-│       ├── components/Map/
-│       ├── hooks/
+│       ├── main.tsx                   # Vite entry point
+│       ├── App.tsx                    # React Router setup
+│       │
 │       ├── pages/
-│       ├── styles/
-│       └── types/
+│       │   ├── Index.tsx              # Strona główna — mapa + lista aktywnych awarii
+│       │   ├── Register.tsx           # Rejestracja subskrybenta (multi-adres, RODO)
+│       │   ├── About.tsx              # O projekcie
+│       │   ├── AdminLogin.tsx         # Logowanie JWT (x-www-form-urlencoded)
+│       │   ├── AdminDashboard.tsx     # Panel dyspozytora — tabela zdarzeń, filtry, historia
+│       │   ├── AdminEventForm.tsx     # Formularz zdarzenia — autocomplete TERYT, status
+│       │   ├── Unsubscribe.tsx        # Wyrejestrowanie RODO przez token
+│       │   └── NotFound.tsx           # 404
+│       │
+│       ├── components/
+│       │   ├── EventMap.tsx           # Leaflet mapa z kolorami statusów, GeoJSON/marker fallback
+│       │   ├── EventCard.tsx          # Karta zdarzenia na stronie głównej
+│       │   ├── AddressRow.tsx         # Wiersz adresu w formularzu rejestracji
+│       │   ├── StatusBadge.tsx        # Kolorowa etykieta statusu
+│       │   ├── AdminLayout.tsx        # Wrapper panelu admina
+│       │   ├── ProtectedAdminLayout.tsx # Guard JWT (redirect na login)
+│       │   ├── PublicLayout.tsx       # Wrapper stron publicznych
+│       │   └── ui/                    # ~60 komponentów shadcn/ui (Tailwind CSS)
+│       │
+│       ├── hooks/
+│       │   ├── useAuth.tsx            # AuthContext, login/logout, localStorage token
+│       │   ├── useEvents.ts           # Fetch + filtrowanie in-memory + paginacja
+│       │   └── useStreets.ts          # Autocomplete — apiFetch /streets?q=, min 3 znaki
+│       │
+│       ├── lib/
+│       │   ├── api.ts                 # apiFetch — VITE_API_URL, Bearer token, JSON
+│       │   └── utils.ts               # cn() helper (Tailwind)
+│       │
+│       └── data/
+│           └── mockData.ts            # Typy TypeScript + stałe (EVENT_TYPES, STATUS_LABELS)
 │
 ├── nginx/                             # Konfiguracja Nginx (do zrobienia)
 ├── presentation/slides/               # Prezentacja na Festiwal Biznesu
@@ -111,74 +134,102 @@ event-hub-lublin/
 
 ---
 
+## Architektura przepływu danych
+
+```
+DYSPOZYTOR (przeglądarka React)
+        │
+        │  1. Logowanie: POST /api/v1/auth/login
+        │     form-urlencoded → JWT Bearer token (30 min)
+        │
+        │  2. Zgłoszenie awarii: POST /api/v1/events
+        │     JSON + Authorization: Bearer <token>
+        │
+        ▼
+FASTAPI (localhost:8000)
+  ├── CORSMiddleware (localhost:8080 / 5173)
+  ├── JWT verify → pobranie User z bazy
+  ├── Walidacja Pydantic (EventCreate schema)
+  ├── Zapis Event do PostgreSQL (ORM SQLAlchemy async)
+  │
+  └── asyncio.create_task(notify_event(event_id))
+              │
+              ▼
+     NOTIFICATION ENGINE
+       ├── Pobranie Event + Street z bazy
+       ├── SELECT subscribers WHERE street_id = event.street_id
+       ├── Filtr Pythonowy: numer domu w zakresie (alfanumeryczny)
+       ├── Filtr: rodo_consent = TRUE
+       │
+       ├── DLA KAŻDEGO SUBSKRYBENTA:
+       │   ├── Wyślij EMAIL (zawsze) — aiosmtplib / MockEmailSender
+       │   └── Wyślij SMS:
+       │       ├── Jeśli 22:00–06:00 i brak night_sms_consent → status: queued_morning
+       │       └── W innym przypadku → MockSMSGateway (log) / prawdziwa bramka
+       │
+       └── Zapis do notification_log (channel, recipient, status, sent_at)
+              │
+              ▼
+     PostgreSQL 16 (Docker, port 5432)
+       Tables: events, notification_log, subscribers, subscriber_addresses,
+               streets (1378 ulic TERYT), users, event_history, api_keys
+              │
+              ▼
+MIESZKANIEC (SMS / Email)
+  ← "Uwaga! Awaria sieci wodociągowej. Ul. Lipowa 1–20. Szac. czas naprawy: 18:00"
+```
+
+---
+
 ## Co zostało zrobione
 
-### 1. Struktura projektu
-- Katalogi i puste pliki startowe (`create-structure.ps1`)
-- `.gitignore`, `README.md`, `CLAUDE.md`
+### Sesja 1 (2026-03-29) — Fundament backendu
+- Struktura katalogów i pliki startowe
+- Docker: PostgreSQL 16 Alpine z healthcheck
+- FastAPI starter: main.py, config.py, database.py
+- Modele SQLAlchemy 2.0 (8 tabel z indeksami)
+- Alembic konfiguracja async + migracja `initial tables` (rev 937cb6bd3ab4)
+- Auth: security.py (bcrypt/12, JWT HS256), dependencies.py, routers/auth.py, schemas/auth.py
+- Streets: routers/streets.py (ILIKE autocomplete), schemas/street.py
+- Events: routers/events.py (GET lista/szczegóły, POST/PUT z JWT, EventHistory)
 
-### 2. Docker
-- `docker-compose.yml` — PostgreSQL 16 Alpine z healthcheck, backend FastAPI
-- `backend/Dockerfile` — obraz dla backendu
+### Sesja 2 (2026-03-30) — Subskrybenci, dane, powiadomienia
+- Subscribers: rejestracja wieloadresowa, podgląd tokenem, fizyczne usunięcie RODO
+- Seed data: admin/admin123 (bcrypt), 5 ulic, 3 zdarzenia, 2 subskrybenci
+- Import TERYT: 1378 ulic Lublina z XML GUS (upsert batch=100, idempotentny)
+- Notification Engine: MockSMSGateway, EmailSender (mock/real), matching alfanumeryczny, nocna cisza, notification_log
+- Podłączenie powiadomień do events router (asyncio.create_task)
 
-### 3. FastAPI starter
-- `app/main.py` — aplikacja z CORS, health check `/health`, lifespan handler
-- `app/config.py` — Pydantic Settings czytający zmienne z `.env` (DATABASE_URL, SECRET_KEY, SMTP_*, SMS_*, CORS_ORIGINS)
-- `app/database.py` — async engine (`asyncpg`), `AsyncSessionLocal`, `Base`, dependency `get_db()`
-
-### 4. Modele SQLAlchemy 2.0
-Wszystkie tabele z `docs/TECH_SPEC.md` zaimplementowane jako klasy ORM z `Mapped[]`:
-
-| Model | Tabela | Opis |
-|-------|--------|------|
-| `User` | `users` | Dyspozytorzy i adminowie MPWiK |
-| `Street` | `streets` | Słownik ulic TERYT z GeoJSON |
-| `Event` | `events` | Awarie, planowane wyłączenia, remonty |
-| `EventHistory` | `event_history` | Historia zmian statusu zdarzenia |
-| `Subscriber` | `subscribers` | Subskrybenci powiadomień (RODO) |
-| `SubscriberAddress` | `subscriber_addresses` | Adresy subskrybenta (wiele na osobę) |
-| `NotificationLog` | `notification_log` | Log wysłanych SMS/email |
-| `ApiKey` | `api_keys` | Klucze API dla operatorów zewnętrznych |
-
-Indeksy bazy danych zgodne ze specyfikacją (status, source, street_id, created_at, itp.)
-
-### 6. Auth — JWT + Bcrypt
-- `app/utils/security.py` — `hash_password`, `verify_password`, `create_access_token` (passlib bcrypt cost=12, python-jose HS256)
-- `app/schemas/auth.py` — `LoginRequest`, `Token`, `TokenData` (Pydantic v2)
-- `app/dependencies.py` — `get_current_user` (dekoduje JWT, pobiera User z bazy, sprawdza is_active), re-export `get_db`
-- `app/routers/auth.py` — `POST /api/v1/auth/login` (OAuth2PasswordRequestForm → Token)
-- `app/main.py` — zarejestrowano router auth pod `/api/v1/auth`
-
-### 5. Alembic — konfiguracja i pierwsza migracja
-- `backend/alembic.ini` — `sqlalchemy.url` celowo puste
-- `backend/alembic/env.py` — obsługuje async (podmiana `+asyncpg` → `""`), importuje wszystkie modele, offline i online mode
-- `backend/alembic/script.py.mako` — szablon plików migracji
-- `backend/alembic/versions/20260329_937cb6bd3ab4_initial_tables.py` — migracja "initial tables": tworzy wszystkie 8 tabel z indeksami; zastosowana przez `upgrade head`
+### Sesja 3 (2026-03-30) — Integracja Full-Stack
+- Przeniesienie frontendu z Lovable do lokalnego środowiska Vite (`frontend/`)
+- Konfiguracja BASE_URL przez `import.meta.env.VITE_API_URL` (usunięcie nagłówków ngrok)
+- frontend/.env: `VITE_API_URL=http://localhost:8000/api/v1`
+- Vite proxy: `/api` → `localhost:8000` (bez CORS w dev przez proxy)
+- CORS backend: konkretne origins (localhost:8080, localhost:5173), `allow_credentials=True`
+- useAuth.tsx: logowanie przez `application/x-www-form-urlencoded` (standard OAuth2/FastAPI)
+- Wszystkie hooki (useEvents, useStreets, useAuth) zintegrowane z lokalnym API
 
 ---
 
-## Co jest do zrobienia (w kolejności)
-
-### Następne: Subscribers — router subscribers.py, schema subscriber.py
-
----
-
-### Pełna lista zadań
+## Tabela zadań
 
 | # | Zadanie | Status |
 |---|---------|--------|
-| 1 | Alembic — pierwsza migracja (`initial`) | ✅ zrobione |
-| 2 | Auth — `security.py`, `dependencies.py`, router `auth.py`, schema `auth.py` | ✅ zrobione |
-| 3 | Streets — router `streets.py`, schema (autocomplete TERYT) | ✅ zrobione |
-| 4 | Events — router `events.py`, schema (CRUD + walidacja) | ✅ zrobione |
-| 5 | Subscribers — router `subscribers.py`, schema (rejestracja, wyrejestrowanie RODO) | ✅ zrobione |
-| 6 | Notification engine — `sms_gateway`, `email_sender`, `matching`, `notification_engine` | ✅ zrobione |
-| 7 | Podłączenie notification engine do events router (trigger po zmianie statusu) | ✅ zrobione |
-| 8 | Seed data — użytkownicy testowi, ulice, zdarzenia, subskrybenci | ✅ zrobione  |
-| 9 | Import ulic TERYT z GUS API | ✅ zrobione |
-| 10 | Geocoding (Nominatim → GeoJSON w tabeli `streets`) | ☐ |
-| 11 | Endpoint `GET /api/v1/events/feed` (tekst dla IVR 994) | ☐ |
-| 12 | Admin endpoints (stats, lista subskrybentów, log powiadomień) | ☐ |
+| 1 | Alembic — pierwsza migracja | ✅ zrobione |
+| 2 | Auth — JWT, bcrypt, login endpoint | ✅ zrobione |
+| 3 | Streets — autocomplete TERYT | ✅ zrobione |
+| 4 | Events — CRUD + historia statusów | ✅ zrobione |
+| 5 | Subscribers — rejestracja, RODO delete | ✅ zrobione |
+| 6 | Notification Engine — SMS/email, matching | ✅ zrobione |
+| 7 | Podłączenie powiadomień do events router | ✅ zrobione |
+| 8 | Seed data | ✅ zrobione |
+| 9 | Import TERYT (1378 ulic XML) | ✅ zrobione |
+| 10 | Frontend — integracja Full-Stack z Vite | ✅ zrobione |
+| 11 | Admin endpoints (stats, subskrybenci, log) | ⏳ następne |
+| 12 | Geocoding Nominatim → GeoJSON streets | ⏳ następne |
+| 13 | Endpoint GET /events/feed (IVR 994) | ⏳ następne |
+| 14 | Testy jednostkowe/integracyjne backendu | ☐ backlog |
+| 15 | Nginx reverse proxy (prod) | ☐ backlog |
 
 ---
 
@@ -186,38 +237,49 @@ Indeksy bazy danych zgodne ze specyfikacją (status, source, street_id, created_
 
 | Decyzja | Powód |
 |---------|-------|
-| Tylko backend, frontend w Lovable | Podział odpowiedzialności, frontend osobny zespół |
 | Adresy z TERYT (słownikowane) | Wymaganie MPWiK — brak literówek, autocomplete |
 | Linie ulic na mapie (nie okręgi) | Wymaganie MPWiK — precyzja, prawdziwy zasięg awarii |
 | Fizyczne delete (nie soft delete) | RODO — pełne usunięcie danych subskrybenta |
 | SMS nocne osobna zgoda | Wymaganie prawne — domyślnie wyłączone |
-| `source` w events | Multi-operator ready (LPEC, ZDiM, inne w przyszłości) |
+| `source` w events | Multi-operator ready (LPEC, ZDiM i inne w przyszłości) |
 | MockSMSGateway | Bramka SMS MPWiK bez dokumentacji API na etapie dev |
 | asyncpg + psycopg2 (Alembic) | FastAPI async wymaga asyncpg; Alembic nie obsługuje async drivera |
+| x-www-form-urlencoded w login | Standard OAuth2 — FastAPI wymaga form, nie JSON |
+| Vite proxy zamiast CORS wildcard | Dev: brak CORS issues; prod: nginx reverse proxy |
 
 ---
 
 ## Changelog
 
-- **2026-03-29**: Auth — `security.py` (bcrypt cost=12, JWT HS256), `schemas/auth.py`, `dependencies.py` (`get_current_user`), `routers/auth.py` (`POST /api/v1/auth/login`), `main.py` — router auth zarejestrowany pod `/api/v1/auth`.
-- **2026-03-29**: Streets — `schemas/street.py` (StreetResponse), `routers/streets.py` (GET `/api/v1/streets?q=&limit=`, publiczny, ilike na full_name), `main.py` — router streets zarejestrowany pod `/api/v1/streets`.
-- **2026-03-29**: Events — `schemas/event.py` (EventCreate, EventUpdate, EventResponse, EventHistoryResponse; Literal na event_type i status), `routers/events.py` (GET lista aktywnych, GET szczegóły, POST tworzenie z JWT + created_by, PUT aktualizacja z JWT + EventHistory przy zmianie statusu; TODO notify), `main.py` — router events zarejestrowany pod `/api/v1/events`.
-- **2026-03-29**: Alembic — migracja `initial tables` (rev `937cb6bd3ab4`), `upgrade head` zakończony sukcesem. Wszystkie 8 tabel w bazie PostgreSQL. Bugfix: `Mapped[func.now]` → `Mapped[datetime]` w `user.py`. Dodano `psycopg2-binary==2.9.9` do `requirements.txt` (wymagane przez Alembic jako sync driver).
-- **2026-03-30**: Subscribers — `schemas/subscriber.py` (AddressCreate, AddressResponse, SubscriberCreate z walidatorem rodo_consent i min. 1 adresem, SubscriberResponse), `routers/subscribers.py` (POST rejestracja z listą adresów + `secrets.token_hex(32)` jako unsubscribe_token, GET podgląd danych, DELETE fizyczne usunięcie RODO przez `db.delete(subscriber)`), `main.py` — router subscribers zarejestrowany pod `/api/v1/subscribers`.
-- **2026-03-30**: Import TERYT — `scripts/import_streets.py`; parsowanie XML (`xml.etree.ElementTree`), mapowanie pól TERYT→Street (SYM_UL, CECHA, NAZWA_1+NAZWA_2→full_name), upsert przez `pg_insert().on_conflict_do_update(teryt_sym_ul)`; batch=100 rekordów; zaimportowano 1378 ulic Lublina z `data/ULIC_29-03-2026.xml`; idempotentny — ponowne uruchomienie aktualizuje bez duplikatów.
-- **2026-03-30**: Notification Engine — `services/gateways.py` (SMSGateway ABC, MockSMSGateway, EmailSender z aiosmtplib + tryb mock gdy brak SMTP), `services/notification_service.py` (parse_house_number obsługa alfanumeryczna, is_in_range, match_subscribers query po ORM + filtr Pythonowy po numerach, build_sms_message/build_email_*, notify_event z nocną ciszą 22-06 → queued_morning, zapis do notification_log); `routers/events.py` — zastąpiono TODO komentarze wywołaniami `asyncio.create_task(notify_event(...))` w create_event i update_event.
+- **2026-03-29**: Auth — `security.py` (bcrypt cost=12, JWT HS256), `schemas/auth.py`, `dependencies.py`, `routers/auth.py` (`POST /api/v1/auth/login`), `main.py` — router auth.
+- **2026-03-29**: Streets — `schemas/street.py` (StreetResponse), `routers/streets.py` (GET `/api/v1/streets?q=`, ILIKE).
+- **2026-03-29**: Events — `schemas/event.py`, `routers/events.py` (GET lista/szczegóły, POST/PUT JWT + EventHistory).
+- **2026-03-29**: Alembic — migracja `initial tables` (rev `937cb6bd3ab4`), 8 tabel w PostgreSQL. Bugfix: `Mapped[func.now]` → `Mapped[datetime]`. Dodano `psycopg2-binary`.
+- **2026-03-30**: Subscribers — `schemas/subscriber.py`, `routers/subscribers.py` (POST rejestracja, GET token, DELETE RODO).
+- **2026-03-30**: Seed data — `scripts/seed.py` (admin/admin123, 5 ulic, 3 zdarzenia, 2 subskrybenci).
+- **2026-03-30**: Import TERYT — `scripts/import_streets.py`; 1378 ulic Lublina z `data/ULIC_29-03-2026.xml`; upsert, idempotentny.
+- **2026-03-30**: Notification Engine — `services/gateways.py`, `services/notification_service.py`; matching alfanumeryczny, nocna cisza, `asyncio.create_task` w events router.
+- **2026-03-30**: **Integracja Full-Stack** — Frontend z Lovable przeniesiony do `frontend/`; BASE_URL przez `VITE_API_URL`; usunięto nagłówki ngrok; Vite proxy `/api`→`localhost:8000`; CORS backend `localhost:8080/5173`; logowanie OAuth2 `x-www-form-urlencoded`; useStreets autocomplete z 1378 ulic TERYT.
 
 ---
 
-## Zmienne środowiskowe (`.env`)
+## Zmienne środowiskowe
 
+### Backend (`.env` w katalogu głównym)
 ```env
 DATABASE_URL=postgresql+asyncpg://eventhub:devpassword@localhost:5432/eventhub
-SECRET_KEY=...
+SECRET_KEY=your-secret-key-here
 SMS_GATEWAY_TYPE=mock
 SMTP_HOST=localhost
 SMTP_PORT=587
-CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+SMTP_USER=
+SMTP_PASSWORD=
+CORS_ORIGINS=http://localhost:8080,http://localhost:5173
+```
+
+### Frontend (`frontend/.env`)
+```env
+VITE_API_URL=http://localhost:8000/api/v1
 ```
 
 ---
@@ -225,18 +287,24 @@ CORS_ORIGINS=http://localhost:3000,http://localhost:5173
 ## Jak uruchomić lokalnie
 
 ```bash
-# 1. Uruchom bazę danych
-docker-compose up db -d
+# Terminal 1 — baza danych
+docker compose up db -d
 
-# 2. Zainstaluj zależności
+# Terminal 2 — backend (z katalogu backend/)
 cd backend
-pip install -r requirements.txt
-
-# 3. Uruchom pierwszą migrację
-alembic upgrade head
-
-# 4. Uruchom backend
+alembic upgrade head          # tylko przy pierwszym uruchomieniu
+python -m scripts.seed        # tylko przy pierwszym uruchomieniu
 uvicorn app.main:app --reload --port 8000
+
+# Terminal 3 — frontend (z katalogu frontend/)
+cd frontend
+npm install                   # tylko przy pierwszym uruchomieniu
+npm run dev
 ```
 
-API docs: http://localhost:8000/docs
+**Dostęp:**
+- Frontend: http://localhost:8080
+- API docs: http://localhost:8000/docs
+- Health: http://localhost:8000/health
+
+**Logowanie admina:** `admin` / `admin123`

@@ -1,0 +1,56 @@
+export type EventStatus = 'zgloszona' | 'w_naprawie' | 'usunieta' | 'planowane_wylaczenie' | 'remont';
+export type EventType = 'awaria' | 'planowane_wylaczenie' | 'remont';
+
+export interface StatusChange {
+  id?: number;
+  old_status: EventStatus;
+  new_status: EventStatus;
+  changed_at: string;
+  changed_by: number | string;
+  note?: string | null;
+}
+
+export interface EventItem {
+  id: number;
+  event_type: EventType;
+  source?: string;
+  street_id?: number;
+  street_name: string;
+  house_number_from: string;
+  house_number_to: string;
+  status: EventStatus;
+  description: string;
+  estimated_end: string | null;
+  geojson_segment: [number, number][] | null;
+  created_by: number | string;
+  created_at?: string;
+  updated_at?: string;
+  notified_count?: number;
+  history: StatusChange[];
+}
+
+export interface Street {
+  id: number;
+  teryt_sym_ul: string;
+  name: string;
+  full_name: string;
+  street_type: string;
+  city: string;
+}
+
+export const STATUS_LABELS: Record<EventStatus, string> = {
+  zgloszona: 'Zgłoszona',
+  w_naprawie: 'W naprawie',
+  usunieta: 'Usunięta',
+  planowane_wylaczenie: 'Planowane wyłączenie',
+  remont: 'Remont',
+};
+
+export const TYPE_LABELS: Record<EventType, string> = {
+  awaria: 'Awaria',
+  planowane_wylaczenie: 'Planowane wyłączenie',
+  remont: 'Remont',
+};
+
+// Mock events kept only as fallback
+export const mockEvents: EventItem[] = [];
