@@ -151,5 +151,5 @@ class MockSMSGateway(SMSGateway):
 - zgloszona:           #EF4444 (czerwony)
 - w_naprawie:          #F59E0B (pomaranczowy)
 - usunieta:            #10B981 (zielony)
-- planowane_wylaczenie:#3B82F6 (niebieski)
+- planowane_wylaczenie: #3B82F6 (niebieski)
 - remont:              #8B5CF6 (fioletowy)

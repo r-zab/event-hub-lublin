@@ -67,13 +67,15 @@ event-hub-lublin/
 │   │   │   ├── __init__.py
 │   │   │   ├── auth.py                # POST /api/v1/auth/login → Token
 │   │   │   ├── streets.py             # GET /api/v1/streets?q=&limit= → autocomplete
-│   │   │   └── events.py              # GET/POST /api/v1/events, GET/PUT /api/v1/events/{id}
+│   │   │   ├── events.py              # GET/POST /api/v1/events, GET/PUT /api/v1/events/{id}
+│   │   │   └── subscribers.py         # POST/GET/DELETE /api/v1/subscribers/{token}
 │   │   │
 │   │   ├── schemas/
 │   │   │   ├── __init__.py
 │   │   │   ├── auth.py                # Token, TokenData, LoginRequest
 │   │   │   ├── street.py              # StreetResponse
-│   │   │   └── event.py               # EventCreate, EventUpdate, EventResponse, EventHistoryResponse
+│   │   │   ├── event.py               # EventCreate, EventUpdate, EventResponse, EventHistoryResponse
+│   │   │   └── subscriber.py          # AddressCreate, AddressResponse, SubscriberCreate, SubscriberResponse
 │   │   │
 │   │   ├── services/                  # Logika biznesowa (PUSTE — do zrobienia)
 │   │   │   └── __init__.py
@@ -164,10 +166,10 @@ Indeksy bazy danych zgodne ze specyfikacją (status, source, street_id, created_
 | 2 | Auth — `security.py`, `dependencies.py`, router `auth.py`, schema `auth.py` | ✅ zrobione |
 | 3 | Streets — router `streets.py`, schema (autocomplete TERYT) | ✅ zrobione |
 | 4 | Events — router `events.py`, schema (CRUD + walidacja) | ✅ zrobione |
-| 5 | Subscribers — router `subscribers.py`, schema (rejestracja, wyrejestrowanie RODO) | ☐ |
+| 5 | Subscribers — router `subscribers.py`, schema (rejestracja, wyrejestrowanie RODO) | ✅ zrobione |
 | 6 | Notification engine — `sms_gateway`, `email_sender`, `matching`, `notification_engine` | ☐ |
 | 7 | Podłączenie notification engine do events router (trigger po zmianie statusu) | ☐ |
-| 8 | Seed data — użytkownicy testowi, ulice, zdarzenia, subskrybenci | ☐ |
+| 8 | Seed data — użytkownicy testowi, ulice, zdarzenia, subskrybenci | ✅ zrobione  |
 | 9 | Import ulic TERYT z GUS API | ☐ |
 | 10 | Geocoding (Nominatim → GeoJSON w tabeli `streets`) | ☐ |
 | 11 | Endpoint `GET /api/v1/events/feed` (tekst dla IVR 994) | ☐ |
@@ -196,6 +198,7 @@ Indeksy bazy danych zgodne ze specyfikacją (status, source, street_id, created_
 - **2026-03-29**: Streets — `schemas/street.py` (StreetResponse), `routers/streets.py` (GET `/api/v1/streets?q=&limit=`, publiczny, ilike na full_name), `main.py` — router streets zarejestrowany pod `/api/v1/streets`.
 - **2026-03-29**: Events — `schemas/event.py` (EventCreate, EventUpdate, EventResponse, EventHistoryResponse; Literal na event_type i status), `routers/events.py` (GET lista aktywnych, GET szczegóły, POST tworzenie z JWT + created_by, PUT aktualizacja z JWT + EventHistory przy zmianie statusu; TODO notify), `main.py` — router events zarejestrowany pod `/api/v1/events`.
 - **2026-03-29**: Alembic — migracja `initial tables` (rev `937cb6bd3ab4`), `upgrade head` zakończony sukcesem. Wszystkie 8 tabel w bazie PostgreSQL. Bugfix: `Mapped[func.now]` → `Mapped[datetime]` w `user.py`. Dodano `psycopg2-binary==2.9.9` do `requirements.txt` (wymagane przez Alembic jako sync driver).
+- **2026-03-30**: Subscribers — `schemas/subscriber.py` (AddressCreate, AddressResponse, SubscriberCreate z walidatorem rodo_consent i min. 1 adresem, SubscriberResponse), `routers/subscribers.py` (POST rejestracja z listą adresów + `secrets.token_hex(32)` jako unsubscribe_token, GET podgląd danych, DELETE fizyczne usunięcie RODO przez `db.delete(subscriber)`), `main.py` — router subscribers zarejestrowany pod `/api/v1/subscribers`.
 
 ---
 

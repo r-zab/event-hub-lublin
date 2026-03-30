@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import auth, events, streets
+from app.routers import auth, events, streets, subscribers
 
 
 @asynccontextmanager
@@ -51,9 +51,9 @@ async def health_check():
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(streets.router, prefix="/api/v1/streets", tags=["Streets"])
 app.include_router(events.router, prefix="/api/v1/events", tags=["Events"])
+app.include_router(subscribers.router, prefix="/api/v1/subscribers", tags=["Subscribers"])
 
 # TODO: Include remaining routers as they are implemented
-# from app.routers import subscribers, admin, external
-# app.include_router(subscribers.router, prefix="/api/v1/subscribers", tags=["Subscribers"])
+# from app.routers import admin, external
 # app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 # app.include_router(external.router, prefix="/api/v1/external", tags=["External API"])
