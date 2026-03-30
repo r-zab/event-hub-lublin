@@ -1,18 +1,26 @@
 """
 Skrypt seed — wypełnia bazę testowymi danymi dla celów deweloperskich.
 
+Idempotentny: ponowne uruchomienie pomija istniejące rekordy zamiast rzucać
+IntegrityError. Dopasowanie:
+  - User      → po username
+  - Street    → po teryt_sym_ul
+  - Event     → po (street_id, event_type, house_number_from)
+  - Subscriber → po email
+
 Uruchomienie (z katalogu backend/):
     python -m scripts.seed
 """
 
 import asyncio
 import logging
+import os
 import secrets
 import sys
 
-# Zapewnij widoczność pakietu app przy wywołaniu python -m scripts.seed
-import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from sqlalchemy import select
 
 from app.database import AsyncSessionLocal
 from app.models.event import Event, EventHistory
@@ -132,35 +140,66 @@ SUBSCRIBERS_DATA = [
 # Seed
 # ---------------------------------------------------------------------------
 
+
 async def seed() -> None:
     async with AsyncSessionLocal() as db:
         logger.info("=== Seed start ===")
 
         # 1. Użytkownik — dyspozytor
-        user = User(
-            username="admin",
-            password_hash=hash_password("admin123"),
-            full_name="Administrator Testowy",
-            role="dispatcher",
-            is_active=True,
-        )
-        db.add(user)
-        await db.flush()
-        logger.info("Dodano użytkownika: %s (id=%d)", user.username, user.id)
+        result = await db.execute(select(User).where(User.username == "admin"))
+        user = result.scalar_one_or_none()
+        if user is None:
+            user = User(
+                username="admin",
+                password_hash=hash_password("admin123"),
+                full_name="Administrator Testowy",
+                role="dispatcher",
+                is_active=True,
+            )
+            db.add(user)
+            await db.flush()
+            logger.info("Dodano użytkownika: %s (id=%d)", user.username, user.id)
+        else:
+            logger.info("Pominięto użytkownika: %s (id=%d) — już istnieje", user.username, user.id)
 
         # 2. Ulice
         street_objects: list[Street] = []
         for s in STREETS:
-            street = Street(**s)
-            db.add(street)
+            result = await db.execute(
+                select(Street).where(Street.teryt_sym_ul == s["teryt_sym_ul"])
+            )
+            street = result.scalar_one_or_none()
+            if street is None:
+                street = Street(**s)
+                db.add(street)
+                await db.flush()
+                logger.info("Dodano ulicę: %s (id=%d)", street.full_name, street.id)
+            else:
+                logger.info(
+                    "Pominięto ulicę: %s (id=%d) — już istnieje", street.full_name, street.id
+                )
             street_objects.append(street)
-        await db.flush()
-        for s in street_objects:
-            logger.info("Dodano ulicę: %s (id=%d)", s.full_name, s.id)
 
         # 3. Zdarzenia + historia
         for ev_data in EVENTS_DATA:
             street = street_objects[ev_data["street_index"]]
+            result = await db.execute(
+                select(Event).where(
+                    Event.street_id == street.id,
+                    Event.event_type == ev_data["event_type"],
+                    Event.house_number_from == ev_data.get("house_number_from"),
+                )
+            )
+            existing_event = result.scalar_one_or_none()
+            if existing_event is not None:
+                logger.info(
+                    "Pominięto zdarzenie typ=%r ulica=%r — już istnieje (id=%d)",
+                    ev_data["event_type"],
+                    street.name,
+                    existing_event.id,
+                )
+                continue
+
             event = Event(
                 event_type=ev_data["event_type"],
                 source=ev_data["source"],
@@ -195,6 +234,18 @@ async def seed() -> None:
 
         # 4. Subskrybenci + adresy
         for sub_data in SUBSCRIBERS_DATA:
+            result = await db.execute(
+                select(Subscriber).where(Subscriber.email == sub_data["email"])
+            )
+            subscriber = result.scalar_one_or_none()
+            if subscriber is not None:
+                logger.info(
+                    "Pominięto subskrybenta email=%r (id=%d) — już istnieje",
+                    subscriber.email,
+                    subscriber.id,
+                )
+                continue
+
             subscriber = Subscriber(
                 phone=sub_data["phone"],
                 email=sub_data["email"],

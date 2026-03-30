@@ -1,6 +1,6 @@
 # Historia i stan projektu — Event Hub Lublin
 
-> Ostatnia aktualizacja: 2026-03-29
+> Ostatnia aktualizacja: 2026-03-30
 
 ---
 
@@ -77,14 +77,19 @@ event-hub-lublin/
 │   │   │   ├── event.py               # EventCreate, EventUpdate, EventResponse, EventHistoryResponse
 │   │   │   └── subscriber.py          # AddressCreate, AddressResponse, SubscriberCreate, SubscriberResponse
 │   │   │
-│   │   ├── services/                  # Logika biznesowa (PUSTE — do zrobienia)
-│   │   │   └── __init__.py
+│   │   ├── services/                  # Logika biznesowa
+│   │   │   ├── __init__.py
+│   │   │   ├── gateways.py            # SMSGateway (ABC), MockSMSGateway, EmailSender
+│   │   │   └── notification_service.py # match_subscribers, notify_event, logika nocnej ciszy
 │   │   │
 │   │   └── utils/
 │   │       ├── __init__.py
 │   │       └── security.py            # hash_password, verify_password, create_access_token
 │   │
-│   ├── scripts/                       # Skrypty pomocnicze (seed, import TERYT — do zrobienia)
+│   ├── scripts/                       # Skrypty pomocnicze
+│   │   ├── __init__.py
+│   │   ├── seed.py                    # Dane testowe (idempotentny)
+│   │   └── import_streets.py          # Import ulic TERYT z XML (idempotentny, upsert)
 │   └── tests/                         # Testy (PUSTE — do zrobienia)
 │       └── __init__.py
 │
@@ -167,10 +172,10 @@ Indeksy bazy danych zgodne ze specyfikacją (status, source, street_id, created_
 | 3 | Streets — router `streets.py`, schema (autocomplete TERYT) | ✅ zrobione |
 | 4 | Events — router `events.py`, schema (CRUD + walidacja) | ✅ zrobione |
 | 5 | Subscribers — router `subscribers.py`, schema (rejestracja, wyrejestrowanie RODO) | ✅ zrobione |
-| 6 | Notification engine — `sms_gateway`, `email_sender`, `matching`, `notification_engine` | ☐ |
-| 7 | Podłączenie notification engine do events router (trigger po zmianie statusu) | ☐ |
+| 6 | Notification engine — `sms_gateway`, `email_sender`, `matching`, `notification_engine` | ✅ zrobione |
+| 7 | Podłączenie notification engine do events router (trigger po zmianie statusu) | ✅ zrobione |
 | 8 | Seed data — użytkownicy testowi, ulice, zdarzenia, subskrybenci | ✅ zrobione  |
-| 9 | Import ulic TERYT z GUS API | ☐ |
+| 9 | Import ulic TERYT z GUS API | ✅ zrobione |
 | 10 | Geocoding (Nominatim → GeoJSON w tabeli `streets`) | ☐ |
 | 11 | Endpoint `GET /api/v1/events/feed` (tekst dla IVR 994) | ☐ |
 | 12 | Admin endpoints (stats, lista subskrybentów, log powiadomień) | ☐ |
@@ -199,6 +204,8 @@ Indeksy bazy danych zgodne ze specyfikacją (status, source, street_id, created_
 - **2026-03-29**: Events — `schemas/event.py` (EventCreate, EventUpdate, EventResponse, EventHistoryResponse; Literal na event_type i status), `routers/events.py` (GET lista aktywnych, GET szczegóły, POST tworzenie z JWT + created_by, PUT aktualizacja z JWT + EventHistory przy zmianie statusu; TODO notify), `main.py` — router events zarejestrowany pod `/api/v1/events`.
 - **2026-03-29**: Alembic — migracja `initial tables` (rev `937cb6bd3ab4`), `upgrade head` zakończony sukcesem. Wszystkie 8 tabel w bazie PostgreSQL. Bugfix: `Mapped[func.now]` → `Mapped[datetime]` w `user.py`. Dodano `psycopg2-binary==2.9.9` do `requirements.txt` (wymagane przez Alembic jako sync driver).
 - **2026-03-30**: Subscribers — `schemas/subscriber.py` (AddressCreate, AddressResponse, SubscriberCreate z walidatorem rodo_consent i min. 1 adresem, SubscriberResponse), `routers/subscribers.py` (POST rejestracja z listą adresów + `secrets.token_hex(32)` jako unsubscribe_token, GET podgląd danych, DELETE fizyczne usunięcie RODO przez `db.delete(subscriber)`), `main.py` — router subscribers zarejestrowany pod `/api/v1/subscribers`.
+- **2026-03-30**: Import TERYT — `scripts/import_streets.py`; parsowanie XML (`xml.etree.ElementTree`), mapowanie pól TERYT→Street (SYM_UL, CECHA, NAZWA_1+NAZWA_2→full_name), upsert przez `pg_insert().on_conflict_do_update(teryt_sym_ul)`; batch=100 rekordów; zaimportowano 1378 ulic Lublina z `data/ULIC_29-03-2026.xml`; idempotentny — ponowne uruchomienie aktualizuje bez duplikatów.
+- **2026-03-30**: Notification Engine — `services/gateways.py` (SMSGateway ABC, MockSMSGateway, EmailSender z aiosmtplib + tryb mock gdy brak SMTP), `services/notification_service.py` (parse_house_number obsługa alfanumeryczna, is_in_range, match_subscribers query po ORM + filtr Pythonowy po numerach, build_sms_message/build_email_*, notify_event z nocną ciszą 22-06 → queued_morning, zapis do notification_log); `routers/events.py` — zastąpiono TODO komentarze wywołaniami `asyncio.create_task(notify_event(...))` w create_event i update_event.
 
 ---
 

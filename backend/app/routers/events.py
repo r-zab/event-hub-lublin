@@ -2,6 +2,7 @@
 Router: Events — CRUD dla zdarzeń (awarie, wyłączenia, remonty).
 """
 
+import asyncio
 import logging
 from typing import Annotated
 
@@ -14,6 +15,7 @@ from app.dependencies import get_current_user, get_db
 from app.models.event import Event, EventHistory
 from app.models.user import User
 from app.schemas.event import EventCreate, EventResponse, EventUpdate
+from app.services.notification_service import notify_event
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +73,7 @@ async def create_event(
     # Załaduj relację history (pusta przy tworzeniu)
     await db.execute(select(Event).options(selectinload(Event.history)).where(Event.id == event.id))
     logger.info("Utworzono zdarzenie id=%d typ=%r przez user=%d", event.id, event.event_type, current_user.id)
-    # TODO(rafal): notification_engine.notify()
+    asyncio.create_task(notify_event(event.id))
     return event
 
 
@@ -121,5 +123,5 @@ async def update_event(
         select(Event).options(selectinload(Event.history)).where(Event.id == event.id)
     )
     event = result.scalar_one()
-    # TODO(rafal): notification_engine.notify()
+    asyncio.create_task(notify_event(event.id))
     return event
