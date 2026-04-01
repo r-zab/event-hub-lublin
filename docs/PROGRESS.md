@@ -48,7 +48,7 @@
 - [ ] Konfiguracja nginx jako reverse proxy (frontend + backend)
 - [ ] Wdrożenie na Oracle Linux (docelowy OS MPWiK)
 - [ ] WCAG — audyt dostępności frontendu
-
+.
 ### Changelog
 - 2026-03-29: Struktura projektu, pliki startowe
 - 2026-03-29: Modele SQLAlchemy
