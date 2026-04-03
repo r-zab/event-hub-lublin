@@ -1,6 +1,6 @@
 # Historia i stan projektu — Event Hub Lublin
 
-> Ostatnia aktualizacja: 2026-04-03
+> Ostatnia aktualizacja: 2026-04-03 (audyt techniczny)
 
 ---
 
@@ -31,7 +31,8 @@ event-hub-lublin/
 │   ├── PROJECT_CONTEXT.md             # Kontekst biznesowy, rozmowy z MPWiK, decyzje
 │   ├── TECH_SPEC.md                   # Specyfikacja techniczna: API, baza danych, algorytmy
 │   ├── RULES.md                       # Zasady pracy: styl kodu, workflow, bezpieczeństwo
-│   └── PROGRESS.md                    # Co jest zrobione, co jest następne
+│   ├── PROGRESS.md                    # Co jest zrobione, co jest następne
+│   └── lista_rzeczy_do_poprawek.md    # Audyt techniczny — kompletna lista poprawek
 │
 ├── backend/                           # === AKTYWNY — Python/FastAPI ===
 │   ├── Dockerfile
@@ -277,8 +278,9 @@ Na podstawie notatek ze spotkania z szefem IT MPWiK (2026-04-01) oraz dokumentac
 - **2026-03-30**: Import TERYT — `scripts/import_streets.py`; 1378 ulic Lublina z `data/ULIC_29-03-2026.xml`; upsert, idempotentny.
 - **2026-03-30**: Notification Engine — `services/gateways.py`, `services/notification_service.py`; matching alfanumeryczny, nocna cisza, `asyncio.create_task` w events router.
 - **2026-03-30**: **Integracja Full-Stack** — Frontend z Lovable przeniesiony do `frontend/`; BASE_URL przez `VITE_API_URL`; usunięto nagłówki ngrok; Vite proxy `/api`→`localhost:8000`; CORS backend `localhost:8080/5173`; logowanie OAuth2 `x-www-form-urlencoded`; useStreets autocomplete z 1378 ulic TERYT.
-- **2026-04-03**: **Integracja rejestracji** — `AddressRow.tsx`: `onChange(index, 'street_id', String(s.id))` przy wyborze z autocomplete, czyszczenie przy ręcznym wpisaniu; `Register.tsx`: `Address.street_id`, async `handleSubmit` → `POST /subscribers` z pełnym payloadem, ekran sukcesu z tokenem wyrejestrowania, walidacja min. 1 kanału.
+- **2026-04-03**: **Integracja rejestracji + fix TERYT** — `AddressRow.tsx` + `Register.tsx`: `street_id` z TERYT wysyłany w payloadzie; `subscribers.py`: helper `_normalize_street_name()` (iteracyjne stripowanie "ul.", "Ulica" itp.) + `_resolve_street_id()` z `or_(full_name, full_name_stripped, name_normalized)` — obsługuje "ul. Ulica Lipowa" → poprawny `street_id`.
 - **2026-04-03**: **SMSEagle + preferencje powiadomień** — implementacja `SMSEagleGateway` (POST `/messages/sms`, nagłówek `access-token`) na podstawie docs/openapi.yaml; dodanie `notify_by_email` i `notify_by_sms` do modelu i schematu Subscriber; migracja Alembic (rev `b1c2d3e4f5a6`); kill-switch `ENABLE_EMAIL_NOTIFICATIONS` w config; silnik powiadomień respektuje preferencje subskrybenta i kill-switch; checkboxy kanałów w formularzu rejestracji frontendu.
+- **2026-04-03**: **Audyt techniczny** — `docs/lista_rzeczy_do_poprawek.md`: kompleksowy przegląd kodu (backend + frontend + baza), analiza zgodności z TECH_SPEC i notatkami ze spotkania z szefem IT. Zidentyfikowano 8 błędów krytycznych (m.in. zepsuty Unsubscribe, brak unique email, nocna cisza w UTC), 8 brakujących funkcji, 10 problemów UX, 13 pozycji długu technicznego. Priorytetyzacja napraw w 3 kategoriach.
 
 ---
 

@@ -3,10 +3,11 @@ Router: Subscribers — rejestracja i wyrejestrowanie subskrybentów powiadomie�
 """
 
 import logging
+import re
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -18,6 +19,71 @@ from app.schemas.subscriber import SubscriberCreate, SubscriberResponse
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Prefiksy usuwane przy normalizacji nazwy ulicy przed wyszukiwaniem w kolumnie name
+_PREFIX_RE = re.compile(
+    r"^(ul\.|al\.|pl\.|aleja|ulica|plac|os\.|osiedle|rondo|skwer|promenada|bulwar)\s+",
+    re.IGNORECASE,
+)
+
+
+def _normalize_street_name(raw: str) -> str:
+    """
+    Iteracyjnie usuwa prefiksy typu 'ul.', 'al.', 'Ulica' itp.
+
+    Przykłady:
+      'ul. Lipowa'        → 'Lipowa'
+      'Ulica Lipowa'      → 'Lipowa'
+      'ul. Ulica Lipowa'  → 'Lipowa'
+    """
+    name = raw.strip()
+    prev: str | None = None
+    while name != prev:
+        prev = name
+        name = _PREFIX_RE.sub("", name).strip()
+    return name
+
+
+async def _resolve_street_id(db: AsyncSession, street_name: str) -> int | None:
+    """
+    Wyszukaj street_id na podstawie nazwy ulicy wpisanej przez użytkownika.
+
+    Strategia (od najbardziej do najmniej precyzyjnej):
+    1. full_name ILIKE raw            → 'Ulica Lipowa'
+    2. full_name ILIKE once_stripped  → 'Ulica Lipowa' (gdy raw = 'ul. Ulica Lipowa')
+    3. name ILIKE fully_normalized    → 'Lipowa'
+    """
+    raw = street_name.strip()
+    once_stripped = _PREFIX_RE.sub("", raw).strip()
+    fully_normalized = _normalize_street_name(raw)
+
+    result = await db.execute(
+        select(Street)
+        .where(
+            or_(
+                Street.full_name.ilike(raw),
+                Street.full_name.ilike(once_stripped),
+                Street.name.ilike(fully_normalized),
+            )
+        )
+        .limit(1)
+    )
+    street = result.scalar_one_or_none()
+    if street is not None:
+        logger.debug(
+            "Fallback TERYT: '%s' → street_id=%d (name=%r, full_name=%r)",
+            raw,
+            street.id,
+            street.name,
+            street.full_name,
+        )
+        return street.id
+
+    logger.warning(
+        "Fallback TERYT: nie znaleziono ulicy dla '%s' — street_id pozostaje NULL",
+        raw,
+    )
+    return None
 
 
 @router.post(
@@ -51,28 +117,11 @@ async def register_subscriber(
     await db.flush()  # uzyskaj subscriber.id przed dodaniem adresów
 
     for addr in data.addresses:
-        resolved_street_id = addr.street_id
-
-        # Fallback: jeśli street_id nie podano, szukaj po nazwie ulicy w bazie TERYT
-        if resolved_street_id is None and addr.street_name:
-            street_result = await db.execute(
-                select(Street).where(Street.name.ilike(addr.street_name.strip()))
-            )
-            street = street_result.scalar_one_or_none()
-            if street is not None:
-                resolved_street_id = street.id
-                logger.debug(
-                    "Fallback street_id: '%s' → id=%d (sub_id=%d)",
-                    addr.street_name,
-                    street.id,
-                    subscriber.id,
-                )
-            else:
-                logger.warning(
-                    "Nie znaleziono ulicy '%s' w bazie TERYT dla sub_id=%d — street_id pozostaje NULL",
-                    addr.street_name,
-                    subscriber.id,
-                )
+        # Użyj street_id z requesta lub szukaj fallbackiem po nazwie
+        if addr.street_id is not None:
+            resolved_street_id: int | None = addr.street_id
+        else:
+            resolved_street_id = await _resolve_street_id(db, addr.street_name)
 
         db.add(
             SubscriberAddress(
