@@ -4,8 +4,11 @@ Notification Service — matchowanie subskrybentów i wysyłka powiadomień.
 Algorytm:
 1. Znajdź subskrybentów przypisanych do ulicy zdarzenia z rodo_consent=True.
 2. Filtruj wg zakresu numerów domów (obsługa alfanumerycznych, np. "10A").
-3. Wyślij email (zawsze) i SMS z respektowaniem nocnej ciszy (22:00–06:00).
+3. Wyślij email (jeśli ENABLE_EMAIL_NOTIFICATIONS=True) i SMS z respektowaniem nocnej ciszy.
 4. Zapisz każdą próbę do notification_log.
+
+Kill-switch emaili: zmienna ENABLE_EMAIL_NOTIFICATIONS w .env.
+UWAGA: zmiana .env wymaga restartu serwera (settings czytane raz przy starcie).
 """
 
 import logging
@@ -16,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.config import settings
 from app.database import AsyncSessionLocal
 from app.models.event import Event
 from app.models.notification import NotificationLog
@@ -26,6 +30,13 @@ logger = logging.getLogger(__name__)
 
 _NIGHT_HOUR_START = 22  # 22:00
 _NIGHT_HOUR_END = 6  # 06:00
+
+# Log stanu kill-switcha przy starcie modułu — widoczne w logach serwera
+logger.info(
+    "[INIT] ENABLE_EMAIL_NOTIFICATIONS=%s | SMS_GATEWAY_TYPE=%s",
+    settings.ENABLE_EMAIL_NOTIFICATIONS,
+    settings.SMS_GATEWAY_TYPE,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -251,7 +262,14 @@ async def notify_event(event_id: int) -> None:
             return
 
         sms_gateway = get_sms_gateway()
-        email_sender = EmailSender()
+        # Odczyt kill-switcha raz przed loopem — jednoznaczne logowanie decyzji
+        email_globally_enabled: bool = settings.ENABLE_EMAIL_NOTIFICATIONS
+        if not email_globally_enabled:
+            logger.warning(
+                "ENABLE_EMAIL_NOTIFICATIONS=False — wysyłka e-mail wyłączona globalnie dla zdarzenia id=%d",
+                event.id,
+            )
+        email_sender = EmailSender() if email_globally_enabled else None
         is_night = _is_night_hours()
 
         sms_text = build_sms_message(event)
@@ -260,21 +278,38 @@ async def notify_event(event_id: int) -> None:
 
         for subscriber, _addr in matched:
             # --- EMAIL ---
-            email_ok = await email_sender.send(subscriber.email, email_subject, email_body)
-            db.add(
-                NotificationLog(
-                    event_id=event.id,
-                    subscriber_id=subscriber.id,
-                    channel="email",
-                    recipient=subscriber.email,
-                    message_text=email_body,
-                    status="sent" if email_ok else "failed",
-                    error_message=None if email_ok else "Błąd wysyłki email",
+            if not email_globally_enabled:
+                # Kill-switch globalny — nie tworzymy nawet EmailSender
+                pass
+            elif not subscriber.notify_by_email:
+                logger.info(
+                    "Email do %s (sub_id=%d) pominięty — subskrybent wyłączył e-mail",
+                    subscriber.email,
+                    subscriber.id,
                 )
-            )
+            else:
+                assert email_sender is not None  # gwarantowane przez email_globally_enabled
+                email_ok = await email_sender.send(subscriber.email, email_subject, email_body)
+                db.add(
+                    NotificationLog(
+                        event_id=event.id,
+                        subscriber_id=subscriber.id,
+                        channel="email",
+                        recipient=subscriber.email,
+                        message_text=email_body,
+                        status="sent" if email_ok else "failed",
+                        error_message=None if email_ok else "Błąd wysyłki email",
+                    )
+                )
 
             # --- SMS ---
-            if is_night and not subscriber.night_sms_consent:
+            if not subscriber.notify_by_sms:
+                logger.info(
+                    "SMS do %s (sub_id=%d) pominięty — subskrybent wyłączył SMS",
+                    subscriber.phone,
+                    subscriber.id,
+                )
+            elif is_night and not subscriber.night_sms_consent:
                 logger.info(
                     "SMS do %s (sub_id=%d) odłożony na 06:00 (nocna cisza, brak zgody)",
                     subscriber.phone,

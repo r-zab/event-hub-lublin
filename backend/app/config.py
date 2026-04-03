@@ -24,8 +24,12 @@ class Settings(BaseSettings):
     SMS_GATEWAY_TYPE: str = "mock"
     SMS_GATEWAY_URL: str = "http://mock"
     SMS_GATEWAY_API_KEY: str = "mock-key"
+    # SMSEagle
+    SMSEAGLE_URL: str = "http://smseagle-device/api/v2"
+    SMSEAGLE_API_TOKEN: str = ""
 
     # Email
+    ENABLE_EMAIL_NOTIFICATIONS: bool = True
     SMTP_HOST: str = "localhost"
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
@@ -43,6 +47,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"  # ignoruj zmienne Docker Compose (POSTGRES_*) i inne nieznane
 
 
 settings = Settings()

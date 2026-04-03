@@ -13,7 +13,7 @@
 - [x] Streets — router streets.py, schema street.py (autocomplete ILIKE, GET /api/v1/streets?q=)
 - [x] Events — router events.py, schema event.py (GET lista paginowana, GET szczegóły, POST tworzenie JWT, PUT aktualizacja JWT + EventHistory)
 - [x] Subscribers — router subscribers.py, schema subscriber.py (POST rejestracja wieloadresowa, GET podgląd tokenem, DELETE fizyczny RODO)
-- [x] Seed data — scripts/seed.py (admin/admin123 bcrypt, 5 ulic, 3 zdarzenia z historią, 2 subskrybenci)
+- [x] Seed data — scripts/seed.py (usunięty — dane testowe wyczyszczone z bazy; baza zawiera wyłącznie 1378 ulic z TERYT)
 - [x] Import TERYT — scripts/import_streets.py (XML GUS, upsert batch=100, 1378 ulic Lublina, idempotentny)
 - [x] Notification Engine — gateways.py (SMSGateway ABC, MockSMSGateway, EmailSender aiosmtplib+mock), notification_service.py (matching alfanumeryczny, nocna cisza 22-06 → queued_morning, zapis notification_log)
 - [x] Podłączenie notification engine do events router (asyncio.create_task w create_event i update_event)
@@ -29,9 +29,19 @@
 - [x] useEvents.ts — pobieranie, filtrowanie in-memory, paginacja (10/strona)
 - [x] AdminDashboard — tabela zdarzeń, historia statusów, filtry, wyszukiwanie
 - [x] AdminEventForm — formularz tworzenia/edycji z autocomplete ulic TERYT
-- [x] Register.tsx — formularz subskrypcji z wieloma adresami, zgody RODO + nocne SMS
+- [x] Register.tsx — pełna integracja z API: street_id z TERYT przez autocomplete, kanały powiadomień, async handleSubmit → POST /subscribers, ekran sukcesu z tokenem wyrejestrowania
 - [x] EventMap.tsx — mapa Leaflet z kolorowaniem statusów, obsługa GeoJSON/fallback marker
 - [x] Unsubscribe.tsx — wyrejestrowanie RODO przez token
+
+### ✅ Zrobione — Sesja 4 (2026-04-03) — SMSEagle + preferencje powiadomień
+- [x] Model Subscriber: pola `notify_by_email` i `notify_by_sms` (bool, default True)
+- [x] Schematy Pydantic: `notify_by_email/sms` w `SubscriberCreate` i `SubscriberResponse`
+- [x] Router subscribers: nowe pola przekazywane przy tworzeniu subskrybenta
+- [x] config.py: `ENABLE_EMAIL_NOTIFICATIONS`, `SMSEAGLE_URL`, `SMSEAGLE_API_TOKEN`
+- [x] gateways.py: `SMSEagleGateway` (POST `/messages/sms`, nagłówek `access-token`), aktualizacja `get_sms_gateway`
+- [x] notification_service.py: kill-switch emaili + respektowanie preferencji subskrybenta
+- [x] Migracja Alembic: rev `b1c2d3e4f5a6` — kolumny `notify_by_email`, `notify_by_sms`
+- [x] Frontend Register.tsx: sekcja "Kanały powiadomień" (checkboxy e-mail / SMS)
 
 ### 📋 Do zrobienia — kolejne 3 priorytety
 
@@ -62,3 +72,6 @@
 - 2026-03-30: Import TERYT — scripts/import_streets.py; parsowanie XML (xml.etree.ElementTree), mapowanie SYM_UL→teryt_sym_ul, CECHA→street_type, NAZWA_1→name, NAZWA_2+" "+NAZWA_1→full_name; upsert przez pg INSERT ON CONFLICT (teryt_sym_ul) DO UPDATE; batch=100; zaimportowano 1378 ulic Lublina z pliku data/ULIC_29-03-2026.xml; idempotentny (drugie uruchomienie nie duplikuje rekordów)
 - 2026-03-30: Notification Engine — services/gateways.py (SMSGateway ABC, MockSMSGateway loguje do logging, EmailSender via aiosmtplib z trybem mock gdy brak SMTP_USER), services/notification_service.py (parse_house_number + is_in_range obsługa alfanumeryczna, match_subscribers ORM + filtr Pythonowy, build_sms/email message, notify_event z logiką nocnej ciszy 22-06 → status queued_morning, zapis wszystkich prób do notification_log); routers/events.py — asyncio.create_task(notify_event) w create_event i update_event
 - 2026-03-30: Integracja Full-Stack — przeniesienie frontendu z Lovable do frontend/; konfiguracja VITE_API_URL + proxy Vite; naprawa BASE_URL (ngrok→localhost); CORS backend (localhost:8080/5173, allow_credentials=True); useAuth z x-www-form-urlencoded; wszystkie hooki (useEvents, useStreets, useAuth) zintegrowane z lokalnym API
+- 2026-04-03: SMSEagle + preferencje powiadomień — SMSEagleGateway (openapi.yaml), pola notify_by_email/sms w modelu + schemach + routerze, migracja Alembic (rev b1c2d3e4f5a6), kill-switch ENABLE_EMAIL_NOTIFICATIONS w config, logika nocnej ciszy + preferencje w notification_service, checkboxy kanałów w Register.tsx
+- 2026-04-03: Bugfix kill-switch emaili — wczesny guard email_globally_enabled przed loopem, EmailSender=None gdy wyłączony, log diagnostyczny przy starcie modułu; bcrypt downgrade do 4.0.1 (konflikt z passlib 1.7.4); street_id fallback po ILIKE name w subscribers router
+- 2026-04-03: Integracja rejestracji — AddressRow przekazuje street_id z TERYT przy wyborze z autocomplete; Register.tsx: async handleSubmit → POST /subscribers z pełnym payloadem (street_id, notify_by_email/sms, flat_number); ekran sukcesu z tokenem wyrejestrowania; walidacja min. 1 kanału powiadomień

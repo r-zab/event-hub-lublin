@@ -1,6 +1,6 @@
 # Historia i stan projektu — Event Hub Lublin
 
-> Ostatnia aktualizacja: 2026-03-30
+> Ostatnia aktualizacja: 2026-04-03
 
 ---
 
@@ -42,7 +42,8 @@ event-hub-lublin/
 │   │   ├── env.py
 │   │   ├── script.py.mako
 │   │   └── versions/
-│   │       └── 20260329_937cb6bd3ab4_initial_tables.py
+│   │       ├── 20260329_937cb6bd3ab4_initial_tables.py
+│   │       └── 20260403_add_notify_flags_to_subscribers.py
 │   │
 │   ├── app/
 │   │   ├── main.py                    # FastAPI app, CORS (localhost:8080/5173), health check
@@ -71,15 +72,15 @@ event-hub-lublin/
 │   │   │   └── subscriber.py          # AddressCreate, SubscriberCreate, SubscriberResponse
 │   │   │
 │   │   ├── services/
-│   │   │   ├── gateways.py            # SMSGateway ABC, MockSMSGateway, EmailSender
-│   │   │   └── notification_service.py # match_subscribers, notify_event, nocna cisza
+│   │   │   ├── gateways.py            # SMSGateway ABC, MockSMSGateway, SMSEagleGateway, EmailSender
+│   │   │   └── notification_service.py # match_subscribers, notify_event, nocna cisza, kill-switch email
 │   │   │
 │   │   └── utils/
 │   │       └── security.py            # hash_password, verify_password, create_access_token
 │   │
 │   ├── scripts/
-│   │   ├── seed.py                    # Dane testowe (idempotentny)
-│   │   └── import_streets.py          # Import TERYT z XML (1378 ulic, idempotentny)
+│   │   ├── import_streets.py          # Import TERYT z XML (1378 ulic, idempotentny)
+│   │   └── reset_admin.py             # Jednorazowy reset/tworzenie użytkownika admin
 │   │
 │   └── data/
 │       └── ULIC_29-03-2026.xml        # Źródłowy plik TERYT z GUS
@@ -195,10 +196,23 @@ MIESZKANIEC (SMS / Email)
 
 ### Sesja 2 (2026-03-30) — Subskrybenci, dane, powiadomienia
 - Subscribers: rejestracja wieloadresowa, podgląd tokenem, fizyczne usunięcie RODO
-- Seed data: admin/admin123 (bcrypt), 5 ulic, 3 zdarzenia, 2 subskrybenci
 - Import TERYT: 1378 ulic Lublina z XML GUS (upsert batch=100, idempotentny)
 - Notification Engine: MockSMSGateway, EmailSender (mock/real), matching alfanumeryczny, nocna cisza, notification_log
 - Podłączenie powiadomień do events router (asyncio.create_task)
+- **seed.py usunięty** (2026-04-03) — baza wyczyszczona, zawiera wyłącznie 1378 ulic TERYT
+
+### Sesja 4 (2026-04-03) — SMSEagle + preferencje powiadomień
+
+Na podstawie notatek ze spotkania z szefem IT MPWiK (2026-04-01) oraz dokumentacji SMSEagle API v2:
+
+- **models/subscriber.py**: dodano pola `notify_by_email` i `notify_by_sms` (bool, domyślnie `True`)
+- **schemas/subscriber.py**: pola `notify_by_email` i `notify_by_sms` w `SubscriberCreate` i `SubscriberResponse`
+- **routers/subscribers.py**: nowe pola przekazywane przy tworzeniu subskrybenta
+- **config.py**: dodano `ENABLE_EMAIL_NOTIFICATIONS` (kill-switch emaili), `SMSEAGLE_URL`, `SMSEAGLE_API_TOKEN`
+- **gateways.py**: implementacja `SMSEagleGateway` (POST `/messages/sms`, nagłówek `access-token`); aktualizacja `get_sms_gateway` (typ `smseagle`)
+- **notification_service.py**: silnik powiadomień respektuje `ENABLE_EMAIL_NOTIFICATIONS` oraz `subscriber.notify_by_email/sms`
+- **alembic/versions/20260403_add_notify_flags_to_subscribers.py**: migracja dodająca kolumny do tabeli `subscribers`
+- **frontend/Register.tsx**: sekcja "Kanały powiadomień" z checkboxami e-mail i SMS
 
 ### Sesja 3 (2026-03-30) — Integracja Full-Stack
 - Przeniesienie frontendu z Lovable do lokalnego środowiska Vite (`frontend/`)
@@ -225,7 +239,8 @@ MIESZKANIEC (SMS / Email)
 | 8 | Seed data | ✅ zrobione |
 | 9 | Import TERYT (1378 ulic XML) | ✅ zrobione |
 | 10 | Frontend — integracja Full-Stack z Vite | ✅ zrobione |
-| 11 | Admin endpoints (stats, subskrybenci, log) | ⏳ następne |
+| 11 | SMSEagle gateway + preferencje kanałów + kill-switch emaili | ✅ zrobione |
+| 12 | Admin endpoints (stats, subskrybenci, log) | ⏳ następne |
 | 12 | Geocoding Nominatim → GeoJSON streets | ⏳ następne |
 | 13 | Endpoint GET /events/feed (IVR 994) | ⏳ następne |
 | 14 | Testy jednostkowe/integracyjne backendu | ☐ backlog |
@@ -242,7 +257,9 @@ MIESZKANIEC (SMS / Email)
 | Fizyczne delete (nie soft delete) | RODO — pełne usunięcie danych subskrybenta |
 | SMS nocne osobna zgoda | Wymaganie prawne — domyślnie wyłączone |
 | `source` w events | Multi-operator ready (LPEC, ZDiM i inne w przyszłości) |
-| MockSMSGateway | Bramka SMS MPWiK bez dokumentacji API na etapie dev |
+| MockSMSGateway / SMSEagleGateway | Dev: mock; prod: SMSEagle API v2 (POST /messages/sms, nagłówek access-token) |
+| ENABLE_EMAIL_NOTIFICATIONS | Kill-switch emaili na życzenie Piotrka (szef IT) — ryzyko klasyfikacji jako spam przy dużej liczbie użytkowników |
+| notify_by_email / notify_by_sms | Subskrybent wybiera kanały przy rejestracji — wymaganie z notatek spotkania 2026-04-01 |
 | asyncpg + psycopg2 (Alembic) | FastAPI async wymaga asyncpg; Alembic nie obsługuje async drivera |
 | x-www-form-urlencoded w login | Standard OAuth2 — FastAPI wymaga form, nie JSON |
 | Vite proxy zamiast CORS wildcard | Dev: brak CORS issues; prod: nginx reverse proxy |
@@ -260,6 +277,8 @@ MIESZKANIEC (SMS / Email)
 - **2026-03-30**: Import TERYT — `scripts/import_streets.py`; 1378 ulic Lublina z `data/ULIC_29-03-2026.xml`; upsert, idempotentny.
 - **2026-03-30**: Notification Engine — `services/gateways.py`, `services/notification_service.py`; matching alfanumeryczny, nocna cisza, `asyncio.create_task` w events router.
 - **2026-03-30**: **Integracja Full-Stack** — Frontend z Lovable przeniesiony do `frontend/`; BASE_URL przez `VITE_API_URL`; usunięto nagłówki ngrok; Vite proxy `/api`→`localhost:8000`; CORS backend `localhost:8080/5173`; logowanie OAuth2 `x-www-form-urlencoded`; useStreets autocomplete z 1378 ulic TERYT.
+- **2026-04-03**: **Integracja rejestracji** — `AddressRow.tsx`: `onChange(index, 'street_id', String(s.id))` przy wyborze z autocomplete, czyszczenie przy ręcznym wpisaniu; `Register.tsx`: `Address.street_id`, async `handleSubmit` → `POST /subscribers` z pełnym payloadem, ekran sukcesu z tokenem wyrejestrowania, walidacja min. 1 kanału.
+- **2026-04-03**: **SMSEagle + preferencje powiadomień** — implementacja `SMSEagleGateway` (POST `/messages/sms`, nagłówek `access-token`) na podstawie docs/openapi.yaml; dodanie `notify_by_email` i `notify_by_sms` do modelu i schematu Subscriber; migracja Alembic (rev `b1c2d3e4f5a6`); kill-switch `ENABLE_EMAIL_NOTIFICATIONS` w config; silnik powiadomień respektuje preferencje subskrybenta i kill-switch; checkboxy kanałów w formularzu rejestracji frontendu.
 
 ---
 
@@ -292,8 +311,9 @@ docker compose up db -d
 
 # Terminal 2 — backend (z katalogu backend/)
 cd backend
-alembic upgrade head          # tylko przy pierwszym uruchomieniu
-python -m scripts.seed        # tylko przy pierwszym uruchomieniu
+alembic upgrade head                # tylko przy pierwszym uruchomieniu
+python -m scripts.import_streets    # tylko przy pierwszym uruchomieniu (1378 ulic TERYT)
+python -m scripts.reset_admin       # tylko przy pierwszym uruchomieniu (tworzy użytkownika admin)
 uvicorn app.main:app --reload --port 8000
 
 # Terminal 3 — frontend (z katalogu frontend/)

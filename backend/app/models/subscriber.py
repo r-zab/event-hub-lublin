@@ -19,6 +19,8 @@ class Subscriber(Base):
     email: Mapped[str] = mapped_column(String(100), nullable=False)
     rodo_consent: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     night_sms_consent: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    notify_by_email: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    notify_by_sms: Mapped[bool] = mapped_column(Boolean, server_default="true")
     unsubscribe_token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 

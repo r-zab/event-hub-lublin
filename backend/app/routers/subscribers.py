@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.dependencies import get_db
+from app.models.street import Street
 from app.models.subscriber import Subscriber, SubscriberAddress
 from app.schemas.subscriber import SubscriberCreate, SubscriberResponse
 
@@ -42,16 +43,41 @@ async def register_subscriber(
         email=str(data.email),
         rodo_consent=data.rodo_consent,
         night_sms_consent=data.night_sms_consent,
+        notify_by_email=data.notify_by_email,
+        notify_by_sms=data.notify_by_sms,
         unsubscribe_token=unsubscribe_token,
     )
     db.add(subscriber)
     await db.flush()  # uzyskaj subscriber.id przed dodaniem adresów
 
     for addr in data.addresses:
+        resolved_street_id = addr.street_id
+
+        # Fallback: jeśli street_id nie podano, szukaj po nazwie ulicy w bazie TERYT
+        if resolved_street_id is None and addr.street_name:
+            street_result = await db.execute(
+                select(Street).where(Street.name.ilike(addr.street_name.strip()))
+            )
+            street = street_result.scalar_one_or_none()
+            if street is not None:
+                resolved_street_id = street.id
+                logger.debug(
+                    "Fallback street_id: '%s' → id=%d (sub_id=%d)",
+                    addr.street_name,
+                    street.id,
+                    subscriber.id,
+                )
+            else:
+                logger.warning(
+                    "Nie znaleziono ulicy '%s' w bazie TERYT dla sub_id=%d — street_id pozostaje NULL",
+                    addr.street_name,
+                    subscriber.id,
+                )
+
         db.add(
             SubscriberAddress(
                 subscriber_id=subscriber.id,
-                street_id=addr.street_id,
+                street_id=resolved_street_id,
                 street_name=addr.street_name,
                 house_number=addr.house_number,
                 flat_number=addr.flat_number,

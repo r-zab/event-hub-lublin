@@ -2,6 +2,7 @@
 SMS i Email gateways — abstrakcje kanałów powiadomień.
 
 MockSMSGateway: loguje wysyłkę (środowisko dev).
+SMSEagleGateway: wysyła SMS przez bramkę SMSEagle API v2.
 EmailSender: aiosmtplib lub mock gdy SMTP niezskonfigurowany.
 """
 
@@ -9,6 +10,7 @@ import logging
 from abc import ABC, abstractmethod
 
 import aiosmtplib
+import httpx
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -39,12 +41,43 @@ class MockSMSGateway(SMSGateway):
         return True
 
 
+class SMSEagleGateway(SMSGateway):
+    """Bramka SMSEagle API v2 — wysyła SMS przez POST /messages/sms."""
+
+    async def send(self, phone: str, message: str) -> bool:
+        """Wyślij SMS przez SMSEagle. Token w nagłówku access-token."""
+        url = f"{settings.SMSEAGLE_URL}/messages/sms"
+        headers = {
+            "Content-Type": "application/json",
+            "access-token": settings.SMSEAGLE_API_TOKEN,
+        }
+        payload = {"to": [phone], "text": message}
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(url, json=payload, headers=headers)
+            if response.status_code == 200:
+                logger.info("SMSEagle: wysłano SMS -> %s", phone)
+                return True
+            logger.error(
+                "SMSEagle: błąd wysyłki -> %s, status=%d, body=%s",
+                phone,
+                response.status_code,
+                response.text[:200],
+            )
+            return False
+        except httpx.RequestError as exc:
+            logger.error("SMSEagle: błąd połączenia -> %s: %s", phone, exc)
+            return False
+
+
 def get_sms_gateway() -> SMSGateway:
     """Fabryka bramki SMS — wybór wg SMS_GATEWAY_TYPE z config."""
     gateway_type = settings.SMS_GATEWAY_TYPE.lower()
+    if gateway_type == "smseagle":
+        return SMSEagleGateway()
     if gateway_type == "mock":
         return MockSMSGateway()
-    # Rozszerzalne: elif gateway_type == "mpwik": return MPWiKSMSGateway()
     logger.warning("Nieznany SMS_GATEWAY_TYPE=%r, używam Mock", gateway_type)
     return MockSMSGateway()
 

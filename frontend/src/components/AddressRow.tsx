@@ -42,6 +42,8 @@ export function AddressRow({
   const handleStreetChange = (value: string) => {
     setQuery(value);
     onChange(index, 'street_name', value);
+    // Wyczyść street_id gdy użytkownik ręcznie modyfikuje nazwę (brak TERYT match)
+    onChange(index, 'street_id', '');
     setShowSuggestions(value.length >= 3);
   };
 
@@ -75,9 +77,11 @@ export function AddressRow({
                 aria-selected={street_name === s.full_name}
                 className="px-3 py-2 text-sm cursor-pointer hover:bg-accent transition-colors"
                 onClick={() => {
-                  const name = `${s.street_type} ${s.full_name}`;
-                  setQuery(name);
-                  onChange(index, 'street_name', name);
+                  const displayName = `${s.street_type} ${s.full_name}`;
+                  setQuery(displayName);
+                  onChange(index, 'street_name', displayName);
+                  // Kluczowe: przekaż street_id z bazy TERYT
+                  onChange(index, 'street_id', String(s.id));
                   setShowSuggestions(false);
                 }}
               >
