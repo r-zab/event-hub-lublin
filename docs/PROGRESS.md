@@ -31,7 +31,7 @@
 - [x] AdminEventForm — formularz tworzenia/edycji z autocomplete ulic TERYT
 - [x] Register.tsx — pełna integracja z API: street_id z TERYT przez autocomplete, kanały powiadomień, async handleSubmit → POST /subscribers, ekran sukcesu z tokenem wyrejestrowania
 - [x] EventMap.tsx — mapa Leaflet z kolorowaniem statusów, obsługa GeoJSON/fallback marker
-- [x] Unsubscribe.tsx — wyrejestrowanie RODO przez token
+- [x] Unsubscribe.tsx — wyrejestrowanie RODO: 2-etapowy flow (weryfikacja tokenu → podgląd danych → potwierdzenie → DELETE), auto-load z URL `?token=`, obsługa błędu 404, stany ładowania, redirect do `/` po sukcesie
 
 ### ✅ Zrobione — Sesja 4 (2026-04-03) — SMSEagle + preferencje powiadomień
 - [x] Model Subscriber: pola `notify_by_email` i `notify_by_sms` (bool, default True)
@@ -42,6 +42,20 @@
 - [x] notification_service.py: kill-switch emaili + respektowanie preferencji subskrybenta
 - [x] Migracja Alembic: rev `b1c2d3e4f5a6` — kolumny `notify_by_email`, `notify_by_sms`
 - [x] Frontend Register.tsx: sekcja "Kanały powiadomień" (checkboxy e-mail / SMS)
+
+### ✅ Zrobione — Sesja 6 (2026-04-04) — Refresh token + strefa czasowa nocnej ciszy
+- [x] `security.py`: `create_refresh_token()` — JWT z claim `type=refresh`, ważność 7 dni (`REFRESH_TOKEN_EXPIRE_DAYS`)
+- [x] `schemas/auth.py`: `RefreshRequest` (pole `refresh_token`); `Token.refresh_token` opcjonalne
+- [x] `routers/auth.py`: endpoint `POST /api/v1/auth/refresh` — weryfikacja claim `type=refresh`, zwraca nowy access token; login zwraca teraz też `refresh_token`
+- [x] `notification_service.py`: `_is_night_hours()` używa `ZoneInfo("Europe/Warsaw")` zamiast UTC (naprawia błąd 1–2h dla CET/CEST)
+
+### ✅ Zrobione — Sesja 5 (2026-04-04) — DELETE zdarzenia + pełny cykl edycji
+- [x] Backend: `DELETE /api/v1/events/{id}` — weryfikacja roli `admin` (HTTP 403 dla dispatchera), HTTP 204 No Content
+- [x] Frontend `api.ts`: obsługa HTTP 204 No Content w `apiFetch`
+- [x] Frontend `useEvents.ts`: eksport `getEvent`, `updateEvent`, `deleteEvent`
+- [x] Frontend `App.tsx`: trasa `/admin/events/edit/:id`
+- [x] Frontend `AdminDashboard.tsx`: ikona Edytuj → `/admin/events/edit/{id}`, przycisk Usuń + AlertDialog potwierdzenia z `refetch()`
+- [x] Frontend `AdminEventForm.tsx`: `useParams`, ładowanie danych przy edycji, PUT/POST, spinner, różne tytuły
 
 ### 📋 Do zrobienia — kolejne 3 priorytety
 
@@ -77,3 +91,9 @@
 - 2026-04-03: Integracja rejestracji — AddressRow przekazuje street_id z TERYT przy wyborze z autocomplete; Register.tsx: async handleSubmit → POST /subscribers z pełnym payloadem (street_id, notify_by_email/sms, flat_number); ekran sukcesu z tokenem wyrejestrowania; walidacja min. 1 kanału powiadomień
 - 2026-04-03: Naprawiono fallback TERYT w subscribers.py — helper _normalize_street_name() iteracyjnie usuwa prefiksy (ul., al., Ulica itp.); _resolve_street_id() szuka or_(full_name ILIKE raw, full_name ILIKE once_stripped, name ILIKE normalized); obsługa "ul. Ulica Lipowa" → street_id=622
 - 2026-04-03: Audyt techniczny — docs/lista_rzeczy_do_poprawek.md: 8 błędów krytycznych, 8 brakujących funkcji, 10 problemów UX, 13 pozycji długu technicznego
+- 2026-04-04: Naprawa Unsubscribe.tsx — dwuetapowy flow RODO: pole na token (auto-load z ?token=), GET /subscribers/{token} → podgląd danych, DELETE /subscribers/{token} → redirect do /; toast na 404; stany ładowania z Loader2
+- 2026-04-04: Unikalność subskrybentów (pkt 1.2+1.3 audytu) — unique=True na email i phone w modelu Subscriber; walidacja HTTP 409 w register_subscriber przed INSERT; migracja Alembic rev c2d3e4f5a6b7
+- 2026-04-04: DELETE zdarzenia + pełny cykl edycji (pkt 1.4+1.7 audytu) — backend: DELETE /api/v1/events/{id} (admin only, HTTP 204); api.ts: obsługa 204 No Content; useEvents.ts: getEvent/updateEvent/deleteEvent; App.tsx: trasa /admin/events/edit/:id; AdminDashboard: ikona Edytuj z id + AlertDialog usuwania; AdminEventForm: useParams + ładowanie danych + PUT vs POST
+- 2026-04-04: Skrypt setup_dev_users.py — zastąpił reset_admin.py; tworzy/aktualizuje 3 konta: admin (admin, admin123), dyspozytor1 i dyspozytor2 (dispatcher, lublin123); idempotentny; stary reset_admin.py usunięty
+- 2026-04-04: Konfiguracja logowania + wyciszenie SQLAlchemy (pkt 4.1+4.13 audytu) — logging.basicConfig z formatem timestamp/level/modul w main.py; poziom DEBUG/INFO zależny od settings.DEBUG; sqlalchemy.engine i sqlalchemy.pool na WARNING; print() zastąpione logger.info() w lifespan
+- 2026-04-04: Refresh token + naprawa strefy czasowej (pkt 1.5+1.6 audytu) — create_refresh_token() w security.py (JWT 7 dni, claim type=refresh); POST /auth/refresh w routers/auth.py (weryfikacja, zwrot nowego access tokena); login zwraca refresh_token; _is_night_hours() używa ZoneInfo("Europe/Warsaw") zamiast UTC

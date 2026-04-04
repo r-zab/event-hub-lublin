@@ -1,6 +1,6 @@
 # Historia i stan projektu — Event Hub Lublin
 
-> Ostatnia aktualizacja: 2026-04-03 (audyt techniczny)
+> Ostatnia aktualizacja: 2026-04-04 (Refresh token + naprawa strefy czasowej nocnej ciszy)
 
 ---
 
@@ -63,7 +63,7 @@ event-hub-lublin/
 │   │   ├── routers/
 │   │   │   ├── auth.py                # POST /api/v1/auth/login (OAuth2 form)
 │   │   │   ├── streets.py             # GET /api/v1/streets?q= (ILIKE autocomplete)
-│   │   │   ├── events.py              # GET/POST/PUT /api/v1/events + notify trigger
+│   │   │   ├── events.py              # GET/POST/PUT/DELETE /api/v1/events + notify trigger
 │   │   │   └── subscribers.py         # POST/GET/DELETE /api/v1/subscribers/{token}
 │   │   │
 │   │   ├── schemas/
@@ -81,7 +81,7 @@ event-hub-lublin/
 │   │
 │   ├── scripts/
 │   │   ├── import_streets.py          # Import TERYT z XML (1378 ulic, idempotentny)
-│   │   └── reset_admin.py             # Jednorazowy reset/tworzenie użytkownika admin
+│   │   └── setup_dev_users.py         # Inicjalizacja kont dev: admin + dyspozytor1 + dyspozytor2 (idempotentny)
 │   │
 │   └── data/
 │       └── ULIC_29-03-2026.xml        # Źródłowy plik TERYT z GUS
@@ -233,7 +233,7 @@ Na podstawie notatek ze spotkania z szefem IT MPWiK (2026-04-01) oraz dokumentac
 | 1 | Alembic — pierwsza migracja | ✅ zrobione |
 | 2 | Auth — JWT, bcrypt, login endpoint | ✅ zrobione |
 | 3 | Streets — autocomplete TERYT | ✅ zrobione |
-| 4 | Events — CRUD + historia statusów | ✅ zrobione |
+| 4 | Events — CRUD (w tym DELETE admin) + historia statusów | ✅ zrobione |
 | 5 | Subscribers — rejestracja, RODO delete | ✅ zrobione |
 | 6 | Notification Engine — SMS/email, matching | ✅ zrobione |
 | 7 | Podłączenie powiadomień do events router | ✅ zrobione |
@@ -281,6 +281,13 @@ Na podstawie notatek ze spotkania z szefem IT MPWiK (2026-04-01) oraz dokumentac
 - **2026-04-03**: **Integracja rejestracji + fix TERYT** — `AddressRow.tsx` + `Register.tsx`: `street_id` z TERYT wysyłany w payloadzie; `subscribers.py`: helper `_normalize_street_name()` (iteracyjne stripowanie "ul.", "Ulica" itp.) + `_resolve_street_id()` z `or_(full_name, full_name_stripped, name_normalized)` — obsługuje "ul. Ulica Lipowa" → poprawny `street_id`.
 - **2026-04-03**: **SMSEagle + preferencje powiadomień** — implementacja `SMSEagleGateway` (POST `/messages/sms`, nagłówek `access-token`) na podstawie docs/openapi.yaml; dodanie `notify_by_email` i `notify_by_sms` do modelu i schematu Subscriber; migracja Alembic (rev `b1c2d3e4f5a6`); kill-switch `ENABLE_EMAIL_NOTIFICATIONS` w config; silnik powiadomień respektuje preferencje subskrybenta i kill-switch; checkboxy kanałów w formularzu rejestracji frontendu.
 - **2026-04-03**: **Audyt techniczny** — `docs/lista_rzeczy_do_poprawek.md`: kompleksowy przegląd kodu (backend + frontend + baza), analiza zgodności z TECH_SPEC i notatkami ze spotkania z szefem IT. Zidentyfikowano 8 błędów krytycznych (m.in. zepsuty Unsubscribe, brak unique email, nocna cisza w UTC), 8 brakujących funkcji, 10 problemów UX, 13 pozycji długu technicznego. Priorytetyzacja napraw w 3 kategoriach.
+- **2026-04-04**: **Naprawa Unsubscribe.tsx** — przepisano stronę wyrejestrowania: token zamiast e-mail, auto-load z `?token=` w URL, 2-etapowy flow (GET weryfikacja → podgląd danych subskrybenta → DELETE potwierdzenie), toast na 404, stan ładowania, redirect na `/` po sukcesie.
+- **2026-04-04**: **Unikalność subskrybentów (pkt 1.2 + 1.3 audytu)** — `unique=True` na `email` i `phone` w modelu `Subscriber`; endpoint `POST /subscribers` zwraca HTTP 409 gdy e-mail lub telefon już istnieje w bazie; migracja Alembic rev `c2d3e4f5a6b7` (`uq_subscribers_email`, `uq_subscribers_phone`).
+- **2026-04-04**: **Skrypt setup_dev_users.py** — zastąpił `reset_admin.py`; idempotentny skrypt tworzący/aktualizujący 3 konta deweloperskie: `admin` (rola admin, hasło admin123), `dyspozytor1` i `dyspozytor2` (rola dispatcher, hasło lublin123); poprawia też błędną rolę admina gdy jest w bazie z domyślnym `dispatcher`; stary `reset_admin.py` usunięty.
+- **2026-04-04**: **Konfiguracja logowania + wyciszenie SQLAlchemy (pkt 4.1 + 4.13 audytu)** — `logging.basicConfig` z formatem `%(asctime)s [%(levelname)s] %(name)s: %(message)s` w `main.py`; poziom `DEBUG` gdy `settings.DEBUG=True`, `INFO` produkcyjnie; `sqlalchemy.engine`/`sqlalchemy.pool` wyciszone do `WARNING` (błędy DB nadal widoczne, surowy SQL ukryty); `print()` zastąpione `logger.info()` w lifespan.
+- **2026-04-04**: **Obsługa błędów w tle — error handling powiadomień (pkt 1.8 audytu)** — `notify_event()` owinięto zewnętrznym `try/except Exception` z `logger.exception()` (pełny traceback); pętla per-subskrybent izolowana w `_send_notifications_for_subscriber()` z własnym `try/except` — błąd dla jednej osoby nie blokuje pozostałych; log podsumowujący `sent_count`/`error_count`; `events.py`: `task.add_done_callback(_log_task_exception)` jako druga linia obrony.
+- **2026-04-04**: **Refresh token + naprawa strefy czasowej nocnej ciszy (pkt 1.5 + 1.6 audytu)** — `security.py`: `create_refresh_token()` generuje JWT z claim `type=refresh`, ważność 7 dni (`REFRESH_TOKEN_EXPIRE_DAYS`); `schemas/auth.py`: nowy model `RefreshRequest`, pole `refresh_token` opcjonalne w `Token`; `routers/auth.py`: endpoint `POST /api/v1/auth/refresh` — weryfikuje claim `type=refresh`, zwraca nowy access token; login zwraca teraz też `refresh_token`; `notification_service.py`: `_is_night_hours()` używa `ZoneInfo("Europe/Warsaw")` zamiast UTC — eliminuje błąd 1–2 godziny przy CET/CEST.
+- **2026-04-04**: **DELETE zdarzenia + pełny cykl edycji (pkt 1.4 + 1.7 audytu)** — Backend: `DELETE /api/v1/events/{id}` z weryfikacją `user.role == 'admin'` (HTTP 403 dla dispatchera), fizyczne usunięcie rekordu + cascade history, HTTP 204. Frontend: `api.ts` obsługuje 204 No Content; `useEvents.ts` eksportuje `getEvent`/`updateEvent`/`deleteEvent`; trasa `/admin/events/edit/:id` w `App.tsx`; `AdminDashboard` — ikona Edytuj z dynamicznym id + AlertDialog z potwierdzeniem usunięcia i `refetch()` bez przeładowania strony; `AdminEventForm` — `useParams`, ładowanie danych zdarzenia przy montowaniu, PUT przy edycji / POST przy tworzeniu, spinner ładowania, różne tytuły i toasty.
 
 ---
 
@@ -315,7 +322,7 @@ docker compose up db -d
 cd backend
 alembic upgrade head                # tylko przy pierwszym uruchomieniu
 python -m scripts.import_streets    # tylko przy pierwszym uruchomieniu (1378 ulic TERYT)
-python -m scripts.reset_admin       # tylko przy pierwszym uruchomieniu (tworzy użytkownika admin)
+python -m scripts.setup_dev_users   # tylko przy pierwszym uruchomieniu (admin + dyspozytor1 + dyspozytor2)
 uvicorn app.main:app --reload --port 8000
 
 # Terminal 3 — frontend (z katalogu frontend/)
@@ -329,4 +336,6 @@ npm run dev
 - API docs: http://localhost:8000/docs
 - Health: http://localhost:8000/health
 
-**Logowanie admina:** `admin` / `admin123`
+**Konta deweloperskie** (po uruchomieniu `setup_dev_users.py`):
+- Admin: `admin` / `admin123`
+- Dyspozytor: `dyspozytor1` / `lublin123`, `dyspozytor2` / `lublin123`

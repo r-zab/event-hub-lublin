@@ -14,6 +14,7 @@ UWAGA: zmiana .env wymaga restartu serwera (settings czytane raz przy starcie).
 import logging
 import re
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -217,14 +218,93 @@ def build_email_body(event: Event) -> str:
 
 
 def _is_night_hours() -> bool:
-    """Sprawdź czy aktualny czas (UTC) to nocna cisza (22:00–06:00)."""
-    hour = datetime.now(tz=timezone.utc).hour
+    """Sprawdź czy aktualny czas (Europe/Warsaw) to nocna cisza (22:00–06:00)."""
+    hour = datetime.now(ZoneInfo("Europe/Warsaw")).hour
     return hour >= _NIGHT_HOUR_START or hour < _NIGHT_HOUR_END
 
 
 # ---------------------------------------------------------------------------
 # Główna funkcja orkiestratora
 # ---------------------------------------------------------------------------
+
+
+async def _send_notifications_for_subscriber(
+    db: AsyncSession,
+    event: Event,
+    subscriber: "Subscriber",
+    sms_gateway: object,
+    email_sender: "EmailSender | None",
+    email_globally_enabled: bool,
+    is_night: bool,
+    sms_text: str,
+    email_subject: str,
+    email_body: str,
+) -> None:
+    """Wyślij powiadomienia (email + SMS) do jednego subskrybenta i zapisz log.
+
+    Wyizolowana funkcja — wyjątek tutaj nie przerywa pętli dla pozostałych.
+    """
+    # --- EMAIL ---
+    if not email_globally_enabled:
+        pass  # Kill-switch globalny — pomijamy bez logu (już zalogowane przed pętlą)
+    elif not subscriber.notify_by_email:
+        logger.info(
+            "Email do %s (sub_id=%d) pominięty — subskrybent wyłączył e-mail",
+            subscriber.email,
+            subscriber.id,
+        )
+    else:
+        assert email_sender is not None  # gwarantowane przez email_globally_enabled
+        email_ok = await email_sender.send(subscriber.email, email_subject, email_body)
+        db.add(
+            NotificationLog(
+                event_id=event.id,
+                subscriber_id=subscriber.id,
+                channel="email",
+                recipient=subscriber.email,
+                message_text=email_body,
+                status="sent" if email_ok else "failed",
+                error_message=None if email_ok else "Błąd wysyłki email",
+            )
+        )
+
+    # --- SMS ---
+    if not subscriber.notify_by_sms:
+        logger.info(
+            "SMS do %s (sub_id=%d) pominięty — subskrybent wyłączył SMS",
+            subscriber.phone,
+            subscriber.id,
+        )
+    elif is_night and not subscriber.night_sms_consent:
+        logger.info(
+            "SMS do %s (sub_id=%d) odłożony na 06:00 (nocna cisza, brak zgody)",
+            subscriber.phone,
+            subscriber.id,
+        )
+        db.add(
+            NotificationLog(
+                event_id=event.id,
+                subscriber_id=subscriber.id,
+                channel="sms",
+                recipient=subscriber.phone,
+                message_text=sms_text,
+                status="queued_morning",
+                error_message="Nocna cisza — brak zgody na SMS nocne. Zaplanowano na 06:00.",
+            )
+        )
+    else:
+        sms_ok = await sms_gateway.send(subscriber.phone, sms_text)
+        db.add(
+            NotificationLog(
+                event_id=event.id,
+                subscriber_id=subscriber.id,
+                channel="sms",
+                recipient=subscriber.phone,
+                message_text=sms_text,
+                status="sent" if sms_ok else "failed",
+                error_message=None if sms_ok else "Błąd wysyłki SMS",
+            )
+        )
 
 
 async def notify_event(event_id: int) -> None:
@@ -234,116 +314,82 @@ async def notify_event(event_id: int) -> None:
     Otwiera własną sesję bazy danych — bezpieczne do uruchomienia jako
     asyncio.create_task() po zamknięciu sesji routera.
 
-    - Email: zawsze.
+    - Email: zawsze (o ile ENABLE_EMAIL_NOTIFICATIONS=True i subskrybent nie wyłączył).
     - SMS: jeśli czas nocny (22-06) i brak night_sms_consent → status 'queued_morning'.
     - Każda próba zapisana do notification_log.
+    - Błąd dla jednego subskrybenta nie przerywa wysyłki do pozostałych.
     """
-    async with AsyncSessionLocal() as db:
-        result = await db.execute(select(Event).where(Event.id == event_id))
-        event = result.scalar_one_or_none()
-        if event is None:
-            logger.error("notify_event: zdarzenie id=%d nie istnieje w bazie", event_id)
-            return
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(Event).where(Event.id == event_id))
+            event = result.scalar_one_or_none()
+            if event is None:
+                logger.error("notify_event: zdarzenie id=%d nie istnieje w bazie", event_id)
+                return
 
-        if not event.street_id:
-            logger.info("Zdarzenie id=%d bez street_id — pomijam powiadomienia", event.id)
-            return
+            if not event.street_id:
+                logger.info("Zdarzenie id=%d bez street_id — pomijam powiadomienia", event.id)
+                return
 
-        matched = await match_subscribers(
-            db, event.street_id, event.house_number_from, event.house_number_to
-        )
-
-        if not matched:
-            logger.info(
-                "Zdarzenie id=%d: brak subskrybentów do powiadomienia (street_id=%d)",
-                event.id,
-                event.street_id,
+            matched = await match_subscribers(
+                db, event.street_id, event.house_number_from, event.house_number_to
             )
-            return
 
-        sms_gateway = get_sms_gateway()
-        # Odczyt kill-switcha raz przed loopem — jednoznaczne logowanie decyzji
-        email_globally_enabled: bool = settings.ENABLE_EMAIL_NOTIFICATIONS
-        if not email_globally_enabled:
-            logger.warning(
-                "ENABLE_EMAIL_NOTIFICATIONS=False — wysyłka e-mail wyłączona globalnie dla zdarzenia id=%d",
-                event.id,
-            )
-        email_sender = EmailSender() if email_globally_enabled else None
-        is_night = _is_night_hours()
+            if not matched:
+                logger.info(
+                    "Zdarzenie id=%d: brak subskrybentów do powiadomienia (street_id=%d)",
+                    event.id,
+                    event.street_id,
+                )
+                return
 
-        sms_text = build_sms_message(event)
-        email_subject = build_email_subject(event)
-        email_body = build_email_body(event)
-
-        for subscriber, _addr in matched:
-            # --- EMAIL ---
+            sms_gateway = get_sms_gateway()
+            email_globally_enabled: bool = settings.ENABLE_EMAIL_NOTIFICATIONS
             if not email_globally_enabled:
-                # Kill-switch globalny — nie tworzymy nawet EmailSender
-                pass
-            elif not subscriber.notify_by_email:
-                logger.info(
-                    "Email do %s (sub_id=%d) pominięty — subskrybent wyłączył e-mail",
-                    subscriber.email,
-                    subscriber.id,
+                logger.warning(
+                    "ENABLE_EMAIL_NOTIFICATIONS=False — wysyłka e-mail wyłączona globalnie dla zdarzenia id=%d",
+                    event.id,
                 )
-            else:
-                assert email_sender is not None  # gwarantowane przez email_globally_enabled
-                email_ok = await email_sender.send(subscriber.email, email_subject, email_body)
-                db.add(
-                    NotificationLog(
-                        event_id=event.id,
-                        subscriber_id=subscriber.id,
-                        channel="email",
-                        recipient=subscriber.email,
-                        message_text=email_body,
-                        status="sent" if email_ok else "failed",
-                        error_message=None if email_ok else "Błąd wysyłki email",
-                    )
-                )
+            email_sender = EmailSender() if email_globally_enabled else None
+            is_night = _is_night_hours()
 
-            # --- SMS ---
-            if not subscriber.notify_by_sms:
-                logger.info(
-                    "SMS do %s (sub_id=%d) pominięty — subskrybent wyłączył SMS",
-                    subscriber.phone,
-                    subscriber.id,
-                )
-            elif is_night and not subscriber.night_sms_consent:
-                logger.info(
-                    "SMS do %s (sub_id=%d) odłożony na 06:00 (nocna cisza, brak zgody)",
-                    subscriber.phone,
-                    subscriber.id,
-                )
-                db.add(
-                    NotificationLog(
-                        event_id=event.id,
-                        subscriber_id=subscriber.id,
-                        channel="sms",
-                        recipient=subscriber.phone,
-                        message_text=sms_text,
-                        status="queued_morning",
-                        error_message="Nocna cisza — brak zgody na SMS nocne. Zaplanowano na 06:00.",
-                    )
-                )
-            else:
-                sms_ok = await sms_gateway.send(subscriber.phone, sms_text)
-                db.add(
-                    NotificationLog(
-                        event_id=event.id,
-                        subscriber_id=subscriber.id,
-                        channel="sms",
-                        recipient=subscriber.phone,
-                        message_text=sms_text,
-                        status="sent" if sms_ok else "failed",
-                        error_message=None if sms_ok else "Błąd wysyłki SMS",
-                    )
-                )
+            sms_text = build_sms_message(event)
+            email_subject = build_email_subject(event)
+            email_body = build_email_body(event)
 
-        await db.commit()
-        logger.info(
-            "Zdarzenie id=%d: wysłano powiadomienia do %d subskrybentów (nocna_cisza=%s)",
-            event.id,
-            len(matched),
-            is_night,
-        )
+            sent_count = 0
+            error_count = 0
+            for subscriber, _addr in matched:
+                try:
+                    await _send_notifications_for_subscriber(
+                        db=db,
+                        event=event,
+                        subscriber=subscriber,
+                        sms_gateway=sms_gateway,
+                        email_sender=email_sender,
+                        email_globally_enabled=email_globally_enabled,
+                        is_night=is_night,
+                        sms_text=sms_text,
+                        email_subject=email_subject,
+                        email_body=email_body,
+                    )
+                    sent_count += 1
+                except Exception:
+                    error_count += 1
+                    logger.exception(
+                        "Błąd podczas wysyłki powiadomienia do sub_id=%d (zdarzenie id=%d) — kontynuuję dla pozostałych",
+                        subscriber.id,
+                        event_id,
+                    )
+
+            await db.commit()
+            logger.info(
+                "Zdarzenie id=%d: wysłano powiadomienia do %d/%d subskrybentów (nocna_cisza=%s, błędy=%d)",
+                event.id,
+                sent_count,
+                len(matched),
+                is_night,
+                error_count,
+            )
+    except Exception:
+        logger.exception("Błąd podczas wysyłki powiadomień dla zdarzenia id=%d", event_id)

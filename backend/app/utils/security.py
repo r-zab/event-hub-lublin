@@ -23,6 +23,25 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
+def create_refresh_token(data: dict) -> str:
+    """Create a signed JWT refresh token valid for REFRESH_TOKEN_EXPIRE_DAYS days.
+
+    Args:
+        data: Payload dict (must include 'sub' claim).
+
+    Returns:
+        Encoded JWT string.
+    """
+    to_encode = data.copy()
+    to_encode["exp"] = datetime.now(timezone.utc) + timedelta(
+        days=settings.REFRESH_TOKEN_EXPIRE_DAYS
+    )
+    to_encode["type"] = "refresh"
+    token = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    logger.debug("Created refresh token for sub=%s", data.get("sub"))
+    return token
+
+
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """Create a signed JWT access token.
 

@@ -15,8 +15,8 @@ class Subscriber(Base):
     __tablename__ = "subscribers"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    phone: Mapped[str] = mapped_column(String(20), nullable=False)
-    email: Mapped[str] = mapped_column(String(100), nullable=False)
+    phone: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     rodo_consent: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     night_sms_consent: Mapped[bool] = mapped_column(Boolean, server_default="false")
     notify_by_email: Mapped[bool] = mapped_column(Boolean, server_default="true")

@@ -102,6 +102,21 @@ async def register_subscriber(
     Wymaga zgody RODO (`rodo_consent=true`). Generuje unikalny token
     wyrejestrowania (`unsubscribe_token`). Endpoint publiczny.
     """
+    # Sprawdź unikalność e-maila i telefonu przed INSERT
+    duplicate = await db.execute(
+        select(Subscriber).where(
+            or_(
+                Subscriber.email == str(data.email),
+                Subscriber.phone == data.phone,
+            )
+        ).limit(1)
+    )
+    if duplicate.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ten e-mail lub numer telefonu jest już zarejestrowany.",
+        )
+
     unsubscribe_token = secrets.token_hex(32)
 
     subscriber = Subscriber(

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,29 +8,75 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useStreets } from '@/hooks/useStreets';
 import { apiFetch } from '@/lib/api';
+import { getEvent, updateEvent } from '@/hooks/useEvents';
 import { type Street } from '@/data/mockData';
 import { Search, Loader2 } from 'lucide-react';
 
 const AdminEventForm = () => {
-  const { pathname } = useLocation();
+  const { id } = useParams<{ id?: string }>();
+  const isEdit = !!id;
   const navigate = useNavigate();
   const { toast } = useToast();
-  const isEdit = pathname.includes('edit');
 
-  const [eventType, setEventType] = useState<string>(isEdit ? 'awaria' : '');
+  const [eventType, setEventType] = useState('');
   const [selectedStreet, setSelectedStreet] = useState<Street | null>(null);
   const [streetQuery, setStreetQuery] = useState('');
-  const [houseFrom, setHouseFrom] = useState(isEdit ? '10' : '');
-  const [houseTo, setHouseTo] = useState(isEdit ? '15' : '');
-  const [description, setDescription] = useState(isEdit ? 'Pęknięcie rury magistralnej DN300.' : '');
-  const [status, setStatus] = useState<string>(isEdit ? 'zgloszona' : '');
-  const [estimatedEnd, setEstimatedEnd] = useState(isEdit ? '2026-03-30T18:00' : '');
+  const [houseFrom, setHouseFrom] = useState('');
+  const [houseTo, setHouseTo] = useState('');
+  const [description, setDescription] = useState('');
+  const [status, setStatus] = useState('zgloszona');
+  const [estimatedEnd, setEstimatedEnd] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingEvent, setIsLoadingEvent] = useState(isEdit);
 
   const [showSuggestions, setShowSuggestions] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   const { streets: suggestions, isLoading: streetsLoading } = useStreets(streetQuery);
+
+  // Ładowanie danych zdarzenia przy edycji
+  useEffect(() => {
+    if (!isEdit || !id) return;
+    let cancelled = false;
+    setIsLoadingEvent(true);
+    getEvent(Number(id))
+      .then((event) => {
+        if (cancelled) return;
+        setEventType(event.event_type);
+        setHouseFrom(event.house_number_from ?? '');
+        setHouseTo(event.house_number_to ?? '');
+        setDescription(event.description ?? '');
+        setStatus(event.status);
+        if (event.estimated_end) {
+          // Konwertuj ISO string na format datetime-local (YYYY-MM-DDTHH:mm)
+          setEstimatedEnd(event.estimated_end.slice(0, 16));
+        }
+        // Ustaw ulicę — wyświetl street_name, bez street_id nie budujemy Street
+        setStreetQuery(event.street_name);
+        if (event.street_id) {
+          setSelectedStreet({
+            id: event.street_id,
+            name: event.street_name,
+            full_name: event.street_name,
+            teryt_sym_ul: '',
+            street_type: '',
+            city: 'Lublin',
+          });
+        }
+      })
+      .catch((err: any) => {
+        toast({
+          title: 'Błąd ładowania',
+          description: err.message || 'Nie udało się pobrać danych zdarzenia.',
+          variant: 'destructive',
+        });
+        navigate('/admin/dashboard');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingEvent(false);
+      });
+    return () => { cancelled = true; };
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -59,21 +105,24 @@ const AdminEventForm = () => {
       return;
     }
     setIsSubmitting(true);
+    const payload = {
+      event_type: eventType,
+      street_id: selectedStreet.id,
+      street_name: selectedStreet.full_name,
+      house_number_from: houseFrom,
+      house_number_to: houseTo,
+      description,
+      status: status || 'zgloszona',
+      estimated_end: estimatedEnd || null,
+    };
     try {
-      await apiFetch('/events', {
-        method: 'POST',
-        body: JSON.stringify({
-          event_type: eventType,
-          street_id: selectedStreet.id,
-          street_name: selectedStreet.full_name,
-          house_number_from: houseFrom,
-          house_number_to: houseTo,
-          description,
-          status: status || 'zgloszona',
-          estimated_end: estimatedEnd || null,
-        }),
-      });
-      toast({ title: isEdit ? 'Zdarzenie zaktualizowane' : 'Zdarzenie utworzone', description: 'Powiadomienia zostaną wysłane do mieszkańców.' });
+      if (isEdit && id) {
+        await updateEvent(Number(id), payload);
+        toast({ title: 'Zdarzenie zaktualizowane', description: 'Zmiany zostały zapisane.' });
+      } else {
+        await apiFetch('/events', { method: 'POST', body: JSON.stringify(payload) });
+        toast({ title: 'Zdarzenie utworzone', description: 'Powiadomienia zostaną wysłane do mieszkańców.' });
+      }
       navigate('/admin/dashboard');
     } catch (err: any) {
       toast({ title: 'Błąd', description: err.message || 'Nie udało się zapisać zdarzenia.', variant: 'destructive' });
@@ -82,9 +131,19 @@ const AdminEventForm = () => {
     }
   };
 
+  if (isLoadingEvent) {
+    return (
+      <div className="flex items-center justify-center h-40">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="font-heading text-2xl font-bold">{isEdit ? 'Edytuj zdarzenie' : 'Nowe zdarzenie'}</h1>
+      <h1 className="font-heading text-2xl font-bold">
+        {isEdit ? `Edytuj zdarzenie #${id}` : 'Nowe zdarzenie'}
+      </h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
@@ -155,19 +214,17 @@ const AdminEventForm = () => {
           <Textarea id="desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Opis zdarzenia..." rows={4} aria-label="Opis zdarzenia" />
         </div>
 
-        {isEdit && (
-          <div>
-            <Label>Status *</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger aria-label="Status zdarzenia"><SelectValue placeholder="Wybierz status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="zgloszona">Zgłoszona</SelectItem>
-                <SelectItem value="w_naprawie">W naprawie</SelectItem>
-                <SelectItem value="usunieta">Usunięta</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        <div>
+          <Label>Status *</Label>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger aria-label="Status zdarzenia"><SelectValue placeholder="Wybierz status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="zgloszona">Zgłoszona</SelectItem>
+              <SelectItem value="w_naprawie">W naprawie</SelectItem>
+              <SelectItem value="usunieta">Usunięta</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
         <div>
           <Label htmlFor="est-end">Szacowany czas usunięcia</Label>
@@ -178,6 +235,8 @@ const AdminEventForm = () => {
           <Button type="submit" size="lg" className="flex-1 font-semibold" disabled={isSubmitting}>
             {isSubmitting ? (
               <><Loader2 className="h-4 w-4 animate-spin mr-2" />Zapisywanie…</>
+            ) : isEdit ? (
+              'Zapisz zmiany'
             ) : (
               'Zapisz i powiadom mieszkańców'
             )}

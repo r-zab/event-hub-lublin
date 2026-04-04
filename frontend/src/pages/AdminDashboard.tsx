@@ -1,10 +1,10 @@
 import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search, ChevronDown, ChevronRight, Mail, Loader2, AlertTriangle, Wrench, Calendar } from 'lucide-react';
+import { Plus, Search, ChevronDown, ChevronRight, Mail, Loader2, AlertTriangle, Wrench, Calendar, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/StatusBadge';
-import { useEvents } from '@/hooks/useEvents';
+import { useEvents, deleteEvent } from '@/hooks/useEvents';
 import {
   type EventStatus,
   type EventType,
@@ -19,17 +19,46 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 const AdminDashboard = () => {
+  const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<EventStatus | ''>('');
   const [typeFilter, setTypeFilter] = useState<EventType | ''>('');
   const [page, setPage] = useState(1);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const { events, allEvents, totalPages, currentPage, isLoading, error } = useEvents({
+  const { events, allEvents, totalPages, currentPage, isLoading, error, refetch } = useEvents({
     search, statusFilter, typeFilter, page,
   });
+
+  const handleDeleteConfirm = async () => {
+    if (deleteId === null) return;
+    setIsDeleting(true);
+    try {
+      await deleteEvent(deleteId);
+      toast({ title: 'Zdarzenie usunięte', description: `Zdarzenie #${deleteId} zostało usunięte.` });
+      setDeleteId(null);
+      refetch();
+    } catch (err: any) {
+      toast({ title: 'Błąd usuwania', description: err.message || 'Nie udało się usunąć zdarzenia.', variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const activeCount = allEvents.filter((e) => e.status !== 'usunieta').length;
   const awaria = allEvents.filter((e) => e.event_type === 'awaria' && e.status !== 'usunieta').length;
@@ -194,11 +223,21 @@ const AdminDashboard = () => {
                           : '–'}
                       </TableCell>
                       <TableCell>
-                        <Button asChild variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
-                          <Link to="/admin/events/edit" aria-label={`Edytuj zdarzenie ${event.id}`}>
-                            Edytuj
-                          </Link>
-                        </Button>
+                        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                          <Button asChild variant="ghost" size="sm" aria-label={`Edytuj zdarzenie ${event.id}`}>
+                            <Link to={`/admin/events/edit/${event.id}`}>
+                              <Pencil className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Usuń zdarzenie ${event.id}`}
+                            onClick={() => setDeleteId(event.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                     {isOpen && (
@@ -230,6 +269,28 @@ const AdminDashboard = () => {
           </Button>
         </div>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteId !== null} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Usuń zdarzenie #{deleteId}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ta operacja jest nieodwracalna. Zdarzenie wraz z historią zmian zostanie trwale usunięte z bazy danych.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Anuluj</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Usuwanie…</> : 'Usuń zdarzenie'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

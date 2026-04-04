@@ -3,6 +3,8 @@ Event Hub Lublin - FastAPI Application
 System powiadamiania mieszkancow o awariach sieci wodociagowej.
 """
 
+import logging
+import logging.config
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,13 +13,50 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.routers import auth, events, streets, subscribers
 
+# ---------------------------------------------------------------------------
+# Konfiguracja logowania
+# ---------------------------------------------------------------------------
+_app_level = "DEBUG" if settings.DEBUG else "INFO"
+logging.config.dictConfig(
+    {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "default": {
+                "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+            }
+        },
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "formatter": "default",
+                "stream": "ext://sys.stderr",
+            }
+        },
+        "loggers": {
+            # Wycisz SQL — tylko błędy bazy będą widoczne
+            "sqlalchemy.engine": {"level": "WARNING", "propagate": False},
+            "sqlalchemy.pool": {"level": "WARNING", "propagate": False},
+            # Uvicorn access — zostaw na INFO, ale bez duplikatów
+            "uvicorn.access": {"level": "INFO", "propagate": False},
+            "uvicorn.error": {"level": "INFO", "propagate": False},
+        },
+        "root": {
+            "level": _app_level,
+            "handlers": ["console"],
+        },
+    }
+)
+
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup and shutdown events.
-    print(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
+    logger.info("Uruchamianie %s v%s", settings.APP_NAME, settings.APP_VERSION)
     yield
-    print("Shutting down...")
+    logger.info("Zatrzymywanie %s", settings.APP_NAME)
 
 
 app = FastAPI(

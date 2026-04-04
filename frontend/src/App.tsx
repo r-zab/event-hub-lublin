@@ -42,7 +42,7 @@ const App = () => (
             <Route element={<ProtectedAdminLayout />}>
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/events/new" element={<AdminEventForm />} />
-              <Route path="/admin/events/edit" element={<AdminEventForm />} />
+              <Route path="/admin/events/edit/:id" element={<AdminEventForm />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />

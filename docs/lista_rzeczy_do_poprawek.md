@@ -6,51 +6,40 @@ Data audytu: 2026-04-03
 
 ## 1. BLEDY KRYTYCZNE
 
-### 1.1 Wyrejestrowanie (Unsubscribe) - frontend kompletnie nie dziala z backendem
+### ~~1.1~~ ✅ NAPRAWIONO — Wyrejestrowanie (Unsubscribe) - frontend kompletnie nie dziala z backendem
 - **Plik:** `frontend/src/pages/Unsubscribe.tsx`
 - **Problem:** Frontend pyta o e-mail i po submitcie wyswietla toast "Dane usuniete" - ale **NIE wywoluje zadnego API**. Funkcja `handleSubmit` nie robi `fetch`/`apiFetch` do backendu. Dane NIE sa usuwane z bazy.
 - **Backend** oczekuje DELETE `/api/v1/subscribers/{unsubscribe_token}` - wymaga tokenu, nie e-maila.
 - **Skutek:** Uzytkownik mysli, ze sie wyrejestrowal, a jego dane dalej sa w bazie. **Naruszone RODO**.
 - **Naprawa:** Przepisac Unsubscribe.tsx - formularz powinien przyjmowac `unsubscribe_token` (nie e-mail), wywolac GET `/subscribers/{token}` zeby pokazac dane, a potem DELETE `/subscribers/{token}`.
 
-### 1.2 Brak walidacji unikalnosci e-maila przy rejestracji
-- **Pliki:** `backend/app/routers/subscribers.py`, `backend/app/models/subscriber.py`
-- **Problem:** Model `Subscriber` nie ma `unique=True` na kolumnie `email`. Brak walidacji w routerze. Mozna zarejestrowac 10 kont na ten sam e-mail.
-- **Skutek:** Duplikaty danych, wielokrotne powiadomienia na ten sam adres, brak mozliwosci identyfikacji subskrybenta po e-mailu.
-- **Naprawa:** Dodac `unique=True` na `email` w modelu + migracja Alembic. W routerze `register_subscriber` sprawdzac czy e-mail juz istnieje i zwracac HTTP 409 z komunikatem "Ten e-mail jest juz zarejestrowany".
+### ~~1.2~~ ✅ NAPRAWIONO — Brak walidacji unikalnosci e-maila przy rejestracji
+- `unique=True` dodane do `email` w modelu + HTTP 409 w routerze + migracja `c2d3e4f5a6b7`.
 
-### 1.3 Brak walidacji unikalnosci telefonu
-- **Pliki:** `backend/app/routers/subscribers.py`, `backend/app/models/subscriber.py`
-- **Problem:** Analogicznie jak e-mail - brak unique na `phone`. Ten sam numer moze byc wielokrotnie.
-- **Naprawa:** Unique constraint lub composite unique (email + phone), migracja Alembic.
+### ~~1.3~~ ✅ NAPRAWIONO — Brak walidacji unikalnosci telefonu
+- `unique=True` dodane do `phone` w modelu, walidacja w routerze sprawdza obie kolumny jednocześnie.
 
-### 1.4 Brak endpointu DELETE /events/{id} (wymagany w TECH_SPEC)
-- **Plik:** `backend/app/routers/events.py`
-- **Problem:** Specyfikacja (TECH_SPEC.md) wymaga `DELETE /api/v1/events/{id}` (JWT admin). Endpoint nie istnieje.
-- **Naprawa:** Dodac endpoint DELETE z weryfikacja roli admin.
+### ~~1.4~~ ✅ NAPRAWIONO — Brak endpointu DELETE /events/{id} (wymagany w TECH_SPEC)
+- `DELETE /api/v1/events/{id}` dodany w `routers/events.py` z weryfikacją `user.role == 'admin'` (HTTP 403 gdy dispatcher), zwraca HTTP 204 No Content.
 
-### 1.5 Brak endpointu POST /api/v1/auth/refresh (wymagany w TECH_SPEC)
-- **Plik:** `backend/app/routers/auth.py`
-- **Problem:** Specyfikacja wymaga `POST /api/v1/auth/refresh -> { "access_token" }`. Nie zaimplementowano.
-- **Skutek:** Po 30 minutach token wygasa i dyspozytor musi sie ponownie logowac. Brak plynnosci pracy.
-- **Naprawa:** Dodac endpoint refresh z refresh tokenem (config juz ma `REFRESH_TOKEN_EXPIRE_DAYS=7`).
+### ~~1.5~~ ✅ NAPRAWIONO — Brak endpointu POST /api/v1/auth/refresh (wymagany w TECH_SPEC)
+- `create_refresh_token()` w `security.py` (JWT z `type=refresh`, ważny 7 dni wg `REFRESH_TOKEN_EXPIRE_DAYS`).
+- Endpoint `POST /api/v1/auth/refresh` w `routers/auth.py` — przyjmuje JSON `{refresh_token}`, weryfikuje claim `type=refresh`, zwraca nowy access token.
+- Login `POST /auth/login` zwraca teraz `refresh_token` w odpowiedzi.
+- Schema `RefreshRequest` dodana do `schemas/auth.py`; `Token` ma opcjonalne pole `refresh_token`.
 
-### 1.6 Nocna cisza liczy czas w UTC zamiast CET/CEST
-- **Plik:** `backend/app/services/notification_service.py:221`
-- **Problem:** `datetime.now(tz=timezone.utc).hour` - porownuje godziny UTC. Lublin jest w CET (UTC+1) / CEST (UTC+2). Cisza nocna 22:00-06:00 polskiego czasu to nie to samo co UTC.
-- **Skutek:** SMS-y beda blokowane o zlych godzinach (np. o 21:00 polskiego czasu latem, lub przepuszczane o 23:00).
-- **Naprawa:** Uzyc `datetime.now(ZoneInfo("Europe/Warsaw")).hour`.
+### ~~1.6~~ ✅ NAPRAWIONO — Nocna cisza liczy czas w UTC zamiast CET/CEST
+- `_is_night_hours()` w `notification_service.py` zmieniona na `datetime.now(ZoneInfo("Europe/Warsaw")).hour`.
+- Import `from zoneinfo import ZoneInfo` dodany (stdlib Python 3.9+).
 
-### 1.7 Edycja zdarzenia (AdminEventForm) nie laduje danych istniejacego eventu
-- **Plik:** `frontend/src/pages/AdminEventForm.tsx`
-- **Problem:** Tryb edycji (`isEdit`) ustawia hardkodowane wartosci testowe (np. `houseFrom='10'`, opis='Pekniecie rury'). Nie pobiera danych zdarzenia z API. Brak `event_id` w URL - route to `/admin/events/edit` bez parametru ID.
-- **Skutek:** Edycja zdarzenia jest niefunkcjonalna - zawsze wyswietla dane testowe, a submit tworzy NOWE zdarzenie (POST) zamiast aktualizowac istniejace (PUT).
-- **Naprawa:** Route zmieniac na `/admin/events/edit/:id`, ladowac dane z GET `/events/{id}`, submit jako PUT.
+### ~~1.7~~ ✅ NAPRAWIONO — Edycja zdarzenia (AdminEventForm) nie laduje danych istniejacego eventu
+- Route zmieniony na `/admin/events/edit/:id` w `App.tsx`; `AdminEventForm.tsx` używa `useParams<{id}>()`, ładuje dane przez `getEvent(id)` przy montowaniu (`useEffect`), przekazuje dane do pól formularza. Submit: `PUT /events/{id}` przy edycji, `POST /events` przy tworzeniu. Spinner podczas ładowania, różne tytuły i toasty dla obu trybów.
 
-### 1.8 `asyncio.create_task(notify_event)` bez obslugi bledow
-- **Plik:** `backend/app/routers/events.py:76,126`
-- **Problem:** `asyncio.create_task(notify_event(event.id))` - jesli task rzuci wyjatek, jest on polykany ("fire and forget"). Nieobsluzone bledy w powiadomieniach przechodza niezauwazone.
-- **Naprawa:** Dodac callback `task.add_done_callback()` logujacy wyjatki, lub uzyc `try/except` wewnatrz `notify_event` (juz czesciowo jest, ale nie dla wszystkich sciezek).
+### ~~1.8~~ ✅ NAPRAWIONO — `asyncio.create_task(notify_event)` bez obsługi błędów
+- `notify_event()` owinięto głównym `try/except Exception` z `logger.exception(...)` — pełny traceback w logach.
+- Pętla per-subskrybent ma własny `try/except`: błąd dla jednej osoby nie przerywa wysyłki do pozostałych; licznik `sent_count`/`error_count` w podsumowującym logu.
+- Logika wysyłki wyizolowana do `_send_notifications_for_subscriber()` — czytelna separacja obowiązków.
+- `events.py`: `task.add_done_callback(_log_task_exception)` jako druga linia obrony — loguje wyjątki, które mimo wszystko przebijają się poza `notify_event`.
 
 ---
 
@@ -148,10 +137,8 @@ Data audytu: 2026-04-03
 
 ## 4. DLUG TECHNICZNY
 
-### 4.1 `print()` zamiast `logging` w main.py
-- **Plik:** `backend/app/main.py:18-20`
-- **Problem:** `print(f"Starting {settings.APP_NAME}...")` - RULES.md mowi: "Logowanie: modul logging, NIE print()".
-- **Naprawa:** Zamienic na `logger.info(...)`.
+### ~~4.1~~ ✅ NAPRAWIONO — `print()` zamiast `logging` w main.py
+- `print()` zastąpione `logger.info()` w lifespan (startup i shutdown).
 
 ### 4.2 SECRET_KEY z domyslna wartoscia w kodzie
 - **Plik:** `backend/app/config.py:18`
@@ -203,10 +190,10 @@ Data audytu: 2026-04-03
 - **Problem:** `asyncio.create_task(notify_event(event.id))` jest wywolywany przy KAZDEJ aktualizacji (PUT), nawet jesli zmienia sie tylko opis. Subskrybenci dostana powiadomienie za kazdym razem.
 - **Naprawa:** Powiadamiac tylko przy tworzeniu eventu i przy zmianie statusu (np. na `w_naprawie`), nie przy kazdym edicie.
 
-### 4.13 Brak logowania (logging config) na poziomie aplikacji
-- **Plik:** `backend/app/main.py`
-- **Problem:** Brak konfiguracji logging (level, format, handler). Domyslny level to WARNING - wiele `logger.info()` i `logger.debug()` w kodzie nigdy nie zostanie wyswietlone.
-- **Naprawa:** Dodac `logging.basicConfig(level=logging.INFO, format=...)` w lifespan lub main.
+### ~~4.13~~ ✅ NAPRAWIONO — Brak logowania (logging config) na poziomie aplikacji
+- `logging.basicConfig(level=INFO/DEBUG, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")` dodane w `main.py` przed definicją aplikacji.
+- `sqlalchemy.engine` i `sqlalchemy.pool` ustawione na `WARNING` — surowy SQL ukryty, błędy nadal widoczne.
+- Poziom dynamiczny: `DEBUG` gdy `settings.DEBUG=True`, `INFO` produkcyjnie.
 
 ---
 
@@ -215,7 +202,7 @@ Data audytu: 2026-04-03
 | Wymaganie | Status | Uwagi |
 |-----------|--------|-------|
 | POST /auth/login | DONE | Dziala |
-| POST /auth/refresh | BRAK | Nie zaimplementowany (pkt 1.5) |
+| POST /auth/refresh | DONE | Zaimplementowany (pkt 1.5) |
 | GET /events (paginacja) | DONE | Ale frontend nie uzywa paginacji (pkt 4.8) |
 | GET /events/{id} | DONE | |
 | POST /events (JWT) | DONE | |
@@ -233,7 +220,7 @@ Data audytu: 2026-04-03
 | Mapa - linie na ulicach | CZESCIOWO | Brak geocodingu, fallback na marker (pkt 2.5) |
 | Wiele adresow na subskrybenta | DONE | |
 | RODO fizyczne usuwanie | DONE backend | Frontend zepsuty (pkt 1.1) |
-| Nocna cisza 22-06 | DONE | Ale w UTC zamiast CET (pkt 1.6) |
+| Nocna cisza 22-06 | DONE | Europe/Warsaw (pkt 1.6 naprawiony) |
 | SMS nocne - osobna zgoda | DONE | |
 | Multi-operator (source + API key) | CZESCIOWO | Model jest, brak routera/dependency (pkt 2.3) |
 | Bramka SMS (SMSEagle) | DONE | Mock + SMSEagle gateway |

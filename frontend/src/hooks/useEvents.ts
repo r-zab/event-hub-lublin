@@ -2,6 +2,21 @@ import { useState, useEffect, useMemo } from 'react';
 import { type EventItem, type EventStatus, type EventType } from '@/data/mockData';
 import { apiFetch } from '@/lib/api';
 
+export async function getEvent(id: number): Promise<EventItem> {
+  return apiFetch<EventItem>(`/events/${id}`);
+}
+
+export async function updateEvent(id: number, data: Record<string, unknown>): Promise<EventItem> {
+  return apiFetch<EventItem>(`/events/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteEvent(id: number): Promise<void> {
+  await apiFetch<void>(`/events/${id}`, { method: 'DELETE' });
+}
+
 const PAGE_SIZE = 10;
 
 interface UseEventsOptions {

@@ -4,6 +4,7 @@ Router: Events — CRUD dla zdarzeń (awarie, wyłączenia, remonty).
 
 import asyncio
 import logging
+from asyncio import Task
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -20,6 +21,16 @@ from app.services.notification_service import notify_event
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _log_task_exception(task: Task) -> None:
+    """Callback dla asyncio.Task — loguje nieobsłużony wyjątek zadania powiadomień."""
+    if not task.cancelled() and task.exception() is not None:
+        logger.error(
+            "Nieobsłużony wyjątek w zadaniu powiadomień: %s",
+            task.exception(),
+            exc_info=task.exception(),
+        )
 
 
 @router.get("/", response_model=list[EventResponse], summary="Lista aktywnych zdarzeń")
@@ -73,8 +84,37 @@ async def create_event(
     # Załaduj relację history (pusta przy tworzeniu)
     await db.execute(select(Event).options(selectinload(Event.history)).where(Event.id == event.id))
     logger.info("Utworzono zdarzenie id=%d typ=%r przez user=%d", event.id, event.event_type, current_user.id)
-    asyncio.create_task(notify_event(event.id))
+    task = asyncio.create_task(notify_event(event.id))
+    task.add_done_callback(_log_task_exception)
     return event
+
+
+@router.delete(
+    "/{event_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Usuń zdarzenie (admin)",
+)
+async def delete_event(
+    event_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    """Fizycznie usuń zdarzenie wraz z historią. Wymaga roli admin."""
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Wymagana rola admin",
+        )
+    result = await db.execute(select(Event).where(Event.id == event_id))
+    event = result.scalar_one_or_none()
+    if event is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Zdarzenie nie istnieje",
+        )
+    await db.delete(event)
+    await db.commit()
+    logger.info("Usunięto zdarzenie id=%d przez user=%d (admin)", event_id, current_user.id)
 
 
 @router.put("/{event_id}", response_model=EventResponse, summary="Aktualizuj zdarzenie")
@@ -123,5 +163,6 @@ async def update_event(
         select(Event).options(selectinload(Event.history)).where(Event.id == event.id)
     )
     event = result.scalar_one()
-    asyncio.create_task(notify_event(event.id))
+    task = asyncio.create_task(notify_event(event.id))
+    task.add_done_callback(_log_task_exception)
     return event
