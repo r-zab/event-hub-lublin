@@ -7,11 +7,16 @@ import logging
 import logging.config
 from contextlib import asynccontextmanager
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
-from app.routers import auth, events, streets, subscribers
+from app.limiter import limiter
+from app.routers import admin, auth, events, streets, subscribers
+from app.services.notification_service import process_morning_queue
 
 # ---------------------------------------------------------------------------
 # Konfiguracja logowania
@@ -52,10 +57,24 @@ logging.config.dictConfig(
 logger = logging.getLogger(__name__)
 
 
+scheduler = AsyncIOScheduler(timezone="Europe/Warsaw")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    scheduler.add_job(
+        process_morning_queue,
+        trigger="cron",
+        hour=6,
+        minute=0,
+        id="morning_sms_queue",
+        replace_existing=True,
+    )
+    scheduler.start()
     logger.info("Uruchamianie %s v%s", settings.APP_NAME, settings.APP_VERSION)
+    logger.info("APScheduler uruchomiony — poranna kolejka SMS o 06:00 Europe/Warsaw")
     yield
+    scheduler.shutdown(wait=False)
     logger.info("Zatrzymywanie %s", settings.APP_NAME)
 
 
@@ -67,6 +86,9 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -96,8 +118,8 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(streets.router, prefix="/api/v1/streets", tags=["Streets"])
 app.include_router(events.router, prefix="/api/v1/events", tags=["Events"])
 app.include_router(subscribers.router, prefix="/api/v1/subscribers", tags=["Subscribers"])
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 
 # TODO: Include remaining routers as they are implemented
-# from app.routers import admin, external
-# app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
+# from app.routers import external
 # app.include_router(external.router, prefix="/api/v1/external", tags=["External API"])

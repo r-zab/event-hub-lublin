@@ -393,3 +393,62 @@ async def notify_event(event_id: int) -> None:
             )
     except Exception:
         logger.exception("Błąd podczas wysyłki powiadomień dla zdarzenia id=%d", event_id)
+
+
+# ---------------------------------------------------------------------------
+# Scheduler — poranna kolejka SMS (06:00)
+# ---------------------------------------------------------------------------
+
+
+async def process_morning_queue() -> None:
+    """Wyślij SMS-y odłożone na rano (status='queued_morning').
+
+    Wywoływane przez APScheduler codziennie o 06:00 Europe/Warsaw.
+    Dla każdego rekordu w kolejce próbuje wysłać SMS przez bramkę,
+    a następnie aktualizuje status na 'sent' lub 'failed'.
+    """
+    logger.info("process_morning_queue: start")
+    sms_gateway = get_sms_gateway()
+
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(NotificationLog).where(NotificationLog.status == "queued_morning")
+            )
+            queued: list[NotificationLog] = list(result.scalars().all())
+
+            if not queued:
+                logger.info("process_morning_queue: brak rekordów w kolejce — koniec")
+                return
+
+            sent_count = 0
+            error_count = 0
+            for log_entry in queued:
+                try:
+                    ok = await sms_gateway.send(log_entry.recipient, log_entry.message_text or "")
+                    log_entry.status = "sent" if ok else "failed"
+                    if not ok:
+                        log_entry.error_message = "Błąd wysyłki SMS (poranna kolejka)"
+                        error_count += 1
+                    else:
+                        log_entry.error_message = None
+                        sent_count += 1
+                except Exception:
+                    log_entry.status = "failed"
+                    log_entry.error_message = "Wyjątek podczas wysyłki SMS (poranna kolejka)"
+                    error_count += 1
+                    logger.exception(
+                        "process_morning_queue: błąd dla log_id=%d recipient=%s",
+                        log_entry.id,
+                        log_entry.recipient,
+                    )
+
+            await db.commit()
+            logger.info(
+                "process_morning_queue: zakończono — wysłano=%d, błędy=%d, łącznie=%d",
+                sent_count,
+                error_count,
+                len(queued),
+            )
+    except Exception:
+        logger.exception("process_morning_queue: nieoczekiwany błąd sesji DB")

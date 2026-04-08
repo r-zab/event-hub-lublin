@@ -14,6 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from app.dependencies import get_current_user, get_db
 from app.models.event import Event, EventHistory
+from app.models.street import Street
 from app.models.user import User
 from app.schemas.event import EventCreate, EventResponse, EventUpdate
 from app.services.notification_service import notify_event
@@ -42,13 +43,15 @@ async def list_events(
     """Zwróć listę aktywnych zdarzeń (status != 'usunieta'). Endpoint publiczny."""
     result = await db.execute(
         select(Event)
-        .options(selectinload(Event.history))
+        .options(selectinload(Event.history), selectinload(Event.street))
         .where(Event.status != "usunieta")
         .order_by(Event.created_at.desc())
         .offset(skip)
         .limit(limit)
     )
     events = result.scalars().all()
+    for event in events:
+        event.street_geojson = event.street.geojson if event.street else None
     logger.debug("Lista zdarzeń: skip=%d limit=%d → %d wyników", skip, limit, len(events))
     return events
 
@@ -61,12 +64,13 @@ async def get_event(
     """Pobierz szczegóły konkretnego zdarzenia. Endpoint publiczny."""
     result = await db.execute(
         select(Event)
-        .options(selectinload(Event.history))
+        .options(selectinload(Event.history), selectinload(Event.street))
         .where(Event.id == event_id)
     )
     event = result.scalar_one_or_none()
     if event is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zdarzenie nie istnieje")
+    event.street_geojson = event.street.geojson if event.street else None
     return event
 
 

@@ -65,7 +65,17 @@ export function EventMap({ events }: Props) {
           );
         }
 
-        // Fallback: show marker at Lublin center (no exact coords)
+        // GeoJSON Point z geokodowania Nominatim: [longitude, latitude] → Leaflet: [latitude, longitude]
+        if (event.street_geojson?.type === 'Point') {
+          const [lon, lat] = event.street_geojson.coordinates;
+          return (
+            <Marker key={event.id} position={[lat, lon]} icon={makeIcon(color)}>
+              {popup}
+            </Marker>
+          );
+        }
+
+        // Ostatni fallback: centrum Lublina (brak współrzędnych)
         return (
           <Marker key={event.id} position={LUBLIN_CENTER} icon={makeIcon(color)}>
             {popup}

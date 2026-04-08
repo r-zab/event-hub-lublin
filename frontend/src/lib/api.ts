@@ -18,6 +18,12 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       ...(init?.headers ?? {}),
     },
   });
+  if (res.status === 401) {
+    localStorage.removeItem('mpwik_token');
+    localStorage.removeItem('mpwik_refresh_token');
+    window.location.href = '/admin/login';
+    return undefined as T;
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     throw new Error(body || `HTTP ${res.status}`);

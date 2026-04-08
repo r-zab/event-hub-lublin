@@ -168,6 +168,8 @@ const Register = () => {
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+48 600 000 000"
                 required
+                pattern="^(\+48)?\d{9}$"
+                title="Format: 123456789 lub +48123456789"
                 aria-label="Numer telefonu"
               />
             </div>

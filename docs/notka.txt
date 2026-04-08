@@ -1,0 +1,25 @@
+Jako Senior Fullstack Developer, zintegruj wygenerowane dane GeoJSON z komponentem mapy na frontendzie. Skrypt geokodujący wypełnił kolumnę `geojson` w tabeli `streets`. Teraz trzeba te dane przekazać do `EventMap.tsx`.
+
+Krok 1: Backend - Modele i Schematy
+- Upewnij się, że w pliku `backend/app/models/event.py` istnieje relacja do ulicy (np. `street = relationship("Street")`).
+- W pliku `backend/app/schemas/event.py` dodaj do schematu `EventResponse` nowe opcjonalne pole: `street_geojson: dict | None = None`.
+
+Krok 2: Backend - Router
+- W pliku `backend/app/routers/events.py` w endpoincie `GET /api/v1/events` (lista zdarzeń), zmodyfikuj zapytanie do bazy tak, aby ładowało relację ulicy (np. używając `.options(selectinload(Event.street))`).
+- Przed zwróceniem listy zdarzeń, przeiteruj po nich i przypisz współrzędne ulicy: `event.street_geojson = event.street.geojson if event.street else None`.
+
+Krok 3: Frontend - Typowanie
+- W pliku definiującym typy (prawdopodobnie `frontend/src/hooks/useEvents.ts` lub `frontend/src/data/mockData.ts`), zaktualizuj interfejs `Event` / `EventItem`, dodając do niego:
+  `street_geojson?: { type: string, coordinates: [number, number] };`
+
+Krok 4: Frontend - Komponent EventMap
+- Otwórz `frontend/src/components/EventMap.tsx`.
+- Usuń hardkodowany fallback marker, który lądował w centrum Lublina dla wszystkich zdarzeń.
+- Przeiteruj po liście zdarzeń (`events.map(...)`).
+- Dla każdego zdarzenia sprawdź, czy posiada `street_geojson` (i czy jest typu "Point").
+- Jeśli tak, wyciągnij współrzędne. **UWAGA KRYTYCZNA:** GeoJSON z Nominatim zapisuje współrzędne w formacie `[longitude, latitude]`, ale Leaflet (react-leaflet) wymaga tablicy `[latitude, longitude]`. Odwróć je!
+- Wyrenderuj komponent `<Marker position={[lat, lon]}>` dla każdego aktywnego zdarzenia.
+- Do wewnątrz Markera dodaj `<Popup>`, w którym wyświetlisz `event.street_name` oraz `event.event_type`.
+
+Krok 5: Dokumentacja
+- Zaktualizuj `historia.md` oraz `docs/PROGRESS.md` informacją, że integracja przestrzenna (GeoJSON -> Leaflet) została pomyślnie wdrożona.

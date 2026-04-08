@@ -45,13 +45,11 @@ Data audytu: 2026-04-03
 
 ## 2. BRAKUJACE FUNKCJE (wg TECH_SPEC i ustalen ze spotkania)
 
-### 2.1 Endpointy admin (priorytet 1 z PROGRESS.md)
-- **Pliki:** brak `backend/app/routers/admin.py`
-- **Brakuje:**
-  - `GET /api/v1/admin/subscribers` - lista subskrybentow (JWT admin)
-  - `GET /api/v1/admin/notifications` - log powiadomien (JWT admin)
-  - `GET /api/v1/admin/stats` - statystyki (JWT)
-- **Skutek:** Dashboard admina nie ma danych o subskrybentach i notyfikacjach. `main.py:62` ma zakomentowany import.
+### ~~2.1~~ ✅ NAPRAWIONO — Endpointy admin
+- `routers/admin.py`: GET /admin/stats, GET /admin/subscribers (skip/limit, total_count), GET /admin/notifications (skip/limit, total_count).
+- `dependencies.py`: `get_current_admin` — HTTP 403 dla non-admin.
+- `main.py`: router zarejestrowany pod prefiksem `/api/v1/admin`.
+- **Bugfix MissingGreenlet** (2026-04-08): `GET /admin/subscribers` używa `selectinload(Subscriber.addresses)` zamiast ręcznego mapowania — eliminuje lazy load w kontekście async (SQLAlchemy async nie wspiera niejawnych zapytań poza sesją).
 
 ### 2.2 Endpoint GET /api/v1/events/feed (IVR 994)
 - **Plik:** brak w `backend/app/routers/events.py`
@@ -63,29 +61,29 @@ Data audytu: 2026-04-03
 - **Problem:** TECH_SPEC i spotkanie mowia o multi-operator ready (source w events). Model `api_keys` jest w bazie, ale brak dependency do walidacji API key, brak routera external.
 - **Skutek:** Zewnetrzni operatorzy (LPEC, zarzad drog) nie moga wysylac zdarzen przez API.
 
-### 2.4 Brak weryfikacji roli (admin vs dispatcher)
-- **Pliki:** `backend/app/dependencies.py`, `backend/app/routers/events.py`
-- **Problem:** `get_current_user` sprawdza tylko czy user istnieje i jest aktywny. Nie sprawdza `role`. TECH_SPEC wymaga: DELETE event = admin only, admin endpoints = admin only.
-- **Naprawa:** Dodac dependency `get_current_admin` sprawdzajacy `user.role == 'admin'`.
+### ~~2.4~~ ✅ NAPRAWIONO — Weryfikacja roli (admin vs dispatcher)
+- `dependencies.py`: `get_current_admin(current_user = Depends(get_current_user))` — sprawdza `role == "admin"`, rzuca HTTP 403 gdy dispatcher.
+- Cały router `/api/v1/admin` wymaga tej dependency.
 
-### 2.5 Brak geocodingu ulic (Nominatim -> GeoJSON)
-- **Problem:** Config ma juz `NOMINATIM_URL` i `NOMINATIM_USER_AGENT`, ale brak skryptu/serwisu geocodingu. Mapa wyswietla fallback marker dla zdarzen bez `geojson_segment`.
-- **Skutek:** Wszystkie eventy na mapie laduja w centrum Lublina zamiast na wlasciwej ulicy.
+### ~~2.5~~ ✅ NAPRAWIONO — Geocoding ulic (Nominatim → GeoJSON)
+- `scripts/geocode_streets.py`: async, Nominatim `/search`, delay 1.2 s (Usage Policy), zapis `{"type":"Point","coordinates":[lon,lat]}` do `street.geojson`.
+- Flagi CLI: `--delay`, `--dry-run`, `--limit`. Idempotentny (pomija ulice z istniejącym geojson).
+- Uruchomienie: `python -m scripts.geocode_streets` z katalogu `backend/`.
 
-### 2.6 Brak mechanizmu wysylki zakolejkowanych SMS-ow (queued_morning)
-- **Plik:** `backend/app/services/notification_service.py`
-- **Problem:** SMS-y w nocnej ciszy dostaja status `queued_morning`, ale **nie ma zadnego schedulera/crona** ktory o 06:00 je wyslalby. Zostaja w bazie na zawsze jako "queued".
-- **Naprawa:** Dodac periodic task (np. APScheduler, cron, albo endpoint admin) ktory o 06:00 wysyla zakolejkowane SMS-y.
+### ~~2.6~~ ✅ NAPRAWIONO — Scheduler porannej kolejki SMS
+- `services/notification_service.py`: `process_morning_queue()` — SELECT `queued_morning`, send SMS, UPDATE `sent`/`failed`.
+- `main.py`: `AsyncIOScheduler` z jobem cron `hour=6, minute=0, timezone="Europe/Warsaw"`, start w lifespan, shutdown po yield.
+- `requirements.txt`: `apscheduler==3.10.4`.
 
-### 2.7 Brak walidacji formatu telefonu
-- **Pliki:** `backend/app/schemas/subscriber.py`, `frontend/src/pages/Register.tsx`
-- **Problem:** Pole `phone` jest zwyklym stringiem bez walidacji. Mozna wpisac "abc", "123" czy dowolny tekst. SMSEagle nie wyslal by SMS-a na taki numer.
-- **Naprawa:** Walidator Pydantic na formacie polskiego numeru (9 cyfr lub +48...). Frontend: pattern na input.
+### ~~2.7~~ ✅ NAPRAWIONO — Walidacja formatu telefonu
+- `schemas/subscriber.py`: `phone_format` validator — regex `^\+48\d{9}$|^\d{9}$`, strip spacji/myślników, ValueError z czytelnym komunikatem.
+- `frontend/Register.tsx`: `pattern="^(\+48)?\d{9}$"` + `title="Format: 123456789 lub +48123456789"` na inpucie telefonu.
 
-### 2.8 Brak rate limitingu (slowapi)
-- **Pliki:** `backend/app/main.py`, `requirements.txt`
-- **Problem:** RULES.md wymaga rate limiting (slowapi). Brak implementacji. Publiczne endpointy (rejestracja, lista zdarzen) sa niechronione przed brute-force/DDoS.
-- **Naprawa:** Dodac slowapi middleware z limitami na endpointy publiczne.
+### ~~2.8~~ ✅ NAPRAWIONO — Rate limiting (slowapi)
+- `app/limiter.py`: współdzielona instancja `Limiter(key_func=get_remote_address)`.
+- `main.py`: `app.state.limiter = limiter` + `add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)`.
+- `routers/auth.py`: `@limiter.limit("5/minute")` na login (brute-force).
+- `routers/subscribers.py`: `@limiter.limit("3/minute")` na rejestrację (anty-spam).
 
 ---
 
@@ -100,27 +98,28 @@ Data audytu: 2026-04-03
 - **Problem:** Kolumna "Powiadomienia" wyswietla `event.notified_count ?? '-'`. Backend NIE zwraca pola `notified_count` w `EventResponse`. Zawsze pokazuje "–".
 - **Naprawa:** Dodac pole `notified_count` do EventResponse (count z notification_log) lub osobny endpoint.
 
-### 3.3 Brak obslugi bledu JWT wygasniecia na frontendzie
+### ~~3.3~~ ✅ NAPRAWIONO — Brak obslugi bledu JWT wygasniecia na frontendzie
 - **Plik:** `frontend/src/lib/api.ts`
-- **Problem:** Gdy token wygasnie (po 30min), `apiFetch` rzuci blad 401 ale frontend nie rozpoznaje tego jako "sesja wygasla" - nie przekierowuje na login, nie czysci tokenu.
-- **Naprawa:** W `apiFetch` dodac obsluge 401 -> `localStorage.removeItem('mpwik_token')` + redirect na `/admin/login`.
+- `apiFetch` sprawdza `res.status === 401` → `localStorage.removeItem('mpwik_token')` + `removeItem('mpwik_refresh_token')` + `window.location.href = '/admin/login'`.
+- Działa dla dowolnego endpointu admin — wylogowuje automatycznie po wygaśnięciu tokenu (30 min).
 
 ### 3.4 Brak walidacji pustych pol adresu przy rejestracji
 - **Plik:** `frontend/src/pages/Register.tsx`
 - **Problem:** Mozna wyslac formularz z pustym `street_name` lub `house_number` - HTML `required` jest na inputach, ale `AddressRow` ustawia `required` na input ulicy, nie na calej grupie. Jesli uzytkownik doda drugi adres i go nie wypelni, formularz moze przejsc.
 - **Naprawa:** Walidacja JS przed submitem - kazdy adres musi miec street_name i house_number.
 
-### 3.5 Brak strony/widoku subskrybentow w panelu admina
-- **Plik:** `frontend/src/App.tsx`
-- **Problem:** Brak route `/admin/subscribers`. Dashboard nie ma zakladki do zarzadzania subskrybentami (wymaga endpointu 2.1).
+### ~~3.5~~ ✅ NAPRAWIONO — Brak strony/widoku subskrybentow w panelu admina
+- **Plik:** `frontend/src/pages/AdminSubscribers.tsx` (nowy)
+- Route `/admin/subscribers` dodany w `App.tsx`. Tabela z paginacją (20/strona): e-mail, telefon, kanały, zgody RODO/nocne SMS, adresy, data rejestracji.
+- Dane z `GET /api/v1/admin/subscribers?skip=&limit=`. Spinner podczas ładowania.
 
-### 3.6 Brak strony logu powiadomien w panelu admina
-- **Problem:** Analogicznie - brak route `/admin/notifications`.
+### ~~3.6~~ ✅ NAPRAWIONO — Brak strony logu powiadomien w panelu admina
+- **Plik:** `frontend/src/pages/AdminNotifications.tsx` (nowy)
+- Route `/admin/notifications` dodany w `App.tsx`. Tabela z paginacją: data, kanał, odbiorca, status (badge), zdarzenie, treść (truncate z tooltip).
+- Dane z `GET /api/v1/admin/notifications?skip=&limit=`. Spinner podczas ładowania.
 
-### 3.7 EventMap - fallback marker zawsze w centrum Lublina
-- **Plik:** `frontend/src/components/EventMap.tsx:70`
-- **Problem:** Gdy event nie ma `geojson_segment`, marker laduje na `LUBLIN_CENTER`. Jesli jest wiele takich eventow, wszystkie nakladaja sie na siebie w jednym punkcie.
-- **Naprawa:** Lekki offset per event lub geocoding (2.5).
+### ~~3.7~~ ✅ NAPRAWIONO — EventMap fallback marker w centrum Lublina
+- Rozwiązane przez geocoding (pkt 2.5): `scripts/geocode_streets.py` wypełnia `street.geojson` dla 1378 ulic. Po uruchomieniu skryptu zdarzenia z `street_id` będą miały poprawne współrzędne na mapie.
 
 ### 3.8 Brak potwierdzenia przed usunieciem danych (Unsubscribe)
 - Po naprawie 1.1 - dodac dialog potwierdzenia ("Czy na pewno chcesz usunac swoje dane?") przed wywolaniem DELETE.

@@ -1,6 +1,6 @@
 # Historia i stan projektu — Event Hub Lublin
 
-> Ostatnia aktualizacja: 2026-04-04 (Refresh token + naprawa strefy czasowej nocnej ciszy)
+> Ostatnia aktualizacja: 2026-04-08 (Integracja przestrzenna GeoJSON → Leaflet — street_geojson w EventResponse + poprawne markery na mapie)
 
 ---
 
@@ -50,7 +50,8 @@ event-hub-lublin/
 │   │   ├── main.py                    # FastAPI app, CORS (localhost:8080/5173), health check
 │   │   ├── config.py                  # Pydantic Settings z .env
 │   │   ├── database.py                # AsyncEngine, AsyncSession, get_db()
-│   │   ├── dependencies.py            # get_current_user (JWT), re-export get_db
+│   │   ├── dependencies.py            # get_current_user (JWT), get_current_admin (role check), re-export get_db
+│   │   ├── limiter.py                 # Shared slowapi Limiter (key_func=get_remote_address)
 │   │   │
 │   │   ├── models/
 │   │   │   ├── user.py                # User (dispatcher/admin, bcrypt hash)
@@ -61,10 +62,11 @@ event-hub-lublin/
 │   │   │   └── api_key.py             # ApiKey (multi-operator, future)
 │   │   │
 │   │   ├── routers/
-│   │   │   ├── auth.py                # POST /api/v1/auth/login (OAuth2 form)
+│   │   │   ├── auth.py                # POST /api/v1/auth/login (OAuth2 form), POST /auth/refresh
 │   │   │   ├── streets.py             # GET /api/v1/streets?q= (ILIKE autocomplete)
 │   │   │   ├── events.py              # GET/POST/PUT/DELETE /api/v1/events + notify trigger
-│   │   │   └── subscribers.py         # POST/GET/DELETE /api/v1/subscribers/{token}
+│   │   │   ├── subscribers.py         # POST/GET/DELETE /api/v1/subscribers/{token}
+│   │   │   └── admin.py               # GET /api/v1/admin/stats|subscribers|notifications (JWT admin)
 │   │   │
 │   │   ├── schemas/
 │   │   │   ├── auth.py                # Token, TokenData, LoginRequest
@@ -74,14 +76,15 @@ event-hub-lublin/
 │   │   │
 │   │   ├── services/
 │   │   │   ├── gateways.py            # SMSGateway ABC, MockSMSGateway, SMSEagleGateway, EmailSender
-│   │   │   └── notification_service.py # match_subscribers, notify_event, nocna cisza, kill-switch email
+│   │   │   └── notification_service.py # match_subscribers, notify_event, nocna cisza, kill-switch email, process_morning_queue
 │   │   │
 │   │   └── utils/
 │   │       └── security.py            # hash_password, verify_password, create_access_token
 │   │
 │   ├── scripts/
 │   │   ├── import_streets.py          # Import TERYT z XML (1378 ulic, idempotentny)
-│   │   └── setup_dev_users.py         # Inicjalizacja kont dev: admin + dyspozytor1 + dyspozytor2 (idempotentny)
+│   │   ├── setup_dev_users.py         # Inicjalizacja kont dev: admin + dyspozytor1 + dyspozytor2 (idempotentny)
+│   │   └── geocode_streets.py         # Geocoding ulic przez Nominatim → street.geojson (Point), delay 1.2s, --dry-run/--limit
 │   │
 │   └── data/
 │       └── ULIC_29-03-2026.xml        # Źródłowy plik TERYT z GUS
@@ -103,11 +106,13 @@ event-hub-lublin/
 │       │   ├── AdminLogin.tsx         # Logowanie JWT (x-www-form-urlencoded)
 │       │   ├── AdminDashboard.tsx     # Panel dyspozytora — tabela zdarzeń, filtry, historia
 │       │   ├── AdminEventForm.tsx     # Formularz zdarzenia — autocomplete TERYT, status
+│       │   ├── AdminSubscribers.tsx   # Lista subskrybentów (paginacja, email/tel/adresy/zgody)
+│       │   ├── AdminNotifications.tsx # Log powiadomień (paginacja, kanał/status/treść)
 │       │   ├── Unsubscribe.tsx        # Wyrejestrowanie RODO przez token
 │       │   └── NotFound.tsx           # 404
 │       │
 │       ├── components/
-│       │   ├── EventMap.tsx           # Leaflet mapa z kolorami statusów, GeoJSON/marker fallback
+│       │   ├── EventMap.tsx           # Leaflet mapa z kolorami statusów; Polyline > street_geojson Point > fallback centrum
 │       │   ├── EventCard.tsx          # Karta zdarzenia na stronie głównej
 │       │   ├── AddressRow.tsx         # Wiersz adresu w formularzu rejestracji
 │       │   ├── StatusBadge.tsx        # Kolorowa etykieta statusu
@@ -122,7 +127,7 @@ event-hub-lublin/
 │       │   └── useStreets.ts          # Autocomplete — apiFetch /streets?q=, min 3 znaki
 │       │
 │       ├── lib/
-│       │   ├── api.ts                 # apiFetch — VITE_API_URL, Bearer token, JSON
+│       │   ├── api.ts                 # apiFetch — VITE_API_URL, Bearer token, JSON; obsługa 401→logout+redirect
 │       │   └── utils.ts               # cn() helper (Tailwind)
 │       │
 │       └── data/
@@ -241,9 +246,11 @@ Na podstawie notatek ze spotkania z szefem IT MPWiK (2026-04-01) oraz dokumentac
 | 9 | Import TERYT (1378 ulic XML) | ✅ zrobione |
 | 10 | Frontend — integracja Full-Stack z Vite | ✅ zrobione |
 | 11 | SMSEagle gateway + preferencje kanałów + kill-switch emaili | ✅ zrobione |
-| 12 | Admin endpoints (stats, subskrybenci, log) | ⏳ następne |
-| 12 | Geocoding Nominatim → GeoJSON streets | ⏳ następne |
-| 13 | Endpoint GET /events/feed (IVR 994) | ⏳ następne |
+| 12 | Admin endpoints (stats, subskrybenci, log) | ✅ zrobione |
+| 12 | Geocoding Nominatim → GeoJSON streets | ✅ zrobione |
+| 13 | Wygasanie sesji JWT + strony AdminSubscribers + AdminNotifications | ✅ zrobione |
+| 14 | Integracja przestrzenna GeoJSON → Leaflet (street_geojson w API + markery na mapie) | ✅ zrobione |
+| 15 | Endpoint GET /events/feed (IVR 994) | ⏳ następne |
 | 14 | Testy jednostkowe/integracyjne backendu | ☐ backlog |
 | 15 | Nginx reverse proxy (prod) | ☐ backlog |
 
@@ -288,6 +295,10 @@ Na podstawie notatek ze spotkania z szefem IT MPWiK (2026-04-01) oraz dokumentac
 - **2026-04-04**: **Obsługa błędów w tle — error handling powiadomień (pkt 1.8 audytu)** — `notify_event()` owinięto zewnętrznym `try/except Exception` z `logger.exception()` (pełny traceback); pętla per-subskrybent izolowana w `_send_notifications_for_subscriber()` z własnym `try/except` — błąd dla jednej osoby nie blokuje pozostałych; log podsumowujący `sent_count`/`error_count`; `events.py`: `task.add_done_callback(_log_task_exception)` jako druga linia obrony.
 - **2026-04-04**: **Refresh token + naprawa strefy czasowej nocnej ciszy (pkt 1.5 + 1.6 audytu)** — `security.py`: `create_refresh_token()` generuje JWT z claim `type=refresh`, ważność 7 dni (`REFRESH_TOKEN_EXPIRE_DAYS`); `schemas/auth.py`: nowy model `RefreshRequest`, pole `refresh_token` opcjonalne w `Token`; `routers/auth.py`: endpoint `POST /api/v1/auth/refresh` — weryfikuje claim `type=refresh`, zwraca nowy access token; login zwraca teraz też `refresh_token`; `notification_service.py`: `_is_night_hours()` używa `ZoneInfo("Europe/Warsaw")` zamiast UTC — eliminuje błąd 1–2 godziny przy CET/CEST.
 - **2026-04-04**: **DELETE zdarzenia + pełny cykl edycji (pkt 1.4 + 1.7 audytu)** — Backend: `DELETE /api/v1/events/{id}` z weryfikacją `user.role == 'admin'` (HTTP 403 dla dispatchera), fizyczne usunięcie rekordu + cascade history, HTTP 204. Frontend: `api.ts` obsługuje 204 No Content; `useEvents.ts` eksportuje `getEvent`/`updateEvent`/`deleteEvent`; trasa `/admin/events/edit/:id` w `App.tsx`; `AdminDashboard` — ikona Edytuj z dynamicznym id + AlertDialog z potwierdzeniem usunięcia i `refetch()` bez przeładowania strony; `AdminEventForm` — `useParams`, ładowanie danych zdarzenia przy montowaniu, PUT przy edycji / POST przy tworzeniu, spinner ładowania, różne tytuły i toasty.
+- **2026-04-08**: **Admin endpoints + weryfikacja roli (pkt 2.1 + 2.4 audytu)** — `dependencies.py`: nowa funkcja `get_current_admin` sprawdzająca `user.role == "admin"`, rzuca HTTP 403 dla dyspozytora; eksportowana w `__all__`. Nowy plik `routers/admin.py`: router z dependency `get_current_admin` dla całego prefiksu `/api/v1/admin`; endpoint `GET /admin/stats` (total_subscribers, active_events, notifications_sent); `GET /admin/subscribers` (paginacja skip/limit, sort created_at DESC, eager-load adresów, total_count); `GET /admin/notifications` (paginacja skip/limit, sort sent_at DESC, total_count). Lokalne schematy Pydantic: StatsResponse, AdminSubscriberItem/List, AdminNotificationItem/List. `main.py`: import `admin` + `app.include_router` pod `/api/v1/admin`. Bugfix: `selectinload(Subscriber.addresses)` zamiast ręcznego mapowania (eliminuje MissingGreenlet).
+- **2026-04-08**: **Rate limiting + walidacja telefonu + scheduler SMS (pkt 2.6 + 2.7 + 2.8 audytu)** — nowy `app/limiter.py` (współdzielona instancja `Limiter(key_func=get_remote_address)`); `main.py`: `app.state.limiter`, `add_exception_handler(RateLimitExceeded)`, `AsyncIOScheduler` z jobem `process_morning_queue` cron 06:00 Europe/Warsaw (start/shutdown w lifespan); `routers/auth.py`: `@limiter.limit("5/minute")` na login (brute-force guard); `routers/subscribers.py`: `@limiter.limit("3/minute")` na rejestrację (anty-spam); `schemas/subscriber.py`: `phone_format` validator — regex `^\+48\d{9}$|^\d{9}$`, strip spacji i myślników, ValueError z komunikatem; `frontend/Register.tsx`: `pattern="^(\+48)?\d{9}$"` + `title` na inpucie telefonu (HTML5 walidacja przeglądarki); `services/notification_service.py`: `process_morning_queue()` — otwiera własną sesję DB, SELECT `queued_morning`, wysyła SMS przez bramkę, aktualizuje status `sent`/`failed`, loguje podsumowanie; `requirements.txt`: `apscheduler==3.10.4`.
+- **2026-04-08**: **Wygasanie sesji JWT + strony admin (pkt 3.3 + 3.5 + 3.6 audytu)** — `frontend/src/lib/api.ts`: blok `if (res.status === 401)` usuwa `mpwik_token` i `mpwik_refresh_token` z localStorage, a następnie przekierowuje na `/admin/login` — działa dla dowolnego endpointu admina. Nowa strona `AdminSubscribers.tsx`: tabela subskrybentów z react-query (`GET /admin/subscribers`), paginacja 20/strona, kolumny: e-mail, telefon, kanały (badge), zgody RODO/nocne, lista adresów, data rejestracji, spinner i obsługa błędu. Nowa strona `AdminNotifications.tsx`: log powiadomień (`GET /admin/notifications`), paginacja 20/strona, kolumny: data, kanał (badge), odbiorca, status (badge kolorowy), zdarzenie #id, treść (truncate + title tooltip), spinner. `App.tsx`: trasy `/admin/subscribers` i `/admin/notifications` pod `ProtectedAdminLayout`. `AdminLayout.tsx`: 2 nowe pozycje w sidebarze — "Subskrybenci" (ikona `Users`) i "Logi powiadomień" (ikona `MessageSquare`) z `lucide-react`.
+- **2026-04-08**: **Geocoding ulic — Nominatim → GeoJSON (pkt 2.5 audytu)** — nowy `scripts/geocode_streets.py`: async, otwiera sesję DB, SELECT ulic z `geojson IS NULL`, zapytanie GET `{NOMINATIM_URL}/search?q=ul. {name}, Lublin, Poland&format=json&limit=1`, nagłówek `User-Agent` z `settings.NOMINATIM_USER_AGENT`, zapis `{"type":"Point","coordinates":[lon,lat]}` do `street.geojson` + commit, `await asyncio.sleep(delay)` między zapytaniami (domyślnie 1.2 s — Nominatim Usage Policy); obsługa błędów HTTP i połączenia per-ulica; flagi CLI `--delay`, `--dry-run`, `--limit`; idempotentny (pomija ulice z istniejącym geojson). Rozwiązuje też pkt 3.7 (fallback marker w centrum mapy).
 
 ---
 

@@ -43,6 +43,45 @@
 - [x] Migracja Alembic: rev `b1c2d3e4f5a6` — kolumny `notify_by_email`, `notify_by_sms`
 - [x] Frontend Register.tsx: sekcja "Kanały powiadomień" (checkboxy e-mail / SMS)
 
+### ✅ Zrobione — Sesja 11 (2026-04-08) — Integracja przestrzenna GeoJSON → Leaflet
+- [x] `backend/app/schemas/event.py`: pole `street_geojson: dict | None = None` w `EventResponse`
+- [x] `backend/app/routers/events.py`: `list_events` i `get_event` ładują `selectinload(Event.street)` i ustawiają `event.street_geojson = event.street.geojson`
+- [x] `frontend/src/data/mockData.ts`: `street_geojson?: { type: string; coordinates: [number, number] } | null` w interfejsie `EventItem`
+- [x] `frontend/src/components/EventMap.tsx`: priorytet renderowania: Polyline (geojson_segment) > Marker w rzeczywistych koordynatach (street_geojson Point, odwrócone [lon, lat] → [lat, lon] dla Leaflet) > fallback centrum Lublina
+
+### ✅ Zrobione — Sesja 10 (2026-04-08) — Wygasanie sesji + strony admin (subskrybenci, logi)
+- [x] `frontend/src/lib/api.ts`: obsługa HTTP 401 → `localStorage.removeItem('mpwik_token' + 'mpwik_refresh_token')` + `window.location.href = '/admin/login'` (pkt 3.3 audytu)
+- [x] `frontend/src/pages/AdminSubscribers.tsx` (nowy): tabela subskrybentów — e-mail, telefon, kanały, zgody RODO/nocne, adresy, data rejestracji; paginacja 20/strona; dane z `GET /api/v1/admin/subscribers` (pkt 3.5 audytu)
+- [x] `frontend/src/pages/AdminNotifications.tsx` (nowy): log powiadomień — data, kanał (badge), odbiorca, status (badge z kolorami), zdarzenie #id, treść (truncate); paginacja 20/strona; dane z `GET /api/v1/admin/notifications` (pkt 3.6 audytu)
+- [x] `frontend/src/App.tsx`: trasy `/admin/subscribers` i `/admin/notifications` pod `ProtectedAdminLayout`
+- [x] `frontend/src/components/AdminLayout.tsx`: nowe pozycje w sidebarze: "Subskrybenci" (ikona `Users`) i "Logi powiadomień" (ikona `MessageSquare`)
+
+### ✅ Zrobione — Sesja 9 (2026-04-08) — Geocoding ulic (Nominatim → GeoJSON)
+- [x] `scripts/geocode_streets.py`: async skrypt geokodowania ulic z `geojson IS NULL`
+  - Nominatim `/search` z User-Agent z `settings.NOMINATIM_USER_AGENT`
+  - Zapis `{"type": "Point", "coordinates": [lon, lat]}` do `street.geojson`
+  - Przerwa 1.2 s między zapytaniami (Nominatim Usage Policy)
+  - Flagi CLI: `--delay`, `--dry-run`, `--limit`
+  - Idempotentny: pomija ulice, które już mają geojson
+
+### ✅ Zrobione — Sesja 8 (2026-04-08) — Rate limiting, walidacja telefonu, scheduler SMS
+- [x] `requirements.txt`: dodano `apscheduler==3.10.4`
+- [x] `app/limiter.py`: współdzielona instancja `Limiter(key_func=get_remote_address)` z slowapi
+- [x] `main.py`: `app.state.limiter`, `add_exception_handler(RateLimitExceeded)`, `AsyncIOScheduler` z jobem `process_morning_queue` cron 06:00 Europe/Warsaw
+- [x] `routers/auth.py`: `@limiter.limit("5/minute")` na `POST /auth/login` (brute-force)
+- [x] `routers/subscribers.py`: `@limiter.limit("3/minute")` na `POST /subscribers` (anty-spam)
+- [x] `schemas/subscriber.py`: `phone_format` validator — regex `^\+48\d{9}$|^\d{9}$`, strip spacji i myślników
+- [x] `frontend/Register.tsx`: `pattern="^(\+48)?\d{9}$"` + `title` na inpucie telefonu (HTML5)
+- [x] `services/notification_service.py`: `process_morning_queue()` — async, własna sesja DB, SELECT queued_morning, send SMS, UPDATE status sent/failed
+
+### ✅ Zrobione — Sesja 7 (2026-04-08) — Admin endpoints + weryfikacja roli
+- [x] `dependencies.py`: funkcja `get_current_admin` — sprawdza `user.role == "admin"`, rzuca HTTP 403 dla dyspozytora
+- [x] `routers/admin.py`: nowy router z dependency `get_current_admin` dla całego routera
+  - `GET /api/v1/admin/stats` — total_subscribers, active_events, notifications_sent
+  - `GET /api/v1/admin/subscribers` — paginowana lista (skip/limit), sortowanie od najnowszych, total_count
+  - `GET /api/v1/admin/notifications` — paginowany log (skip/limit), sortowanie malejąco po sent_at, total_count
+- [x] `main.py`: import i rejestracja routera admin (`/api/v1/admin`)
+
 ### ✅ Zrobione — Sesja 6 (2026-04-04) — Refresh token + strefa czasowa nocnej ciszy
 - [x] `security.py`: `create_refresh_token()` — JWT z claim `type=refresh`, ważność 7 dni (`REFRESH_TOKEN_EXPIRE_DAYS`)
 - [x] `schemas/auth.py`: `RefreshRequest` (pole `refresh_token`); `Token.refresh_token` opcjonalne
@@ -61,8 +100,8 @@
 
 | # | Zadanie | Priorytet | Opis |
 |---|---------|-----------|------|
-| 1 | **Admin endpoints** — GET /admin/subscribers, GET /admin/notifications, GET /admin/stats | WYSOKI | Panel admina potrzebuje danych o subskrybentach i logu powiadomień; bez tego dashboard jest niekompletny |
-| 2 | **Geocoding ulic** — Nominatim → GeoJSON w tabeli streets | ŚREDNI | Mapa Leaflet wyświetla fallback marker dla zdarzeń bez geojson_segment; geocoding wypełni tę lukę dla 1378 ulic |
+| ~~1~~ | ~~**Admin endpoints** — GET /admin/subscribers, GET /admin/notifications, GET /admin/stats~~ | ~~WYSOKI~~ | ✅ Zrobione (sesja 7, 2026-04-08) |
+| ~~2~~ | ~~**Geocoding ulic** — Nominatim → GeoJSON w tabeli streets~~ | ~~ŚREDNI~~ | ✅ Zrobione (sesja 9, 2026-04-08) — `scripts/geocode_streets.py` |
 | 3 | **Endpoint GET /api/v1/events/feed** — plain text dla IVR 994 | ŚREDNI | Wymaganie biznesowe MPWiK: dyspozytor dzwoni na 994, system odczytuje aktywne awarie głosowo |
 
 ### Backlog (po powyższych)
@@ -97,3 +136,8 @@
 - 2026-04-04: Skrypt setup_dev_users.py — zastąpił reset_admin.py; tworzy/aktualizuje 3 konta: admin (admin, admin123), dyspozytor1 i dyspozytor2 (dispatcher, lublin123); idempotentny; stary reset_admin.py usunięty
 - 2026-04-04: Konfiguracja logowania + wyciszenie SQLAlchemy (pkt 4.1+4.13 audytu) — logging.basicConfig z formatem timestamp/level/modul w main.py; poziom DEBUG/INFO zależny od settings.DEBUG; sqlalchemy.engine i sqlalchemy.pool na WARNING; print() zastąpione logger.info() w lifespan
 - 2026-04-04: Refresh token + naprawa strefy czasowej (pkt 1.5+1.6 audytu) — create_refresh_token() w security.py (JWT 7 dni, claim type=refresh); POST /auth/refresh w routers/auth.py (weryfikacja, zwrot nowego access tokena); login zwraca refresh_token; _is_night_hours() używa ZoneInfo("Europe/Warsaw") zamiast UTC
+- 2026-04-08: Admin endpoints + weryfikacja roli (pkt 2.1+2.4 audytu) — get_current_admin() w dependencies.py (HTTP 403 dla non-admin); nowy routers/admin.py z GET /admin/stats, GET /admin/subscribers (paginacja+total_count), GET /admin/notifications (paginacja+total_count); router zarejestrowany w main.py
+- 2026-04-08: Rate limiting + walidacja telefonu + scheduler SMS (pkt 2.6+2.7+2.8 audytu) — apscheduler 3.10.4; app/limiter.py (shared Limiter); login 5/min, rejestracja 3/min; phone_format validator Pydantic + HTML5 pattern; process_morning_queue() cron 06:00 Warsaw
+- 2026-04-08: Geocoding ulic (pkt 2.5 audytu) — scripts/geocode_streets.py: async Nominatim /search, delay 1.2s, zapis GeoJSON Point, flagi --dry-run/--limit/--delay, idempotentny
+- 2026-04-08: Wygasanie sesji + strony admin (pkt 3.3+3.5+3.6 audytu) — api.ts: obsługa 401 → clear localStorage + redirect /admin/login; nowe strony AdminSubscribers.tsx (tabela subskrybentów, paginacja) i AdminNotifications.tsx (log powiadomień, paginacja); trasy w App.tsx; linki Users/MessageSquare w AdminLayout.tsx sidebarze
+- 2026-04-08: Integracja przestrzenna GeoJSON → Leaflet — EventResponse.street_geojson (backend selectinload Street + atrybut Python); EventMap.tsx: Polyline > Marker w koordynatach ulicy (odwrócenie lon/lat → lat/lon) > fallback centrum; typ street_geojson w mockData.ts

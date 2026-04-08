@@ -6,12 +6,13 @@ import logging
 import re
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.dependencies import get_db
+from app.limiter import limiter
 from app.models.street import Street
 from app.models.subscriber import Subscriber, SubscriberAddress
 from app.schemas.subscriber import SubscriberCreate, SubscriberResponse
@@ -92,7 +93,9 @@ async def _resolve_street_id(db: AsyncSession, street_name: str) -> int | None:
     status_code=status.HTTP_201_CREATED,
     summary="Zarejestruj subskrybenta",
 )
+@limiter.limit("3/minute")
 async def register_subscriber(
+    request: Request,
     data: SubscriberCreate,
     db: AsyncSession = Depends(get_db),
 ) -> SubscriberResponse:

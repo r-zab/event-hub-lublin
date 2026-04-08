@@ -65,5 +65,6 @@ class EventResponse(EventBase):
     created_at: datetime
     updated_at: datetime
     history: list[EventHistoryResponse] = []
+    street_geojson: dict | None = None
 
     model_config = {"from_attributes": True}

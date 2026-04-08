@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from sqlalchemy import select
@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.dependencies import get_db
+from app.limiter import limiter
 from app.models.user import User
 from app.schemas.auth import RefreshRequest, Token
 from app.utils.security import create_access_token, create_refresh_token, verify_password
@@ -20,7 +21,9 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=Token, summary="Logowanie dyspozytora")
+@limiter.limit("5/minute")
 async def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
 ) -> Token:

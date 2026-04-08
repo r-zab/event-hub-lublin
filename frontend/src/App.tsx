@@ -15,6 +15,8 @@ import About from "./pages/About";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminEventForm from "./pages/AdminEventForm";
+import AdminSubscribers from "./pages/AdminSubscribers";
+import AdminNotifications from "./pages/AdminNotifications";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +45,8 @@ const App = () => (
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/events/new" element={<AdminEventForm />} />
               <Route path="/admin/events/edit/:id" element={<AdminEventForm />} />
+              <Route path="/admin/subscribers" element={<AdminSubscribers />} />
+              <Route path="/admin/notifications" element={<AdminNotifications />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />

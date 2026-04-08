@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # tokenUrl must match the mounted prefix + path in main.py
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
-__all__ = ["get_db", "get_current_user", "oauth2_scheme"]
+__all__ = ["get_db", "get_current_user", "get_current_admin", "oauth2_scheme"]
 
 
 async def get_current_user(
@@ -58,3 +58,16 @@ async def get_current_user(
         )
 
     return user
+
+
+async def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Zezwala tylko użytkownikom z rolą 'admin'.
+
+    Raises HTTP 403 gdy zalogowany użytkownik ma rolę 'dispatcher' lub inną.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Brak uprawnień administratora",
+        )
+    return current_user

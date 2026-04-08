@@ -28,6 +28,9 @@ aiosmtplib==3.0.1
 # Rate limiting
 slowapi==0.1.9
 
+# Background scheduler (morning SMS queue)
+apscheduler==3.10.4
+
 # Logging
 python-json-logger==2.0.7
 

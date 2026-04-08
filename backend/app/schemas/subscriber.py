@@ -1,8 +1,11 @@
 """Schematy Pydantic dla subskrybentów powiadomień."""
 
+import re
 from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, field_validator
+
+_PHONE_RE = re.compile(r"^\+48\d{9}$|^\d{9}$")
 
 
 class AddressCreate(BaseModel):
@@ -37,6 +40,18 @@ class SubscriberCreate(BaseModel):
     notify_by_email: bool = True
     notify_by_sms: bool = True
     addresses: list[AddressCreate]
+
+    @field_validator("phone")
+    @classmethod
+    def phone_format(cls, v: str) -> str:
+        """Akceptuje 9 cyfr (123456789) lub +48 i 9 cyfr (+48123456789)."""
+        cleaned = v.strip().replace(" ", "").replace("-", "")
+        if not _PHONE_RE.match(cleaned):
+            raise ValueError(
+                "Nieprawidłowy format numeru telefonu. "
+                "Podaj 9 cyfr (np. 600000000) lub numer z prefiksem +48 (np. +48600000000)."
+            )
+        return cleaned
 
     @field_validator("rodo_consent")
     @classmethod

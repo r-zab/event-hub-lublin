@@ -1,10 +1,12 @@
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, LogOut, Droplets, Home } from 'lucide-react';
+import { LayoutDashboard, LogOut, Droplets, Home, Users, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 
 const sidebarItems = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/admin/subscribers', label: 'Subskrybenci', icon: Users },
+  { to: '/admin/notifications', label: 'Logi powiadomień', icon: MessageSquare },
 ];
 
 export function AdminLayout() {
