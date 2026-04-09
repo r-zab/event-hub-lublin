@@ -1,7 +1,7 @@
-import { MapContainer, TileLayer, Polyline, Popup, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, Polyline, Popup, Marker, GeoJSON } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { EventItem, STATUS_LABELS, TYPE_LABELS } from '@/data/mockData';
+import { EventItem, GeoJsonFeatureCollection, STATUS_LABELS, TYPE_LABELS } from '@/data/mockData';
 import { StatusBadge } from './StatusBadge';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -53,7 +53,27 @@ export function EventMap({ events }: Props) {
           </Popup>
         );
 
-        if (event.geojson_segment && event.geojson_segment.length >= 2) {
+        // Nowy format: FeatureCollection z obrysami budynków
+        if (
+          event.geojson_segment &&
+          !Array.isArray(event.geojson_segment) &&
+          (event.geojson_segment as GeoJsonFeatureCollection).type === 'FeatureCollection'
+        ) {
+          const fc = event.geojson_segment as GeoJsonFeatureCollection;
+          return (
+            <GeoJSON
+              key={event.id}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              data={fc as any}
+              style={{ color, fillColor: color, weight: 2, fillOpacity: 0.5 }}
+            >
+              {popup}
+            </GeoJSON>
+          );
+        }
+
+        // Stary format: tablica współrzędnych dla Polyline
+        if (Array.isArray(event.geojson_segment) && event.geojson_segment.length >= 2) {
           return (
             <Polyline
               key={event.id}

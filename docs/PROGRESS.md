@@ -7,10 +7,10 @@
 - [x] docker-compose.yml z PostgreSQL 16
 - [x] FastAPI starter (main.py, config.py, database.py)
 - [x] Dokumentacja (CLAUDE.md, PROJECT_CONTEXT.md, TECH_SPEC.md)
-- [x] Modele SQLAlchemy 2.0 (user, street, event, event_history, subscriber, subscriber_addresses, notification_log, api_key)
+- [x] Modele SQLAlchemy 2.0 (user, street, event, event_history, subscriber, subscriber_addresses, notification_log, api_key, **building**)
 - [x] Alembic — konfiguracja async + pierwsza migracja `initial tables` (rev 937cb6bd3ab4) + upgrade head
 - [x] Auth — security.py (bcrypt cost=12, JWT HS256), dependencies.py, router auth.py (OAuth2 form), schema auth.py
-- [x] Streets — router streets.py, schema street.py (autocomplete ILIKE, GET /api/v1/streets?q=)
+- [x] Streets — router streets.py, schema street.py (autocomplete ILIKE, GET /api/v1/streets?q=, GET /api/v1/streets/{street_id}/buildings)
 - [x] Events — router events.py, schema event.py (GET lista paginowana, GET szczegóły, POST tworzenie JWT, PUT aktualizacja JWT + EventHistory)
 - [x] Subscribers — router subscribers.py, schema subscriber.py (POST rejestracja wieloadresowa, GET podgląd tokenem, DELETE fizyczny RODO)
 - [x] Seed data — scripts/seed.py (usunięty — dane testowe wyczyszczone z bazy; baza zawiera wyłącznie 1378 ulic z TERYT)
@@ -112,6 +112,15 @@
 - [ ] Wdrożenie na Oracle Linux (docelowy OS MPWiK)
 - [ ] WCAG — audyt dostępności frontendu
 .
+### ✅ Zrobione — Sesja 12 (2026-04-09) — Obrysy budynków na mapie (zaznaczanie przez dyspozytora)
+- [x] `backend/app/models/building.py` (nowy): model SQLAlchemy dla tabeli `buildings` (id, street_id, street_name, house_number, geojson_polygon JSONB)
+- [x] `backend/app/schemas/building.py` (nowy): `BuildingResponse` (id, house_number, geojson_polygon)
+- [x] `backend/app/models/__init__.py`: rejestracja modelu `Building`
+- [x] `backend/app/routers/streets.py`: nowy endpoint `GET /api/v1/streets/{street_id}/buildings` — lista obrysów dla ulicy
+- [x] `frontend/src/data/mockData.ts`: nowy interface `GeoJsonFeatureCollection`; typ `geojson_segment` rozszerzony o `| GeoJsonFeatureCollection`
+- [x] `frontend/src/pages/AdminEventForm.tsx`: mapa Leaflet z obrysami budynków, toggle zaznaczenia kliknięciem (niebieski→czerwony), `FitBounds` dopasowuje widok, zaznaczone budynki → `FeatureCollection` w `geojson_segment`
+- [x] `frontend/src/components/EventMap.tsx`: obsługa FeatureCollection w `geojson_segment` → renderowanie `<GeoJSON>` na mapie publicznej
+
 ### Changelog
 - 2026-03-29: Struktura projektu, pliki startowe
 - 2026-03-29: Modele SQLAlchemy
@@ -141,3 +150,4 @@
 - 2026-04-08: Geocoding ulic (pkt 2.5 audytu) — scripts/geocode_streets.py: async Nominatim /search, delay 1.2s, zapis GeoJSON Point, flagi --dry-run/--limit/--delay, idempotentny
 - 2026-04-08: Wygasanie sesji + strony admin (pkt 3.3+3.5+3.6 audytu) — api.ts: obsługa 401 → clear localStorage + redirect /admin/login; nowe strony AdminSubscribers.tsx (tabela subskrybentów, paginacja) i AdminNotifications.tsx (log powiadomień, paginacja); trasy w App.tsx; linki Users/MessageSquare w AdminLayout.tsx sidebarze
 - 2026-04-08: Integracja przestrzenna GeoJSON → Leaflet — EventResponse.street_geojson (backend selectinload Street + atrybut Python); EventMap.tsx: Polyline > Marker w koordynatach ulicy (odwrócenie lon/lat → lat/lon) > fallback centrum; typ street_geojson w mockData.ts
+- 2026-04-09: Obrysy budynków na mapie — Building model+schema, GET /streets/{id}/buildings, AdminEventForm z mapą + zaznaczaniem poligonów (FeatureCollection → geojson_segment), EventMap obsługuje FeatureCollection

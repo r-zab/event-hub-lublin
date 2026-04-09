@@ -1,5 +1,5 @@
 """
-Router: Streets — autocomplete ulic TERYT.
+Router: Streets — autocomplete ulic TERYT + obrysy budynków.
 """
 
 import logging
@@ -10,7 +10,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
+from app.models.building import Building
 from app.models.street import Street
+from app.schemas.building import BuildingResponse
 from app.schemas.street import StreetResponse
 
 logger = logging.getLogger(__name__)
@@ -31,3 +33,23 @@ async def search_streets(
     streets = result.scalars().all()
     logger.debug("Autocomplete '%s' → %d wynikow", q, len(streets))
     return streets
+
+
+@router.get(
+    "/{street_id}/buildings",
+    response_model=list[BuildingResponse],
+    summary="Obrysy budynków dla ulicy",
+)
+async def get_buildings_for_street(
+    street_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> list[BuildingResponse]:
+    """Zwróć listę budynków z obrysami GeoJSON dla danej ulicy. Endpoint publiczny."""
+    result = await db.execute(
+        select(Building)
+        .where(Building.street_id == street_id)
+        .order_by(Building.house_number)
+    )
+    buildings = result.scalars().all()
+    logger.debug("Budynki dla street_id=%d → %d wynikow", street_id, len(buildings))
+    return buildings

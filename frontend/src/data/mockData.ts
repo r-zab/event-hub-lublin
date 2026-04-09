@@ -1,6 +1,15 @@
 export type EventStatus = 'zgloszona' | 'w_naprawie' | 'usunieta' | 'planowane_wylaczenie' | 'remont';
 export type EventType = 'awaria' | 'planowane_wylaczenie' | 'remont';
 
+export interface GeoJsonFeatureCollection {
+  type: 'FeatureCollection';
+  features: Array<{
+    type: 'Feature';
+    geometry: object;
+    properties: Record<string, unknown>;
+  }>;
+}
+
 export interface StatusChange {
   id?: number;
   old_status: EventStatus;
@@ -21,7 +30,7 @@ export interface EventItem {
   status: EventStatus;
   description: string;
   estimated_end: string | null;
-  geojson_segment: [number, number][] | null;
+  geojson_segment: [number, number][] | GeoJsonFeatureCollection | null;
   street_geojson?: { type: string; coordinates: [number, number] } | null;
   created_by: number | string;
   created_at?: string;
