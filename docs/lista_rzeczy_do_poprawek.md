@@ -89,9 +89,9 @@ Data audytu: 2026-04-03
 
 ## 3. UX / FRONTEND
 
-### 3.1 Unsubscribe - kompletnie zly flow (patrz 1.1)
+### ~~3.1~~ ✅ NAPRAWIONO — Unsubscribe zły flow (patrz 1.1)
 - **Plik:** `frontend/src/pages/Unsubscribe.tsx`
-- Frontend pyta o e-mail - backend wymaga tokenu. Flow jest niespojny. Link do wyrejestrowania powinien byc `/unsubscribe?token=xxx` lub `/unsubscribe/:token`.
+- Zweryfikowano w kodzie — formularz przyjmuje `unsubscribe_token`, auto-load z `?token=` w URL, `GET /subscribers/{token}` → podgląd danych, `DELETE /subscribers/{token}` → fizyczne usunięcie + redirect do `/`. Flow zgodny z RODO.
 
 ### 3.2 Brak informacji o wyslanych powiadomieniach w dashboard
 - **Plik:** `frontend/src/pages/AdminDashboard.tsx:188-189`
@@ -121,16 +121,15 @@ Data audytu: 2026-04-03
 ### ~~3.7~~ ✅ NAPRAWIONO — EventMap fallback marker w centrum Lublina
 - Rozwiązane przez geocoding (pkt 2.5): `scripts/geocode_streets.py` wypełnia `street.geojson` dla 1378 ulic. Po uruchomieniu skryptu zdarzenia z `street_id` będą miały poprawne współrzędne na mapie.
 
-### 3.8 Brak potwierdzenia przed usunieciem danych (Unsubscribe)
-- Po naprawie 1.1 - dodac dialog potwierdzenia ("Czy na pewno chcesz usunac swoje dane?") przed wywolaniem DELETE.
+### ~~3.8~~ ✅ NAPRAWIONO — Brak potwierdzenia przed usunięciem danych (Unsubscribe)
+- Zweryfikowano w kodzie — `Unsubscribe.tsx` implementuje 2-etapowy flow: etap 1 weryfikacja tokenu → etap 2 podgląd danych z pytaniem "Czy na pewno chcesz trwale usunąć powyższe dane?" + przyciski "Anuluj" / "Potwierdzam — usuń moje dane". Potwierdzenie istnieje.
 
 ### 3.9 Strona About - brak integracji z backendem
 - **Plik:** `frontend/src/pages/About.tsx`
 - Brak informacji dynamicznych (np. ilosc zdarzen, ilosc subskrybentow). To raczej nice-to-have.
 
-### 3.10 Brak toast/powiadomienia przy bledzie logowania admin
-- **Plik:** `frontend/src/pages/AdminLogin.tsx`
-- Nalezy sprawdzic czy po blednym logowaniu uzytkownik dostaje czytelny komunikat.
+### ~~3.10~~ ✅ NAPRAWIONO — Brak toast/powiadomienia przy błędzie logowania admin
+- Zweryfikowano w kodzie — `AdminLogin.tsx` linia 31: `toast({ title: 'Błąd', description: 'Nieprawidłowe dane logowania.', variant: 'destructive' })` wywoływany gdy `login()` zwraca false. Czytelny komunikat błędu istnieje.
 
 ---
 
@@ -206,17 +205,17 @@ Data audytu: 2026-04-03
 | GET /events/{id} | DONE | |
 | POST /events (JWT) | DONE | |
 | PUT /events/{id} (JWT) | DONE | |
-| DELETE /events/{id} (JWT admin) | BRAK | Nie zaimplementowany (pkt 1.4) |
+| DELETE /events/{id} (JWT admin) | DONE | Zaimplementowany (pkt 1.4) |
 | GET /events/feed (IVR 994) | BRAK | Szef IT: "odpusccie na razie", ale warto miec (pkt 2.2) |
 | GET /streets?q= autocomplete | DONE | Brak trigram index (pkt 4.5) |
 | POST /subscribers | DONE | Brak unique email (pkt 1.2) |
 | DELETE /subscribers/{token} | DONE backend | Frontend ZEPSUTY (pkt 1.1) |
 | GET /subscribers/{token} | DONE | Frontend nie korzysta |
-| GET /admin/subscribers | BRAK | (pkt 2.1) |
-| GET /admin/notifications | BRAK | (pkt 2.1) |
-| GET /admin/stats | BRAK | (pkt 2.1) |
+| GET /admin/subscribers | DONE | Zaimplementowany (pkt 2.1) |
+| GET /admin/notifications | DONE | Zaimplementowany (pkt 2.1) |
+| GET /admin/stats | DONE | Zaimplementowany (pkt 2.1) |
 | Adresy TERYT autocomplete | DONE | 1378 ulic zaimportowanych |
-| Mapa - linie na ulicach | CZESCIOWO | Brak geocodingu, fallback na marker (pkt 2.5) |
+| Mapa - linie na ulicach | CZESCIOWO | Geocoding zrobiony (pkt 2.5), obrysy budynków zasilone (pkt 7.6), pełne GeoJSON linie po uruchomieniu geocode_streets.py |
 | Wiele adresow na subskrybenta | DONE | |
 | RODO fizyczne usuwanie | DONE backend | Frontend zepsuty (pkt 1.1) |
 | Nocna cisza 22-06 | DONE | Europe/Warsaw (pkt 1.6 naprawiony) |
@@ -292,11 +291,10 @@ Data audytu: 2026-04-03
 - **Problem:** `geojson_segment: dict | None = None` akceptuje dowolny słownik bez walidacji struktury. Można wysłać `{"foo": "bar"}` i zostanie zapisany do bazy. Gdy silnik powiadomień (Opcja B z [7.1]) będzie czytać `features[].properties.house_number`, brak tej właściwości nie zostanie wykryty przy zapisie.
 - **Naprawa:** Dodać Pydantic validator lub osobny model `GeoJsonFeatureCollection` sprawdzający `type == "FeatureCollection"` oraz `features` jako listę z `geometry` i `properties.house_number`. Alternatywnie: lekka walidacja `@field_validator` z `mode="before"`.
 
-### [7.6] Brak tabeli/danych buildings w bazie — mapa obrysów nie działa bez importu danych
+### ~~[7.6]~~ ✅ ZASILONO — Dane buildings istnieją w bazie
 
 - **Plik:** `backend/app/models/building.py`, `backend/app/routers/streets.py`
-- **Problem:** Model `Building` i endpoint `GET /streets/{id}/buildings` istnieją, ale tabela `buildings` w bazie jest **pusta** (brak skryptu importu danych OSM/BDOT). Endpoint zwraca pustą listę dla każdej ulicy. Zakładka „Zaznacz na mapie" wyświetla "Brak obrysów — użyj zakładki Zakres numerów". Zakładki „Zakres numerów" i „Lista numerów" działają jednak poprawnie nawet bez danych (zapisują houseFrom/houseTo).
-- **Naprawa:** Stworzyć `scripts/import_buildings.py` importujący obrysy z OpenStreetMap (Overpass API) lub BDOT10k dla Lublina. Alternatywnie: seed z przykładowymi budynkami dla 2-3 ulic testowych (np. Lipowa) do celów deweloperskich.
+- Potwierdzone przez użytkownika (2026-04-09): tabela `buildings` zawiera dane widoczne w DBeaverze. Endpoint `GET /streets/{id}/buildings` działa i zwraca obrysy budynków. Zakładka „Zaznacz na mapie" w AdminEventForm działa. Punkt zamknięty.
 
 ### ~~[7.7]~~ ✅ NAPRAWIONO — Selekcja budynków nadpisywana przez zakładkę Zakres/Lista
 
@@ -342,10 +340,70 @@ Data audytu: 2026-04-03
 - ✅ [7.3] Wymagalność pól houseFrom/houseTo — NAPRAWIONO
 - 🔲 [7.4] Naprawa update_event brakujący selectinload — 2 linie kodu
 - 🔲 [7.5] Walidacja schematu FeatureCollection — nice-to-have
-- 🔲 [7.6] Import danych buildings (OSM/BDOT) — blokujący pełne demo mapy
+- ✅ [7.6] Dane buildings zasilone — potwierdzone w bazie (DBeaver) — ZASILONO
 - ✅ [7.7] Selekcja addytywna (zakres/lista) — NAPRAWIONO
 - ✅ [7.8] formatBuildingNumbers (inteligentny format koszyka) — NAPRAWIONO
 - ✅ [7.9] Queue Submit Blocker (type=button) — NAPRAWIONO
 - ✅ [7.10] Precyzyjna lista numerów (bez fałszywych zakresów) — NAPRAWIONO
 - ✅ [7.11] Tooltipy z pełnym adresem (AdminEventForm + EventMap) — NAPRAWIONO
 - ✅ [7.12] Precyzyjna lista numerów w kartach awarii i tabeli dashboard — NAPRAWIONO
+
+---
+
+## 8. PLAN KOLEJNYCH KROKÓW (stan po 2026-04-09)
+
+> Sugerowana kolejność realizacji — od najłatwiejszego z największym efektem do złożonych.
+
+### Priorytet 1 — Quick wins (każdy to 1–5 linii kodu, można zrobić jednym commitem):
+
+1. **[7.4] Naprawa `update_event` — brakujący `selectinload(Event.street)`**
+   - Plik: `backend/app/routers/events.py` linia 166
+   - Zmiana: `.options(selectinload(Event.history))` → `.options(selectinload(Event.history), selectinload(Event.street))`
+   - Dodać po `event = result.scalar_one()`: `event.street_geojson = event.street.geojson if event.street else None`
+   - Efekt: Mapa po edycji zdarzenia renderuje marker/linię poprawnie.
+
+2. **[4.12] Powiadamiaj tylko przy tworzeniu i zmianie statusu (nie każdy PUT)**
+   - Plik: `backend/app/routers/events.py` linia 170
+   - Zmiana: `notify_event` wywoływać tylko gdy `"status" in update_data` (tzn. gdy zmienił się status)
+   - Efekt: Subskrybenci nie dostają wielokrotnych duplikatów.
+
+3. **[4.3] CORS z `settings.CORS_ORIGINS`**
+   - Plik: `backend/app/main.py` linie 95–100
+   - Zmiana: `allow_origins=settings.CORS_ORIGINS.split(",")` zamiast hardkodowanej listy
+   - Efekt: Konfiguracja CORS z `.env` bez zmiany kodu.
+
+4. **[4.11] Naprawić `EventStatus` — usunąć `planowane_wylaczenie`/`remont`**
+   - Plik: `backend/app/schemas/event.py` linia 10
+   - Zmiana: `EventStatus = Literal["zgloszona", "w_naprawie", "usunieta"]`
+   - Efekt: Koniec semantycznego błędu — statusy != typy zdarzeń.
+
+### Priorytet 2 — Ważne przed wdrożeniem:
+
+5. **[4.2] Walidacja `SECRET_KEY` przy starcie**
+   - Plik: `backend/app/config.py`
+   - Zmiana: Rzucić `ValueError` gdy `SECRET_KEY == "change-this..."` i `DEBUG=False`
+   - Efekt: System nie uruchomi się produkcyjnie z domyślnym kluczem.
+
+6. **[2.2] Endpoint `GET /api/v1/events/feed` (IVR 994)**
+   - Plik: nowy endpoint w `backend/app/routers/events.py`
+   - Zwraca `text/plain` z listą aktywnych awarii (status != 'usunieta')
+   - Efekt: Spełnienie wymagania biznesowego MPWiK — automat 994.
+
+7. **[3.2] Pole `notified_count` w `EventResponse`**
+   - Plik: `backend/app/routers/events.py` + `backend/app/schemas/event.py`
+   - Zmiana: subquery COUNT z `notification_log` per event lub osobny endpoint
+   - Efekt: Kolumna "Powiadomienia" w AdminDashboard przestaje pokazywać "–".
+
+### Priorytet 3 — Backlog techniczny:
+
+8. **[4.5] Indeks trigram (pg_trgm) dla autocomplete ulic**
+   - Migracja Alembic: `CREATE EXTENSION pg_trgm` + GIN index
+   - Efekt: Autocomplete skaluje się powyżej 1378 ulic (przyszłe rozszerzenia).
+
+9. **[2.3] X-API-Key dla zewnętrznych operatorów (LPEC, ZDiM)**
+   - Nowy router `routers/external.py` + dependency walidujący `ApiKey` z bazy
+   - Efekt: Multi-operator ready — wdrożenie miejskiego hubu.
+
+10. **[4.4] Testy jednostkowe i integracyjne (pytest)**
+    - Katalog `backend/tests/` jest pusty — krytyczne przed oddaniem MPWiK
+    - Priorytety: auth flow, subscribers CRUD, notification matching logic.
