@@ -105,20 +105,35 @@
 | 3 | **Endpoint GET /api/v1/events/feed** — plain text dla IVR 994 | ŚREDNI | Wymaganie biznesowe MPWiK: dyspozytor dzwoni na 994, system odczytuje aktywne awarie głosowo |
 
 ### Backlog (po powyższych)
+- [ ] **[7.4] Naprawa update_event** — dodać `selectinload(Event.street)` w finalnym query + ustawić `event.street_geojson` (2 linie kodu)
+- [ ] **[7.6] Import danych buildings** — skrypt importu obrysów budynków z OSM/BDOT dla Lublina (bez danych zakładka mapy pusta, ale zakres/lista działają)
+- [ ] **[7.5] Walidacja schematu FeatureCollection** — Pydantic validator na `geojson_segment` (nice-to-have)
 - [ ] Testy jednostkowe i integracyjne backendu (pytest + httpx)
 - [ ] Migracja Alembic dla ewentualnych zmian schematu
 - [ ] Prawdziwa bramka SMS (dokumentacja API od MPWiK oczekiwana)
 - [ ] Konfiguracja nginx jako reverse proxy (frontend + backend)
 - [ ] Wdrożenie na Oracle Linux (docelowy OS MPWiK)
 - [ ] WCAG — audyt dostępności frontendu
-.
+### ✅ Zrobione — Sesja 13 (2026-04-09) — Bulk zgłaszanie + synchronizacja GIS
+- [x] `frontend/src/pages/AdminEventForm.tsx` — kompletna przebudowa:
+  - **3-zakładkowy wybór zakresu** (`Tabs` shadcn/ui): „Zaznacz na mapie" / „Zakres numerów" / „Lista numerów"
+  - **Wspólny stan** `selectedBuildingIds` dla wszystkich zakładek — synchronizacja przez `selectionSourceRef`
+  - **Helpery JS**: `parseHouseNumber`, `isInRange`, `sortHouseNumbers` (alfanumeryczne, odpowiedniki backendowe)
+  - **Zakładka „Zakres numerów"**: pola od/do + przycisk „Zastosuj zakres" (`applyRange`) → auto-filtruje buildings → podświetla na mapie
+  - **Zakładka „Lista numerów"**: input z numerami oddzielonymi przecinkiem → auto-match do buildings → podświetlenie na mapie
+  - **Sync mapie → lista/zakres**: zaznaczenie na mapie auto-aktualizuje houseFrom/houseTo i listInput
+  - **Bulk submit (koszyk)**: `eventsQueue` state — lista zgłoszeń do wysłania; przycisk „Dodaj ulicę do zgłoszenia" (secondary) dodaje current do kolejki i resetuje pola ulicy/budynków; sekcja „Zgłoszenia oczekujące" z kartami (`QueueCard`) i przyciskiem usunięcia X; submit używa `Promise.all` dla równoległych POST; przycisk „Zapisz i powiadom (N ulic)"
+  - **Tryb edycji**: bulk ukryty, single record; `pendingRestoreIdsRef` przywraca zaznaczenie budynków z `geojson_segment` (naprawa [7.2])
+  - **Naprawiono [7.1]**: houseFrom/houseTo zawsze zsynchronizowane z zaznaczeniem → spójne dane dla Notification Engine
+  - **Naprawiono [7.3]**: pola zakresu opcjonalne, w zakładce, nie blokują submit gdy budynki zaznaczone na mapie
+
 ### ✅ Zrobione — Sesja 12 (2026-04-09) — Obrysy budynków na mapie (zaznaczanie przez dyspozytora)
 - [x] `backend/app/models/building.py` (nowy): model SQLAlchemy dla tabeli `buildings` (id, street_id, street_name, house_number, geojson_polygon JSONB)
 - [x] `backend/app/schemas/building.py` (nowy): `BuildingResponse` (id, house_number, geojson_polygon)
 - [x] `backend/app/models/__init__.py`: rejestracja modelu `Building`
 - [x] `backend/app/routers/streets.py`: nowy endpoint `GET /api/v1/streets/{street_id}/buildings` — lista obrysów dla ulicy
 - [x] `frontend/src/data/mockData.ts`: nowy interface `GeoJsonFeatureCollection`; typ `geojson_segment` rozszerzony o `| GeoJsonFeatureCollection`
-- [x] `frontend/src/pages/AdminEventForm.tsx`: mapa Leaflet z obrysami budynków, toggle zaznaczenia kliknięciem (niebieski→czerwony), `FitBounds` dopasowuje widok, zaznaczone budynki → `FeatureCollection` w `geojson_segment`
+- [x] `frontend/src/pages/AdminEventForm.tsx`: pierwotna implementacja mapy Leaflet z budynkami (zastąpiona w Sesji 13)
 - [x] `frontend/src/components/EventMap.tsx`: obsługa FeatureCollection w `geojson_segment` → renderowanie `<GeoJSON>` na mapie publicznej
 
 ### Changelog
@@ -151,3 +166,4 @@
 - 2026-04-08: Wygasanie sesji + strony admin (pkt 3.3+3.5+3.6 audytu) — api.ts: obsługa 401 → clear localStorage + redirect /admin/login; nowe strony AdminSubscribers.tsx (tabela subskrybentów, paginacja) i AdminNotifications.tsx (log powiadomień, paginacja); trasy w App.tsx; linki Users/MessageSquare w AdminLayout.tsx sidebarze
 - 2026-04-08: Integracja przestrzenna GeoJSON → Leaflet — EventResponse.street_geojson (backend selectinload Street + atrybut Python); EventMap.tsx: Polyline > Marker w koordynatach ulicy (odwrócenie lon/lat → lat/lon) > fallback centrum; typ street_geojson w mockData.ts
 - 2026-04-09: Obrysy budynków na mapie — Building model+schema, GET /streets/{id}/buildings, AdminEventForm z mapą + zaznaczaniem poligonów (FeatureCollection → geojson_segment), EventMap obsługuje FeatureCollection
+- 2026-04-09: Bulk zgłaszanie + synchronizacja GIS (Sesja 13) — AdminEventForm kompletna przebudowa: 3-zakładkowy wybór zakresu (mapa/zakres/lista), wspólny stan selectedBuildingIds, helpery parseHouseNumber/isInRange/sortHouseNumbers, mechanizm koszyka eventsQueue z Promise.all, QueueCard komponent, naprawiono [7.1]/[7.2]/[7.3] z listy poprawek GIS

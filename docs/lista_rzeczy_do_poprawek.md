@@ -257,3 +257,95 @@ Data audytu: 2026-04-03
 18. **[4.4]** Testy pytest
 19. **[4.8]** Paginacja server-side
 20. **[2.8]** Rate limiting (slowapi)
+
+---
+
+## 7. NOWE PROBLEMY: GIS VS LOGIKA BIZNESOWA
+
+> Zidentyfikowane 2026-04-09 po analizie Sesji 12 (obrysy budynków na mapie).
+
+### ~~[7.1]~~ ✅ NAPRAWIONO — Brak synchronizacji poligonów mapy z zakresem numerów (Notification Engine mismatch)
+
+- **Pliki:** `frontend/src/pages/AdminEventForm.tsx`
+- **Naprawa (2026-04-09):** Przebudowano formularz w mechanizm 3-zakładkowy (`Tabs` shadcn/ui): „Zaznacz na mapie" / „Zakres numerów" / „Lista numerów". Wszystkie trzy tryby współdzielą `selectedBuildingIds`. Nowe helpery JS: `parseHouseNumber`, `isInRange`, `sortHouseNumbers` (odpowiedniki backendowe). Mechanizm `selectionSourceRef` zapobiega cyklicznym aktualizacjom. Zaznaczenie budynku na mapie → auto-aktualizacja pól houseFrom/houseTo i listInput. `applyRange` → filtruje buildings po zakresie → auto-podświetlenie na mapie. Wpisanie listy numerów → dopasowanie buildings → podświetlenie na mapie. houseFrom/houseTo zawsze zsynchronizowane z zaznaczeniem → silnik powiadomień dostaje spójne dane.
+
+### ~~[7.2]~~ ✅ NAPRAWIONO — Edycja zdarzenia nie przywraca zaznaczonych budynków na mapie
+
+- **Plik:** `frontend/src/pages/AdminEventForm.tsx`
+- **Naprawa (2026-04-09):** `pendingRestoreIdsRef` przechowuje ID budynków z `geojson_segment.features[].properties.id` wczytanego zdarzenia. Po załadowaniu budynków dla ulicy (`useEffect` na `selectedStreet?.id`), IDs są aplikowane do `selectedBuildingIds` — rozwiązuje problem timingu ładowania.
+
+### ~~[7.3]~~ ✅ NAPRAWIONO — Pola houseFrom/houseTo wymagane mimo zaznaczenia budynków na mapie
+
+- **Plik:** `frontend/src/pages/AdminEventForm.tsx`
+- **Naprawa (2026-04-09):** Pola houseFrom/houseTo przeniesione do zakładki „Zakres numerów" (opcjonalne). houseFrom/houseTo są auto-derywowane z zaznaczonych budynków gdy źródłem jest mapa lub lista. Walidacja: submit akceptuje bieżący formularz (z ulicą) LUB kolejkę — nie wymaga zakresu gdy budynki zaznaczone na mapie.
+
+### [7.4] update_event nie ładuje relacji street → street_geojson=None w odpowiedzi PUT
+
+- **Plik:** `backend/app/routers/events.py` (linie 166–169)
+- **Problem:** W `update_event` finalny `select(Event)` ładuje tylko `selectinload(Event.history)`, BEZ `selectinload(Event.street)`. Linia `event.street_geojson = event.street.geojson` nie jest wywoływana, więc `EventResponse.street_geojson` w odpowiedzi `PUT /events/{id}` zawsze wynosi `None`. `list_events` i `get_event` nie mają tego błędu (ładują `selectinload(Event.street)` i ustawiają atrybut).
+- **Skutek:** Frontend po edycji zdarzenia dostaje `street_geojson=null` nawet gdy ulica ma geokod — mapa nie renderuje markera/linii po autozapisie.
+- **Naprawa:** W `update_event` zmienić linię 166 na `.options(selectinload(Event.history), selectinload(Event.street))` i dodać po `event = result.scalar_one()`: `event.street_geojson = event.street.geojson if event.street else None`.
+
+### [7.5] Brak walidacji schematu FeatureCollection w geojson_segment
+
+- **Plik:** `backend/app/schemas/event.py` (linia 25, 44)
+- **Problem:** `geojson_segment: dict | None = None` akceptuje dowolny słownik bez walidacji struktury. Można wysłać `{"foo": "bar"}` i zostanie zapisany do bazy. Gdy silnik powiadomień (Opcja B z [7.1]) będzie czytać `features[].properties.house_number`, brak tej właściwości nie zostanie wykryty przy zapisie.
+- **Naprawa:** Dodać Pydantic validator lub osobny model `GeoJsonFeatureCollection` sprawdzający `type == "FeatureCollection"` oraz `features` jako listę z `geometry` i `properties.house_number`. Alternatywnie: lekka walidacja `@field_validator` z `mode="before"`.
+
+### [7.6] Brak tabeli/danych buildings w bazie — mapa obrysów nie działa bez importu danych
+
+- **Plik:** `backend/app/models/building.py`, `backend/app/routers/streets.py`
+- **Problem:** Model `Building` i endpoint `GET /streets/{id}/buildings` istnieją, ale tabela `buildings` w bazie jest **pusta** (brak skryptu importu danych OSM/BDOT). Endpoint zwraca pustą listę dla każdej ulicy. Zakładka „Zaznacz na mapie" wyświetla "Brak obrysów — użyj zakładki Zakres numerów". Zakładki „Zakres numerów" i „Lista numerów" działają jednak poprawnie nawet bez danych (zapisują houseFrom/houseTo).
+- **Naprawa:** Stworzyć `scripts/import_buildings.py` importujący obrysy z OpenStreetMap (Overpass API) lub BDOT10k dla Lublina. Alternatywnie: seed z przykładowymi budynkami dla 2-3 ulic testowych (np. Lipowa) do celów deweloperskich.
+
+### ~~[7.7]~~ ✅ NAPRAWIONO — Selekcja budynków nadpisywana przez zakładkę Zakres/Lista
+
+- **Plik:** `frontend/src/pages/AdminEventForm.tsx`
+- **Problem:** `applyRange` i `handleListInputChange` wywoływały `setSelectedBuildingIds(ids)` — nowe ID zastępowały istniejący Set, kasując budynki zaznaczone np. wcześniej kliknięciem na mapie. Przełączenie do zakładki „Zakres" i zastosowanie filtra usuwało poprzednie zaznaczeenia.
+- **Naprawa (2026-04-09):** Zmieniono na `setSelectedBuildingIds(prev => new Set([...prev, ...newIds]))` w obu metodach — nowe ID są DODAWANE do istniejącego stanu. Toast zmieniony z „Zaznaczono N" na „Dodano N do zaznaczenia".
+
+### ~~[7.8]~~ ✅ NAPRAWIONO — displayLabel koszyka używał prymitywnego min/max zamiast inteligentnego formatu
+
+- **Plik:** `frontend/src/pages/AdminEventForm.tsx`
+- **Problem:** `buildDisplayLabel` przy >6 numerach zwracał `nr 1–17 (8 bud.)` — ignorował luki między numerami. Zaznaczenie budynków 1, 3, 5 oraz zakresu 16–17 wyświetlało się w karcie koszyka jako "od 1 do 17".
+- **Naprawa (2026-04-09):** Dodano funkcję `formatBuildingNumbers(nums)` kompresującą ciągłe sekwencje numeryczne do zakresów, np. `[1, 3, 5, 16, 17]` → `"nr 1, 3, 5, 16–17"`, `[1,2,3,5]` → `"nr 1–3, 5"`. `buildDisplayLabel` używa jej gdy `selectedNums.length > 0`.
+
+### ~~[7.10]~~ ✅ NAPRAWIONO — Fałszywe zakresy w podsumowaniu koszyka (formatBuildingNumbers)
+
+- **Plik:** `frontend/src/pages/AdminEventForm.tsx`
+- **Problem:** Poprzednia wersja `formatBuildingNumbers` kompresowała ciągłe sekwencje do zakresów (np. `[1,2,3]` → `"nr 1–3"`), ale kompresja mogła maskować luki — zakres "1–3" sugerował budynki 1, 2, 3, nawet gdy 2 nie było zaznaczone.
+- **Naprawa (2026-04-09):** Zastąpiono całą logikę kompresji prostym listowaniem: `sortHouseNumbers(nums).join(', ')`. Koszyk zawsze pokazuje dokładną listę zaznaczonych numerów, np. "1, 3, 5, 16, 17A".
+
+### ~~[7.11]~~ ✅ NAPRAWIONO — Tooltipy na mapie bez nazwy ulicy (tylko numer posesji)
+
+- **Pliki:** `frontend/src/pages/AdminEventForm.tsx` (BuildingLayer), `frontend/src/components/EventMap.tsx`
+- **Problem:** Tooltip po najechaniu na poligon budynku pokazywał tylko numer posesji (np. "17A"), bez kontekstu ulicy. Przy wielu ulicach na mapie trudno było stwierdzić, do której ulicy należy budynek.
+- **Naprawa (2026-04-09):**
+  - `BuildingLayer` w AdminEventForm: dodano prop `streetName: string`; tooltip zmieniony na `"${streetName} ${num}"` (np. "Organowa 17A"); prop przekazywany jako `streetName={selectedStreet?.full_name ?? ''}`.
+  - `EventMap.tsx`: dodano `onEachFeature` do `<GeoJSON>` dla FeatureCollection; tooltip `"${event.street_name} ${num}"` dla każdego budynku; znika po zjechaniu myszką (domyślne `permanent: false`).
+
+### ~~[7.9]~~ ✅ NAPRAWIONO — HTML5 required blokował wysyłanie koszyka (Queue Submit Blocker)
+
+- **Plik:** `frontend/src/pages/AdminEventForm.tsx`
+- **Problem:** Główny przycisk był `type="submit"` wewnątrz `<form>`. Po dodaniu ulicy do koszyka (i wyczyszczeniu roboczego formularza) kliknięcie „Zapisz i powiadom" uruchamiało walidację HTML5, która blokowała akcję z powodu pustego pola `required` (ulica). Koszyk nie mógł być wysłany.
+- **Naprawa (2026-04-09):** Wydzielono `handleBulkSubmit()` jako osobną async funkcję (bez parametru event). Przycisk zmieniony na `type="button"` z `onClick={handleBulkSubmit}` — pomija walidację HTML5. `handleSubmit` na tagu `<form>` zachowany (obsługuje Enter w polach i deleguje do `handleBulkSubmit`).
+
+### ~~[7.12]~~ ✅ NAPRAWIONO — Karty awarii i tabela dashboard wyświetlały fałszywe zakresy numerów
+
+- **Pliki:** `frontend/src/components/EventCard.tsx`, `frontend/src/pages/AdminDashboard.tsx`
+- **Problem:** `EventCard` budował zakres `house_number_from–house_number_to` bezpośrednio z pól tekstowych (np. "3–13"), ignorując faktyczne budynki zapisane w `geojson_segment.features[].properties.house_number`. Podobnie kolumna „Numery" w `AdminDashboard` używała tych samych prymitywnych pól. Zaznaczenie np. budynków 3, 5, 13 przez dyspozytora pojawiało się jako "3–13", sugerując ciągły zakres którego nie było.
+- **Naprawa (2026-04-09):** Wyekstrahowano funkcje `parseHouseNumber` i `sortHouseNumbers` do `frontend/src/lib/utils.ts`. Nowa funkcja `formatEventNumbers(event)` sprawdza: jeśli `geojson_segment` jest FeatureCollection, wyciąga `house_number` z każdego feature'a, sortuje alfanumerycznie i zwraca listę po przecinku (np. "3, 5, 13"). Fallback na pola `from/to` gdy brak features. `EventCard` i `AdminDashboard` importują i używają `formatEventNumbers` zamiast własnej logiki zakresów.
+
+### Priorytety sekcji 7 (stan po 2026-04-09):
+- ✅ [7.1] Synchronizacja GIS — NAPRAWIONO
+- ✅ [7.2] Przywracanie zaznaczenia przy edycji — NAPRAWIONO
+- ✅ [7.3] Wymagalność pól houseFrom/houseTo — NAPRAWIONO
+- 🔲 [7.4] Naprawa update_event brakujący selectinload — 2 linie kodu
+- 🔲 [7.5] Walidacja schematu FeatureCollection — nice-to-have
+- 🔲 [7.6] Import danych buildings (OSM/BDOT) — blokujący pełne demo mapy
+- ✅ [7.7] Selekcja addytywna (zakres/lista) — NAPRAWIONO
+- ✅ [7.8] formatBuildingNumbers (inteligentny format koszyka) — NAPRAWIONO
+- ✅ [7.9] Queue Submit Blocker (type=button) — NAPRAWIONO
+- ✅ [7.10] Precyzyjna lista numerów (bez fałszywych zakresów) — NAPRAWIONO
+- ✅ [7.11] Tooltipy z pełnym adresem (AdminEventForm + EventMap) — NAPRAWIONO
+- ✅ [7.12] Precyzyjna lista numerów w kartach awarii i tabeli dashboard — NAPRAWIONO

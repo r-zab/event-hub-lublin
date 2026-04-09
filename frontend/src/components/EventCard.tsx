@@ -2,6 +2,7 @@ import { Clock, MapPin, AlertTriangle, Wrench, Calendar } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 import { type EventItem, TYPE_LABELS } from '@/data/mockData';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { formatEventNumbers } from '@/lib/utils';
 
 const typeIcons = {
   awaria: AlertTriangle,
@@ -15,9 +16,7 @@ interface EventCardProps {
 
 export function EventCard({ event }: EventCardProps) {
   const Icon = typeIcons[event.event_type];
-  const range = event.house_number_from === event.house_number_to
-    ? event.house_number_from
-    : `${event.house_number_from}-${event.house_number_to}`;
+  const numbers = formatEventNumbers(event);
 
   return (
     <Card className="hover:shadow-md transition-shadow border-border/60">
@@ -31,7 +30,7 @@ export function EventCard({ event }: EventCardProps) {
       <CardContent className="space-y-2">
         <div className="flex items-center gap-2 text-sm">
           <MapPin className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
-          <span>{event.street_name} {range}</span>
+          <span>{event.street_name}{numbers ? ` ${numbers}` : ''}</span>
         </div>
         <p className="text-sm text-muted-foreground line-clamp-2">{event.description}</p>
         {event.estimated_end && (

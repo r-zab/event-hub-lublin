@@ -1,6 +1,6 @@
 # Historia i stan projektu — Event Hub Lublin
 
-> Ostatnia aktualizacja: 2026-04-08 (Integracja przestrzenna GeoJSON → Leaflet — street_geojson w EventResponse + poprawne markery na mapie)
+> Ostatnia aktualizacja: 2026-04-09 (Sesja 13: Bulk zgłaszanie awarii + 3-zakładkowy wybór zakresu + synchronizacja GIS)
 
 ---
 
@@ -59,11 +59,12 @@ event-hub-lublin/
 │   │   │   ├── event.py               # Event + EventHistory
 │   │   │   ├── subscriber.py          # Subscriber + SubscriberAddress
 │   │   │   ├── notification.py        # NotificationLog (sms/email audit)
-│   │   │   └── api_key.py             # ApiKey (multi-operator, future)
+│   │   │   ├── api_key.py             # ApiKey (multi-operator, future)
+│   │   │   └── building.py            # Building (obrysy budynków: street_id, house_number, geojson_polygon JSONB)
 │   │   │
 │   │   ├── routers/
 │   │   │   ├── auth.py                # POST /api/v1/auth/login (OAuth2 form), POST /auth/refresh
-│   │   │   ├── streets.py             # GET /api/v1/streets?q= (ILIKE autocomplete)
+│   │   │   ├── streets.py             # GET /api/v1/streets?q= (ILIKE autocomplete) + GET /streets/{id}/buildings
 │   │   │   ├── events.py              # GET/POST/PUT/DELETE /api/v1/events + notify trigger
 │   │   │   ├── subscribers.py         # POST/GET/DELETE /api/v1/subscribers/{token}
 │   │   │   └── admin.py               # GET /api/v1/admin/stats|subscribers|notifications (JWT admin)
@@ -72,7 +73,8 @@ event-hub-lublin/
 │   │   │   ├── auth.py                # Token, TokenData, LoginRequest
 │   │   │   ├── street.py              # StreetResponse
 │   │   │   ├── event.py               # EventCreate, EventUpdate, EventResponse, EventHistoryResponse
-│   │   │   └── subscriber.py          # AddressCreate, SubscriberCreate, SubscriberResponse
+│   │   │   ├── subscriber.py          # AddressCreate, SubscriberCreate, SubscriberResponse
+│   │   │   └── building.py            # BuildingResponse (id, house_number, geojson_polygon)
 │   │   │
 │   │   ├── services/
 │   │   │   ├── gateways.py            # SMSGateway ABC, MockSMSGateway, SMSEagleGateway, EmailSender
@@ -105,14 +107,14 @@ event-hub-lublin/
 │       │   ├── About.tsx              # O projekcie
 │       │   ├── AdminLogin.tsx         # Logowanie JWT (x-www-form-urlencoded)
 │       │   ├── AdminDashboard.tsx     # Panel dyspozytora — tabela zdarzeń, filtry, historia
-│       │   ├── AdminEventForm.tsx     # Formularz zdarzenia — autocomplete TERYT, status
+│       │   ├── AdminEventForm.tsx     # Formularz zdarzenia — autocomplete TERYT, mapa Leaflet z obrysami budynków (klik = toggle zaznaczenia)
 │       │   ├── AdminSubscribers.tsx   # Lista subskrybentów (paginacja, email/tel/adresy/zgody)
 │       │   ├── AdminNotifications.tsx # Log powiadomień (paginacja, kanał/status/treść)
 │       │   ├── Unsubscribe.tsx        # Wyrejestrowanie RODO przez token
 │       │   └── NotFound.tsx           # 404
 │       │
 │       ├── components/
-│       │   ├── EventMap.tsx           # Leaflet mapa z kolorami statusów; Polyline > street_geojson Point > fallback centrum
+│       │   ├── EventMap.tsx           # Leaflet mapa z kolorami statusów; Polyline > FeatureCollection > street_geojson Point > fallback centrum
 │       │   ├── EventCard.tsx          # Karta zdarzenia na stronie głównej
 │       │   ├── AddressRow.tsx         # Wiersz adresu w formularzu rejestracji
 │       │   ├── StatusBadge.tsx        # Kolorowa etykieta statusu
@@ -207,6 +209,21 @@ MIESZKANIEC (SMS / Email)
 - Podłączenie powiadomień do events router (asyncio.create_task)
 - **seed.py usunięty** (2026-04-03) — baza wyczyszczona, zawiera wyłącznie 1378 ulic TERYT
 
+### Sesja 12 (2026-04-09) — Obrysy budynków na mapie (zaznaczanie przez dyspozytora)
+
+- **`backend/app/models/building.py`** (nowy): model SQLAlchemy dla tabeli `buildings` (id, street_id, street_name, house_number, geojson_polygon JSONB) z indeksem na `street_id`
+- **`backend/app/schemas/building.py`** (nowy): `BuildingResponse` (id, house_number, geojson_polygon), Pydantic `from_attributes`
+- **`backend/app/models/__init__.py`**: rejestracja modelu `Building`
+- **`backend/app/routers/streets.py`**: nowy endpoint `GET /api/v1/streets/{street_id}/buildings` — lista obrysów (BuildingResponse) dla podanej ulicy
+- **`frontend/src/data/mockData.ts`**: nowy interface `GeoJsonFeatureCollection`; typ `geojson_segment` rozszerzony o `| GeoJsonFeatureCollection`
+- **`frontend/src/pages/AdminEventForm.tsx`**: mapa Leaflet w formularzu zdarzenia z warstwą obrysów budynków (`BuildingLayer` + `FitBounds`); kliknięcie budynku przełącza zaznaczenie (niebieskie→czerwone); zaznaczone budynki budują `geojson_segment` jako FeatureCollection przy zapisie
+- **`frontend/src/components/EventMap.tsx`**: obsługa FeatureCollection w `geojson_segment` → renderowanie `<GeoJSON>` na mapie publicznej (obok obsługi Polyline i markera)
+
+**Znane problemy do naprawy (zidentyfikowane podczas analizy — patrz lista_rzeczy_do_poprawek.md §7):**
+- Poligony na mapie a pola houseFrom/houseTo nie są zsynchronizowane — Notification Engine ignoruje `geojson_segment`
+- Edycja zdarzenia nie przywraca zaznaczonych budynków
+- Tabela `buildings` jest pusta (brak skryptu importu danych OSM/BDOT) — funkcja wymaga danych
+
 ### Sesja 4 (2026-04-03) — SMSEagle + preferencje powiadomień
 
 Na podstawie notatek ze spotkania z szefem IT MPWiK (2026-04-01) oraz dokumentacji SMSEagle API v2:
@@ -250,9 +267,12 @@ Na podstawie notatek ze spotkania z szefem IT MPWiK (2026-04-01) oraz dokumentac
 | 12 | Geocoding Nominatim → GeoJSON streets | ✅ zrobione |
 | 13 | Wygasanie sesji JWT + strony AdminSubscribers + AdminNotifications | ✅ zrobione |
 | 14 | Integracja przestrzenna GeoJSON → Leaflet (street_geojson w API + markery na mapie) | ✅ zrobione |
-| 15 | Endpoint GET /events/feed (IVR 994) | ⏳ następne |
-| 14 | Testy jednostkowe/integracyjne backendu | ☐ backlog |
-| 15 | Nginx reverse proxy (prod) | ☐ backlog |
+| 15 | Obrysy budynków na mapie (Building model + endpoint + zaznaczanie w AdminEventForm) | ✅ zrobione (brak danych w tabeli buildings) |
+| 16 | Bulk zgłaszanie awarii + 3-zakładkowy wybór zakresu GIS (Sesja 13) | ✅ zrobione |
+| 17 | Import danych buildings (OSM/BDOT) — seed skrypt | ⏳ następne |
+| 18 | Endpoint GET /events/feed (IVR 994) | ☐ backlog |
+| 19 | Testy jednostkowe/integracyjne backendu | ☐ backlog |
+| 20 | Nginx reverse proxy (prod) | ☐ backlog |
 
 ---
 
@@ -298,6 +318,9 @@ Na podstawie notatek ze spotkania z szefem IT MPWiK (2026-04-01) oraz dokumentac
 - **2026-04-08**: **Admin endpoints + weryfikacja roli (pkt 2.1 + 2.4 audytu)** — `dependencies.py`: nowa funkcja `get_current_admin` sprawdzająca `user.role == "admin"`, rzuca HTTP 403 dla dyspozytora; eksportowana w `__all__`. Nowy plik `routers/admin.py`: router z dependency `get_current_admin` dla całego prefiksu `/api/v1/admin`; endpoint `GET /admin/stats` (total_subscribers, active_events, notifications_sent); `GET /admin/subscribers` (paginacja skip/limit, sort created_at DESC, eager-load adresów, total_count); `GET /admin/notifications` (paginacja skip/limit, sort sent_at DESC, total_count). Lokalne schematy Pydantic: StatsResponse, AdminSubscriberItem/List, AdminNotificationItem/List. `main.py`: import `admin` + `app.include_router` pod `/api/v1/admin`. Bugfix: `selectinload(Subscriber.addresses)` zamiast ręcznego mapowania (eliminuje MissingGreenlet).
 - **2026-04-08**: **Rate limiting + walidacja telefonu + scheduler SMS (pkt 2.6 + 2.7 + 2.8 audytu)** — nowy `app/limiter.py` (współdzielona instancja `Limiter(key_func=get_remote_address)`); `main.py`: `app.state.limiter`, `add_exception_handler(RateLimitExceeded)`, `AsyncIOScheduler` z jobem `process_morning_queue` cron 06:00 Europe/Warsaw (start/shutdown w lifespan); `routers/auth.py`: `@limiter.limit("5/minute")` na login (brute-force guard); `routers/subscribers.py`: `@limiter.limit("3/minute")` na rejestrację (anty-spam); `schemas/subscriber.py`: `phone_format` validator — regex `^\+48\d{9}$|^\d{9}$`, strip spacji i myślników, ValueError z komunikatem; `frontend/Register.tsx`: `pattern="^(\+48)?\d{9}$"` + `title` na inpucie telefonu (HTML5 walidacja przeglądarki); `services/notification_service.py`: `process_morning_queue()` — otwiera własną sesję DB, SELECT `queued_morning`, wysyła SMS przez bramkę, aktualizuje status `sent`/`failed`, loguje podsumowanie; `requirements.txt`: `apscheduler==3.10.4`.
 - **2026-04-08**: **Wygasanie sesji JWT + strony admin (pkt 3.3 + 3.5 + 3.6 audytu)** — `frontend/src/lib/api.ts`: blok `if (res.status === 401)` usuwa `mpwik_token` i `mpwik_refresh_token` z localStorage, a następnie przekierowuje na `/admin/login` — działa dla dowolnego endpointu admina. Nowa strona `AdminSubscribers.tsx`: tabela subskrybentów z react-query (`GET /admin/subscribers`), paginacja 20/strona, kolumny: e-mail, telefon, kanały (badge), zgody RODO/nocne, lista adresów, data rejestracji, spinner i obsługa błędu. Nowa strona `AdminNotifications.tsx`: log powiadomień (`GET /admin/notifications`), paginacja 20/strona, kolumny: data, kanał (badge), odbiorca, status (badge kolorowy), zdarzenie #id, treść (truncate + title tooltip), spinner. `App.tsx`: trasy `/admin/subscribers` i `/admin/notifications` pod `ProtectedAdminLayout`. `AdminLayout.tsx`: 2 nowe pozycje w sidebarze — "Subskrybenci" (ikona `Users`) i "Logi powiadomień" (ikona `MessageSquare`) z `lucide-react`.
+- **2026-04-09**: **Obrysy budynków na mapie (Sesja 12)** — nowy `backend/app/models/building.py` (model SQLAlchemy: id, street_id, house_number, geojson_polygon JSONB, idx na street_id); nowy `backend/app/schemas/building.py` (`BuildingResponse`); rejestracja `Building` w `models/__init__.py`; `routers/streets.py`: endpoint `GET /api/v1/streets/{street_id}/buildings` zwraca listę obrysów; `frontend/src/data/mockData.ts`: interface `GeoJsonFeatureCollection` + rozszerzenie typu `geojson_segment`; `frontend/src/pages/AdminEventForm.tsx` przebudowany — mapa Leaflet z komponentami `FitBounds` i `BuildingLayer` (kliknięcie budynku przełącza zaznaczenie niebieskie/czerwone), zaznaczone budynki budują `geojson_segment` jako FeatureCollection przy POST/PUT; `frontend/src/components/EventMap.tsx`: obsługa FeatureCollection w `geojson_segment` → `<GeoJSON>` na mapie publicznej. Uwaga: tabela `buildings` jest pusta — wymaga importu danych OSM/BDOT.
+- **2026-04-09**: **Bulk zgłaszanie awarii + synchronizacja GIS (Sesja 13)** — `frontend/src/pages/AdminEventForm.tsx` kompletna przebudowa: 3-zakładkowy wybór zakresu (`Tabs` shadcn/ui: „Zaznacz na mapie" / „Zakres numerów" / „Lista numerów") ze wspólnym stanem `selectedBuildingIds`; helpery `parseHouseNumber`, `isInRange`, `sortHouseNumbers` (alfanumeryczne odpowiedniki backendowych); `selectionSourceRef` zapobiega cyklicznym aktualizacjom stanu; „Zastosuj zakres" filtruje buildings, podświetla na mapie; lista numerów w CSV dopasowuje budynki; zaznaczenie na mapie auto-uzupełnia houseFrom/houseTo i listInput; mechanizm koszyka `eventsQueue` (przycisk „Dodaj ulicę do zgłoszenia", sekcja „Zgłoszenia oczekujące", karta `QueueCard` z usuwaniem); submit: `Promise.all` dla równoległych POST; tryb edycji: bulk ukryty, `pendingRestoreIdsRef` przywraca zaznaczone budynki z `geojson_segment`; naprawiono [7.1] [7.2] [7.3] z audytu GIS.
+- **2026-04-09**: **Audyt GIS vs logika biznesowa** — `docs/lista_rzeczy_do_poprawek.md` nowa sekcja §7 (6 problemów): [7.1] brak synchronizacji poligonów mapy z Notification Engine (krytyczny — `match_subscribers` ignoruje `geojson_segment`); [7.2] edycja nie przywraca zaznaczonych budynków; [7.3] pola houseFrom/houseTo wymagane mimo zaznaczenia na mapie; [7.4] `update_event` brakujący `selectinload(Event.street)` → `street_geojson=None` w PUT response; [7.5] brak walidacji FeatureCollection w geojson_segment; [7.6] pusta tabela buildings — brak skryptu importu.
 - **2026-04-08**: **Geocoding ulic — Nominatim → GeoJSON (pkt 2.5 audytu)** — nowy `scripts/geocode_streets.py`: async, otwiera sesję DB, SELECT ulic z `geojson IS NULL`, zapytanie GET `{NOMINATIM_URL}/search?q=ul. {name}, Lublin, Poland&format=json&limit=1`, nagłówek `User-Agent` z `settings.NOMINATIM_USER_AGENT`, zapis `{"type":"Point","coordinates":[lon,lat]}` do `street.geojson` + commit, `await asyncio.sleep(delay)` między zapytaniami (domyślnie 1.2 s — Nominatim Usage Policy); obsługa błędów HTTP i połączenia per-ulica; flagi CLI `--delay`, `--dry-run`, `--limit`; idempotentny (pomija ulice z istniejącym geojson). Rozwiązuje też pkt 3.7 (fallback marker w centrum mapy).
 
 ---

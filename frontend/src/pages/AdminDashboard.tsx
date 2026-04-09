@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { formatEventNumbers } from '@/lib/utils';
 
 const AdminDashboard = () => {
   const { toast } = useToast();
@@ -208,7 +209,7 @@ const AdminDashboard = () => {
                       </TableCell>
                       <TableCell className="font-mono text-xs">{event.id}</TableCell>
                       <TableCell className="font-medium">{event.street_name}</TableCell>
-                      <TableCell>{event.house_number_from}–{event.house_number_to}</TableCell>
+                      <TableCell>{formatEventNumbers(event) || '–'}</TableCell>
                       <TableCell className="text-sm">{TYPE_LABELS[event.event_type]}</TableCell>
                       <TableCell><StatusBadge status={event.status} /></TableCell>
                       <TableCell>

@@ -60,12 +60,24 @@ export function EventMap({ events }: Props) {
           (event.geojson_segment as GeoJsonFeatureCollection).type === 'FeatureCollection'
         ) {
           const fc = event.geojson_segment as GeoJsonFeatureCollection;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const onEachFeature = (feature: any, layer: L.Layer) => {
+            const num: string | null = feature?.properties?.house_number ?? null;
+            if (num) {
+              (layer as L.Path).bindTooltip(`${event.street_name} ${num}`, {
+                permanent: false,
+                direction: 'center',
+                className: 'text-xs',
+              });
+            }
+          };
           return (
             <GeoJSON
               key={event.id}
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               data={fc as any}
               style={{ color, fillColor: color, weight: 2, fillOpacity: 0.5 }}
+              onEachFeature={onEachFeature}
             >
               {popup}
             </GeoJSON>
