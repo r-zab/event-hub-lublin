@@ -123,15 +123,6 @@
 - [ ] Konfiguracja nginx jako reverse proxy (frontend + backend)
 - [ ] Wdrożenie na Oracle Linux (docelowy OS MPWiK)
 - [ ] WCAG — audyt dostępności frontendu
-### ✅ Zrobione — Sesja 14 (2026-04-10) — Poprawki jakości: strefy czasowe, mapa, powiadomienia
-- [x] **[3.11] Globalna naprawa stref czasowych** — `_utc_iso()` + `@field_serializer` w `schemas/event.py`; wszystkie timestampy z `+00:00`; `utils.ts` SSoT (`parseUTC`, `toLocalISO`, `toUTCISO`, `formatDate`, `formatDateTime`); zastosowane w AdminEventForm, EventCard, AdminDashboard, AdminSubscribers, AdminNotifications
-- [x] **[4.12] Eliminacja duplikatów powiadomień** — `update_event` sprawdza `update_data["status"] != old_status`; powiadomienia wysyłane tylko przy faktycznej zmianie statusu; stary status przekazany do `notify_event(old_status=)`; nowe szablony SMS/email dla zmiany statusu i zamknięcia awarii; etykiety po polsku
-- [x] **[4.14] Powiadomienia retroaktywne** — `notify_new_subscriber_about_active_events()` w notification_service; dla każdej aktywnej awarii (`zgloszona`/`w_naprawie`) sprawdza dopasowanie adresu nowego subskrybenta; deduplikacja po `event_id`; wywołanie przez `asyncio.create_task` w `POST /subscribers`
-- [x] **[4.15] Interaktywność mapy** — `focusedEventId` state w Index.tsx; `EventCard.onClick` ustawia fokus; `EventMap` reaguje `flyToBounds` (FeatureCollection) lub `flyTo` (punkt/Polyline); kliknięcie pinezki synchronizuje stan
-- [x] **[4.16] Stylizacja poligonów** — `fillOpacity` 0.5→0.6; popup każdego budynku pokazuje konkretny numer domu z `feature.properties.house_number`
-- [x] **[7.4] Naprawa update_event** — oba `select` ładują `selectinload(Event.street)`; `event.street_geojson` ustawiane po zapisie; fix MissingGreenlet
-- [x] **[4.3] CORS z config** — `main.py` używa `settings.CORS_ORIGINS.split(",")` zamiast hardkodowanych origins
-- [x] **Migracja TIMESTAMPTZ** — przygotowana jako `backend/alembic/versions/20260410_timestamp_with_timezone.py` (nie uruchomiona — opcjonalna, Pydantic serializer już gwarantuje poprawne Z w JSON)
 
 ### ✅ Zrobione — Sesja 13 (2026-04-09) — Bulk zgłaszanie + synchronizacja GIS
 - [x] `frontend/src/pages/AdminEventForm.tsx` — kompletna przebudowa:
@@ -154,6 +145,20 @@
 - [x] `frontend/src/data/mockData.ts`: nowy interface `GeoJsonFeatureCollection`; typ `geojson_segment` rozszerzony o `| GeoJsonFeatureCollection`
 - [x] `frontend/src/pages/AdminEventForm.tsx`: pierwotna implementacja mapy Leaflet z budynkami (zastąpiona w Sesji 13)
 - [x] `frontend/src/components/EventMap.tsx`: obsługa FeatureCollection w `geojson_segment` → renderowanie `<GeoJSON>` na mapie publicznej
+### ✅ Zrobione — Sesja 14 (2026-04-10) — Poprawki jakości: strefy czasowe, mapa, powiadomienia
+- [x] **[3.11] Globalna naprawa stref czasowych** — `_utc_iso()` + `@field_serializer` w `schemas/event.py`; wszystkie timestampy z `+00:00`; `utils.ts` SSoT (`parseUTC`, `toLocalISO`, `toUTCISO`, `formatDate`, `formatDateTime`); zastosowane w AdminEventForm, EventCard, AdminDashboard, AdminSubscribers, AdminNotifications
+- [x] **[4.12] Eliminacja duplikatów powiadomień** — `update_event` sprawdza `update_data["status"] != old_status`; powiadomienia wysyłane tylko przy faktycznej zmianie statusu; stary status przekazany do `notify_event(old_status=)`; nowe szablony SMS/email dla zmiany statusu i zamknięcia awarii; etykiety po polsku
+- [x] **[4.14] Powiadomienia retroaktywne** — `notify_new_subscriber_about_active_events()` w notification_service; dla każdej aktywnej awarii (`zgloszona`/`w_naprawie`) sprawdza dopasowanie adresu nowego subskrybenta; deduplikacja po `event_id`; wywołanie przez `asyncio.create_task` w `POST /subscribers`
+- [x] **[4.15] Interaktywność mapy** — `focusedEventId` state w Index.tsx; `EventCard.onClick` ustawia fokus; `EventMap` reaguje `flyToBounds` (FeatureCollection) lub `flyTo` (punkt/Polyline); kliknięcie pinezki synchronizuje stan
+- [x] **[4.16] Stylizacja poligonów** — `fillOpacity` 0.5→0.6; popup każdego budynku pokazuje konkretny numer domu z `feature.properties.house_number`
+- [x] **[7.4] Naprawa update_event** — oba `select` ładują `selectinload(Event.street)`; `event.street_geojson` ustawiane po zapisie; fix MissingGreenlet
+- [x] **[4.3] CORS z config** — `main.py` używa `settings.CORS_ORIGINS.split(",")` zamiast hardkodowanych origins
+- [x] **Migracja TIMESTAMPTZ** — przygotowana jako `backend/alembic/versions/20260410_timestamp_with_timezone.py` (nie uruchomiona — opcjonalna, Pydantic serializer już gwarantuje poprawne Z w JSON)
+
+### ✅ Zrobione — Sesja 15 (2026-04-10) — Poprawki logiki powiadomień: statusy retroaktywne + DELETE notify + FK fix
+
+- [x] **[4.17] Statusy w powiadomieniach retroaktywnych** — `build_sms_retroactive_message(event)` i `build_email_retroactive_body(event)` w `notification_service.py`; SMS zawiera "Aktualny status: w naprawie/zgłoszona"; email zaczyna od "trwa" zamiast "wystąpiła" + dodaje linię statusu; `notify_new_subscriber_about_active_events` używa nowych szablonów
+- [x] **[4.18] Powiadomienie przy DELETE zdarzenia** — `DELETE /events/{id}` ustawia `status="usunieta"`, commituje, wywołuje `await notify_event(event_id, old_status=...)` synchronicznie (SMS/email "awaria usunięta"), następnie re-fetch + delete; FK `notification_log.event_id` naprawiona: `ondelete="SET NULL"` w modelu + `passive_deletes=True` + migracja `20260410_notif_fk`
 
 ### Changelog
 - 2026-03-29: Struktura projektu, pliki startowe
@@ -188,4 +193,5 @@
 - 2026-04-09: Bulk zgłaszanie + synchronizacja GIS (Sesja 13) — AdminEventForm kompletna przebudowa: 3-zakładkowy wybór zakresu (mapa/zakres/lista), wspólny stan selectedBuildingIds, helpery parseHouseNumber/isInRange/sortHouseNumbers, mechanizm koszyka eventsQueue z Promise.all, QueueCard komponent, naprawiono [7.1]/[7.2]/[7.3] z listy poprawek GIS
 - 2026-04-10: Naprawa [7.4] + [4.12] — `update_event`: oba selecty ładują `selectinload(Event.street)`, `event.street_geojson` ustawiane po zapisie; powiadomienia wysyłane tylko przy faktycznej zmianie statusu (`update_data["status"] != old_status`); stary status przekazywany do `notify_event(old_status=)` → nowy szablon SMS/email "status zmienił się z X na Y" z etykietami po polsku
 - 2026-04-10: Globalna naprawa stref czasowych [3.11] — Backend: `_utc_iso()` + `@field_serializer` w `schemas/event.py` (wszystkie timestampy z `+00:00`). Frontend: `utils.ts` SSoT (`parseUTC`, `toLocalISO`, `toUTCISO`, `formatDate`, `formatDateTime`) zastosowane w AdminEventForm/EventCard/AdminDashboard/AdminSubscribers/AdminNotifications. Migracja TIMESTAMPTZ przygotowana (nie uruchomiona).
+- 2026-04-10: Poprawki logiki powiadomień [4.17+4.18] — szablony retroaktywne z aktualnym statusem (`build_sms_retroactive_message`, `build_email_retroactive_body`); DELETE /events/{id} wysyła powiadomienie zamykające (`await notify_event` synchronicznie) przed fizycznym usunięciem; FK `notification_log.event_id` naprawiona ON DELETE SET NULL + migracja `20260410_notif_fk` + `passive_deletes=True`
 - 2026-04-10: Zaawansowana interaktywność mapy [4.15+4.16] — `EventMap.Props`: `setFocusedEventId`; markery z `eventHandlers.click`. `MapController`: `flyToBounds` dla FeatureCollection (L.geoJSON().getBounds(), padding 50px, maxZoom 18), `flyTo` dla punktów/Polyline. Poligony: `fillOpacity` 0.5→0.6. `Index.tsx` przekazuje `setFocusedEventId` do `EventMap`.

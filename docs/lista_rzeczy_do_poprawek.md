@@ -234,8 +234,27 @@ Data audytu: 2026-04-03
   - Pobiera subskrybenta z adresami, następnie wszystkie zdarzenia ze statusem `"zgloszona"` lub `"w_naprawie"`.
   - Dla każdego aktywnego zdarzenia sprawdza dopasowanie adresów subskrybenta: `addr.street_id == event.street_id` + `is_in_range()`.
   - Deduplikacja po `event_id` — jedno powiadomienie nawet jeśli subskrybent ma kilka adresów na tej samej ulicy.
-  - Używa szablonu „nowe zdarzenie" (`build_sms_message` / `build_email_body`) — dla subskrybenta to pierwsza informacja.
+  - ~~Używa szablonu „nowe zdarzenie" (`build_sms_message` / `build_email_body`) — dla subskrybenta to pierwsza informacja.~~ → Patrz [4.17].
   - Router `POST /subscribers` wywołuje funkcję przez `asyncio.create_task()` zaraz po zapisie do bazy — odpowiedź HTTP 201 nie jest opóźniana.
+
+### ~~4.17~~ ✅ NAPRAWIONO — Brak aktualnego statusu w powiadomieniach retroaktywnych
+- **Pliki:** `backend/app/services/notification_service.py`
+- **Problem:** Nowy subskrybent otrzymywał powiadomienie o trwającej awarii (`notify_new_subscriber_about_active_events`), ale wiadomość nie informowała o aktualnym statusie (np. „w naprawie"). Subskrybent nie wiedział, czy awaria jest dopiero zgłoszona czy już w trakcie naprawy.
+- **Naprawa (2026-04-10):**
+  - Nowe funkcje szablonów: `build_sms_retroactive_message(event)` i `build_email_retroactive_body(event)`.
+  - SMS: *„MPWiK Lublin: Awaria — ul. [ULICA] nr X. Aktualny status: w naprawie. Szacowany czas naprawy: .... Przepraszamy za utrudnienia."*
+  - Email: zdanie *„trwa [typ zdarzenia]"* zamiast *„wystąpiła"* + dodatkowa linia *„Aktualny status: [etykieta]."* — czytelne rozróżnienie między „nową awarią" a „awarią w trakcie".
+  - Statusy przetłumaczone przez `_status_label()`: `w_naprawie` → *„w naprawie"*, `zgloszona` → *„zgłoszona"*.
+  - `notify_new_subscriber_about_active_events` podmienione na nowe szablony.
+
+### ~~4.18~~ ✅ NAPRAWIONO — DELETE /events/{id} nie wysyłał powiadomienia o usunięciu awarii
+- **Pliki:** `backend/app/routers/events.py`, `backend/app/models/notification.py`, `backend/app/models/event.py`, `backend/alembic/versions/20260410_notification_log_event_fk_set_null.py` (nowy)
+- **Problem:** Kliknięcie ikony kosza w AdminDashboard usuwało zdarzenie bez wysłania subskrybentom powiadomienia o zamknięciu awarii. Subskrybenci nie wiedzieli, że woda wróciła. Dodatkowo — FK `notification_log.event_id → events(id)` nie miała `ON DELETE SET NULL`, więc usunięcie zdarzenia posiadającego logi powiadomień rzucało błąd FK constraint violation (istniejący bug).
+- **Naprawa (2026-04-10):**
+  - `notification_log.event_id` FK zmieniona na `ForeignKey("events.id", ondelete="SET NULL")`.
+  - `Event.notifications` relationship: dodano `passive_deletes=True` — SQLAlchemy deleguje SET NULL do PostgreSQL (brak zbędnych SELECT przed DELETE).
+  - Nowa migracja Alembic `20260410_notif_fk` (rev `20260410_notif_fk`): `DROP CONSTRAINT + CREATE FOREIGN KEY ... ON DELETE SET NULL`.
+  - Endpoint `DELETE /events/{id}` — nowa sekwencja: (1) ustaw `event.status = "usunieta"`, commituj; (2) `await notify_event(event_id, old_status=old_status)` **synchronicznie** (wysyła SMS/email z szablonem „awaria usunięta"); (3) ponownie załaduj event z bazy; (4) `db.delete()` + commituj. Subskrybenci otrzymują SMS: *„Szanowny mieszkańcu, informujemy, że awaria na ul. [ULICA] została usunięta."*
 
 ### ~~4.13~~ ✅ NAPRAWIONO — Brak logowania (logging config) na poziomie aplikacji
 - `logging.basicConfig(level=INFO/DEBUG, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")` dodane w `main.py` przed definicją aplikacji.

@@ -1,4 +1,4 @@
-# Event Hub Lublin
+Event Hub Lublin
 
 System powiadamiania mieszkańców Lublina o awariach i przerwach w dostawie wody, tworzony we współpracy z MPWiK Lublin.
 

@@ -116,8 +116,24 @@ async def delete_event(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Zdarzenie nie istnieje",
         )
-    await db.delete(event)
+
+    # Zapamiętaj stary status, ustaw "usunieta" i commituj — notify_event odczyta zdarzenie
+    # z poprawnym statusem z własnej sesji DB.
+    old_status: str = event.status
+    event.status = "usunieta"
+    db.add(event)
     await db.commit()
+
+    # Wyślij powiadomienie zamykające (synchronicznie, zanim zdarzenie zniknie z bazy).
+    await notify_event(event_id, old_status=old_status)
+
+    # Fizyczne usunięcie — FK notification_log.event_id ma ON DELETE SET NULL.
+    result = await db.execute(select(Event).where(Event.id == event_id))
+    event = result.scalar_one_or_none()
+    if event is not None:
+        await db.delete(event)
+        await db.commit()
+
     logger.info("Usunięto zdarzenie id=%d przez user=%d (admin)", event_id, current_user.id)
 
 

@@ -38,7 +38,9 @@ class Event(Base):
     history: Mapped[list["EventHistory"]] = relationship(
         "EventHistory", back_populates="event", cascade="all, delete-orphan"
     )
-    notifications: Mapped[list["NotificationLog"]] = relationship("NotificationLog", back_populates="event")
+    notifications: Mapped[list["NotificationLog"]] = relationship(
+        "NotificationLog", back_populates="event", passive_deletes=True
+    )
 
     __table_args__ = (
         Index("idx_events_status", "status"),

@@ -15,7 +15,7 @@ class NotificationLog(Base):
     __tablename__ = "notification_log"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    event_id: Mapped[int | None] = mapped_column(ForeignKey("events.id"))
+    event_id: Mapped[int | None] = mapped_column(ForeignKey("events.id", ondelete="SET NULL"))
     subscriber_id: Mapped[int | None] = mapped_column(ForeignKey("subscribers.id", ondelete="SET NULL"))
     channel: Mapped[str] = mapped_column(String(10), nullable=False)
     recipient: Mapped[str] = mapped_column(String(100), nullable=False)

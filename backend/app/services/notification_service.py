@@ -267,6 +267,71 @@ def build_email_status_change_subject(event: Event) -> str:
     return f"[MPWiK Lublin] Zmiana statusu zgłoszenia — ul. {event.street_name}"
 
 
+def build_sms_retroactive_message(event: Event) -> str:
+    """Zbuduj treść SMS o trwającej awarii dla nowo zarejestrowanego subskrybenta."""
+    event_type_label = {
+        "awaria": "Awaria",
+        "planowane_wylaczenie": "Planowane wyłączenie",
+        "remont": "Remont",
+    }.get(event.event_type, event.event_type.capitalize())
+
+    parts = [f"MPWiK Lublin: {event_type_label} — ul. {event.street_name}"]
+
+    if event.house_number_from or event.house_number_to:
+        nr_from = event.house_number_from or "?"
+        nr_to = event.house_number_to or "?"
+        parts.append(f"nr {nr_from}-{nr_to}" if nr_from != nr_to else f"nr {nr_from}")
+
+    parts.append(f"Aktualny status: {_status_label(event.status)}")
+
+    end_str = _estimated_end_str(event)
+    if end_str:
+        parts.append(f"Szacowany czas naprawy: {end_str}")
+
+    parts.append("Przepraszamy za utrudnienia.")
+    return ". ".join(parts)
+
+
+def build_email_retroactive_body(event: Event) -> str:
+    """Zbuduj treść emaila o trwającej awarii dla nowo zarejestrowanego subskrybenta."""
+    event_type_label = {
+        "awaria": "awaria sieci wodociągowej",
+        "planowane_wylaczenie": "planowane wyłączenie wody",
+        "remont": "remont sieci wodociągowej",
+    }.get(event.event_type, event.event_type)
+
+    lines = [
+        "Szanowny Mieszkańcu,",
+        "",
+        f"Informujemy, że trwa {event_type_label} przy ul. {event.street_name}",
+    ]
+
+    if event.house_number_from or event.house_number_to:
+        nr_from = event.house_number_from or "?"
+        nr_to = event.house_number_to or "?"
+        lines[-1] += f" nr {nr_from}–{nr_to}." if nr_from != nr_to else f" nr {nr_from}."
+    else:
+        lines[-1] += "."
+
+    lines += ["", f"Aktualny status: {_status_label(event.status)}."]
+
+    if event.description:
+        lines += ["", f"Opis: {event.description}"]
+
+    end_str = _estimated_end_str(event)
+    if end_str:
+        lines += ["", f"Szacowany czas usunięcia awarii: {end_str}"]
+
+    lines += [
+        "",
+        "Przepraszamy za utrudnienia.",
+        "",
+        "MPWiK Lublin",
+        "tel. alarmowy: 994",
+    ]
+    return "\n".join(lines)
+
+
 def build_email_status_change_body(event: Event, old_status: str) -> str:
     """Zbuduj treść emaila informującego o zmianie statusu zdarzenia."""
     if event.status == "usunieta":
@@ -595,9 +660,9 @@ async def notify_new_subscriber_about_active_events(subscriber_id: int) -> None:
                 if not matched:
                     continue
 
-                sms_text = build_sms_message(event)
+                sms_text = build_sms_retroactive_message(event)
                 email_subject = build_email_subject(event)
-                email_body = build_email_body(event)
+                email_body = build_email_retroactive_body(event)
 
                 try:
                     await _send_notifications_for_subscriber(
