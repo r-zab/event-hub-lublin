@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 import {
   Table,
   TableBody,
@@ -142,7 +143,7 @@ const AdminSubscribers = () => {
                   </div>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
-                  {new Date(sub.created_at).toLocaleDateString('pl-PL')}
+                  {formatDate(sub.created_at)}
                 </TableCell>
               </TableRow>
             ))}

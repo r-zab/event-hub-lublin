@@ -30,7 +30,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { formatEventNumbers } from '@/lib/utils';
+import { formatEventNumbers, formatDate, formatDateTime } from '@/lib/utils';
 
 const AdminDashboard = () => {
   const { toast } = useToast();
@@ -219,9 +219,7 @@ const AdminDashboard = () => {
                         </span>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {event.created_at
-                          ? new Date(event.created_at).toLocaleDateString('pl-PL')
-                          : '–'}
+                        {event.created_at ? formatDate(event.created_at) : '–'}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
@@ -312,7 +310,7 @@ function HistoryTimeline({ history }: { history: StatusChange[] }) {
             <StatusBadge status={h.new_status} />
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            {new Date(h.changed_at).toLocaleString('pl-PL')}
+            {formatDateTime(h.changed_at)}
             {h.note && <span className="ml-2 italic">— {h.note}</span>}
           </p>
         </li>

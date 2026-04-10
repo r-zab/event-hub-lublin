@@ -124,6 +124,14 @@ Data audytu: 2026-04-03
 ### ~~3.8~~ ✅ NAPRAWIONO — Brak potwierdzenia przed usunięciem danych (Unsubscribe)
 - Zweryfikowano w kodzie — `Unsubscribe.tsx` implementuje 2-etapowy flow: etap 1 weryfikacja tokenu → etap 2 podgląd danych z pytaniem "Czy na pewno chcesz trwale usunąć powyższe dane?" + przyciski "Anuluj" / "Potwierdzam — usuń moje dane". Potwierdzenie istnieje.
 
+### ~~3.11~~ ✅ NAPRAWIONO — Globalna naprawa stref czasowych (UTC → Europe/Warsaw)
+- **Strategia:** UTC w bazie (SSoT), wyświetlanie w Europe/Warsaw. Brak `TZ=Europe/Warsaw` w procesie (niepewne na Windows/Docker).
+- **Root cause:** Backend zwracał naive datetime BEZ `Z` (np. `"2026-04-10T14:00:00"`). JS parsuje string bez strefy jako LOKALNY — błąd wyświetlania o +2h w zależności od kontekstu.
+- **Backend `schemas/event.py` (2026-04-10):** `_utc_iso()` + `@field_serializer` na `estimated_end`, `created_at`, `updated_at`, `changed_at` — wszystkie timestampy serializowane z `+00:00`, np. `"2026-04-10T14:00:00+00:00"`. JS poprawnie interpretuje jako UTC.
+- **Frontend `lib/utils.ts` (2026-04-10):** `parseUTC()` (dodaje Z do stringów bez strefy), `toLocalISO()` (UTC→input), `toUTCISO()` (input→UTC ISO), `formatDate()`, `formatDateTime()` — SSoT dla wszystkich konwersji dat.
+- **Zastosowane w:** `AdminEventForm.tsx` (ładowanie/zapis), `EventCard.tsx` (estimated_end), `AdminDashboard.tsx` (created_at, changed_at), `AdminSubscribers.tsx` (created_at), `AdminNotifications.tsx` (sent_at).
+- **Migracja TIMESTAMP WITH TIME ZONE:** Przygotowana jako `backend/alembic/versions/20260410_timestamp_with_timezone.py` — zmienia typ kolumn na TIMESTAMPTZ. **Nie uruchomiona** — wymaga potwierdzenia. Opcjonalna: Pydantic serializer już gwarantuje poprawne Z w JSON bez tej migracji.
+
 ### 3.9 Strona About - brak integracji z backendem
 - **Plik:** `frontend/src/pages/About.tsx`
 - Brak informacji dynamicznych (np. ilosc zdarzen, ilosc subskrybentow). To raczej nice-to-have.
@@ -183,10 +191,51 @@ Data audytu: 2026-04-03
 - **Problem:** `EventStatus = Literal["zgloszona", "w_naprawie", "usunieta", "planowane_wylaczenie", "remont"]` - `planowane_wylaczenie` i `remont` to typy zdarzen (`EventType`), nie statusy. Status powinien byc: `zgloszona`, `w_naprawie`, `usunieta`. Frontend ma ten sam blad w `mockData.ts:1`.
 - **Skutek:** Mozna ustawic status "remont" na awarii, co jest nielogiczne.
 
-### 4.12 Notify przy kazdym uupdacie eventu - duplikaty powiadomien
-- **Plik:** `backend/app/routers/events.py:126`
-- **Problem:** `asyncio.create_task(notify_event(event.id))` jest wywolywany przy KAZDEJ aktualizacji (PUT), nawet jesli zmienia sie tylko opis. Subskrybenci dostana powiadomienie za kazdym razem.
-- **Naprawa:** Powiadamiac tylko przy tworzeniu eventu i przy zmianie statusu (np. na `w_naprawie`), nie przy kazdym edicie.
+### ~~4.12~~ ✅ NAPRAWIONO — Notify przy kazdym uupdacie eventu - duplikaty powiadomien
+- **Pliki:** `backend/app/routers/events.py`, `backend/app/services/notification_service.py`
+- **Naprawa (2026-04-10):**
+  - `old_status = event.status` przechwytywane przed aktualizacją pól.
+  - Warunek wywołania powiadomień: `"status" in update_data and update_data["status"] != old_status` — eliminuje duplikaty gdy status wysłany bez faktycznej zmiany wartości.
+  - `notify_event(event_id, old_status=old_status)` — stary status przekazany jako argument.
+  - `notify_event` wybiera szablon: `old_status is None` → nowe zdarzenie; `old_status` ustawiony → zmiana statusu.
+  - Nowe szablony: `build_sms_status_change_message`, `build_email_status_change_subject/body` — *"Szanowny mieszkańcu, informujemy, że status zgłoszenia zmienił się z „X" na „Y". Szacowany czas naprawy: ..."*
+  - Etykiety statusów przetłumaczone na język naturalny (`_STATUS_LABELS`, `_status_label()`).
+  - **Naprawa strefy czasowej (2026-04-10):** `_estimated_end_str()` konwertuje `estimated_end` (UTC naive z PostgreSQL) do `Europe/Warsaw` przez `.replace(tzinfo=utc).astimezone(Warsaw)` przed `strftime`. Wszystkie szablony SMS/email używają tej funkcji — koniec błędu +1h/+2h w datach powiadomień.
+  - **Dedykowany szablon zamknięcia (2026-04-10):** Gdy `event.status == "usunieta"`, funkcje `build_sms_status_change_message` i `build_email_status_change_body` zwracają osobny szablon bez „szacowanego czasu naprawy". SMS: *„Szanowny mieszkańcu, informujemy, że awaria na ul. [ULICA] została usunięta."* Email: krótki komunikat z podziękowaniem za cierpliwość. Temat emaila zmieniony na *„[MPWiK Lublin] Awaria usunięta — ul. [ULICA]"*.
+
+### ~~4.15~~ ✅ NAPRAWIONO — Interaktywność mapy: Pinezki, nawigacja z kart i flyToBounds dla poligonów
+- **Pliki:** `frontend/src/pages/Index.tsx`, `frontend/src/components/EventCard.tsx`, `frontend/src/components/EventMap.tsx`
+- **Problem:** Brak powiązania między kartami zdarzeń a mapą — kliknięcie karty nic nie robiło. Kliknięcie pinezki nie aktualizowało stanu.
+- **Naprawa (2026-04-10, rozszerzona 2026-04-10):**
+  - `Index.tsx`: stan `focusedEventId` + `setFocusedEventId` — przekazany do `EventMap` (oba: read+write) i do `EventCard` (write przez `onFocus`).
+  - `EventCard` odbiera `onFocus: (id: number) => void` — wywołuje przy `onClick`; `cursor-pointer hover:bg-muted/50`.
+  - `EventMap.Props`: dodano `setFocusedEventId?: (id: number) => void` — każdy `<Marker>` ma `eventHandlers={{ click: () => setFocusedEventId(event.id) }}`, tak że kliknięcie pinezki również kadruję mapę.
+  - `MapController`: inteligentna nawigacja zależna od typu geometrii:
+    - `geojson_segment` jest `FeatureCollection` → `L.geoJSON(fc).getBounds()` + `map.flyToBounds(bounds, { padding: [50,50], duration: 1.5, maxZoom: 18 })`.
+    - Punkt (`street_geojson`) lub Polyline → `map.flyTo([lat, lon], 16, { duration: 1.5 })`.
+    - Centrum Lublina (fallback bez danych) → brak akcji.
+  - Konwersja koordynatów GeoJSON `[lon, lat]` → Leaflet `[lat, lon]` zachowana.
+  - Poprawiono pozycjonowanie markerów — teraz są obliczane na podstawie środka obszaru poligonów (centroid `L.geoJSON(fc).getBounds().getCenter()`), a nie środka całej ulicy (`street_geojson`). Priorytet: centroid FeatureCollection > `street_geojson` Point > centrum Lublina.
+
+### ~~4.16~~ ✅ NAPRAWIONO — Lepsza stylizacja poligonów budynków na mapie
+- **Plik:** `frontend/src/components/EventMap.tsx`
+- **Problem:** Poligony budynków były słabo widoczne (fillOpacity: 0.5), popup wyświetlał ogólny zakres z nagłówka zdarzenia zamiast konkretnego numeru domu.
+- **Naprawa (2026-04-10):**
+  - `fillOpacity` zmienione z `0.5` na `0.6` — budynki wyraźniejsze, tło mapy nadal widoczne.
+  - `stroke: false, weight: 0` — brak krawędzi (bez zmian — już było).
+  - `fillColor` używa koloru statusu zdarzenia (czerwony/pomarańczowy/zielony/niebieski/fioletowy) — zachowana semantyka kolorów.
+  - `onEachFeature`: popup każdego poligonu wyświetla `event.street_name + feature.properties.house_number` (np. "Nadbystrzycka 9") zamiast ogólnego tytułu.
+
+### ~~4.14~~ ✅ NAPRAWIONO — Powiadomienia retroaktywne dla nowych subskrybentów
+- **Pliki:** `backend/app/services/notification_service.py`, `backend/app/routers/subscribers.py`
+- **Problem:** Nowy subskrybent rejestrujący się w trakcie trwającej awarii nie otrzymywał żadnego powiadomienia.
+- **Naprawa (2026-04-10):**
+  - Nowa funkcja `notify_new_subscriber_about_active_events(subscriber_id: int)` w `notification_service.py`.
+  - Pobiera subskrybenta z adresami, następnie wszystkie zdarzenia ze statusem `"zgloszona"` lub `"w_naprawie"`.
+  - Dla każdego aktywnego zdarzenia sprawdza dopasowanie adresów subskrybenta: `addr.street_id == event.street_id` + `is_in_range()`.
+  - Deduplikacja po `event_id` — jedno powiadomienie nawet jeśli subskrybent ma kilka adresów na tej samej ulicy.
+  - Używa szablonu „nowe zdarzenie" (`build_sms_message` / `build_email_body`) — dla subskrybenta to pierwsza informacja.
+  - Router `POST /subscribers` wywołuje funkcję przez `asyncio.create_task()` zaraz po zapisie do bazy — odpowiedź HTTP 201 nie jest opóźniana.
 
 ### ~~4.13~~ ✅ NAPRAWIONO — Brak logowania (logging config) na poziomie aplikacji
 - `logging.basicConfig(level=INFO/DEBUG, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")` dodane w `main.py` przed definicją aplikacji.
@@ -246,7 +295,7 @@ Data audytu: 2026-04-03
 10. **[2.6]** Scheduler dla queued_morning SMS
 11. **[3.3]** Obsluga wygasniecia JWT na frontendzie
 12. **[2.5]** Geocoding ulic (mapa)
-13. **[4.3]** CORS z config
+13. ~~**[4.3]**~~ ✅ CORS z config
 14. **[4.2]** Walidacja SECRET_KEY
 15. **[2.7]** Walidacja formatu telefonu
 
@@ -278,12 +327,10 @@ Data audytu: 2026-04-03
 - **Plik:** `frontend/src/pages/AdminEventForm.tsx`
 - **Naprawa (2026-04-09):** Pola houseFrom/houseTo przeniesione do zakładki „Zakres numerów" (opcjonalne). houseFrom/houseTo są auto-derywowane z zaznaczonych budynków gdy źródłem jest mapa lub lista. Walidacja: submit akceptuje bieżący formularz (z ulicą) LUB kolejkę — nie wymaga zakresu gdy budynki zaznaczone na mapie.
 
-### [7.4] update_event nie ładuje relacji street → street_geojson=None w odpowiedzi PUT
+### ~~[7.4]~~ ✅ NAPRAWIONO — update_event nie ładuje relacji street → street_geojson=None w odpowiedzi PUT
 
-- **Plik:** `backend/app/routers/events.py` (linie 166–169)
-- **Problem:** W `update_event` finalny `select(Event)` ładuje tylko `selectinload(Event.history)`, BEZ `selectinload(Event.street)`. Linia `event.street_geojson = event.street.geojson` nie jest wywoływana, więc `EventResponse.street_geojson` w odpowiedzi `PUT /events/{id}` zawsze wynosi `None`. `list_events` i `get_event` nie mają tego błędu (ładują `selectinload(Event.street)` i ustawiają atrybut).
-- **Skutek:** Frontend po edycji zdarzenia dostaje `street_geojson=null` nawet gdy ulica ma geokod — mapa nie renderuje markera/linii po autozapisie.
-- **Naprawa:** W `update_event` zmienić linię 166 na `.options(selectinload(Event.history), selectinload(Event.street))` i dodać po `event = result.scalar_one()`: `event.street_geojson = event.street.geojson if event.street else None`.
+- **Plik:** `backend/app/routers/events.py`
+- **Naprawa (2026-04-10):** Oba `select(Event)` w `update_event` rozszerzone o `selectinload(Event.street)`. Po finalnym `event = result.scalar_one()` dodano `event.street_geojson = event.street.geojson if event.street else None`. Odpowiedź `PUT /events/{id}` teraz zawiera poprawne współrzędne ulicy.
 
 ### [7.5] Brak walidacji schematu FeatureCollection w geojson_segment
 
@@ -338,7 +385,7 @@ Data audytu: 2026-04-03
 - ✅ [7.1] Synchronizacja GIS — NAPRAWIONO
 - ✅ [7.2] Przywracanie zaznaczenia przy edycji — NAPRAWIONO
 - ✅ [7.3] Wymagalność pól houseFrom/houseTo — NAPRAWIONO
-- 🔲 [7.4] Naprawa update_event brakujący selectinload — 2 linie kodu
+- ✅ [7.4] Naprawa update_event brakujący selectinload — NAPRAWIONO
 - 🔲 [7.5] Walidacja schematu FeatureCollection — nice-to-have
 - ✅ [7.6] Dane buildings zasilone — potwierdzone w bazie (DBeaver) — ZASILONO
 - ✅ [7.7] Selekcja addytywna (zakres/lista) — NAPRAWIONO
@@ -356,24 +403,23 @@ Data audytu: 2026-04-03
 
 ### Priorytet 1 — Quick wins (każdy to 1–5 linii kodu, można zrobić jednym commitem):
 
-1. **[7.4] Naprawa `update_event` — brakujący `selectinload(Event.street)`**
-   - Plik: `backend/app/routers/events.py` linia 166
-   - Zmiana: `.options(selectinload(Event.history))` → `.options(selectinload(Event.history), selectinload(Event.street))`
-   - Dodać po `event = result.scalar_one()`: `event.street_geojson = event.street.geojson if event.street else None`
+1. ~~**[7.4]**~~ ✅ NAPRAWIONO **Naprawa `update_event` — brakujący `selectinload(Event.street)`**
+   - Plik: `backend/app/routers/events.py`
+   - Oba `select(Event)` w `update_event` rozszerzone o `selectinload(Event.street)`. Po `event = result.scalar_one()` dodano `event.street_geojson = event.street.geojson if event.street else None`.
    - Efekt: Mapa po edycji zdarzenia renderuje marker/linię poprawnie.
 
-2. **[4.12] Powiadamiaj tylko przy tworzeniu i zmianie statusu (nie każdy PUT)**
-   - Plik: `backend/app/routers/events.py` linia 170
-   - Zmiana: `notify_event` wywoływać tylko gdy `"status" in update_data` (tzn. gdy zmienił się status)
-   - Efekt: Subskrybenci nie dostają wielokrotnych duplikatów.
+2. ~~**[4.12]**~~ ✅ NAPRAWIONO **Powiadamiaj tylko przy tworzeniu i zmianie statusu (nie każdy PUT)**
+   - Plik: `backend/app/routers/events.py`
+   - `notify_event` wywoływany tylko gdy `"status" in update_data and update_data["status"] != old_status`.
+   - Efekt: Subskrybenci nie dostają wielokrotnych duplikatów przy każdym PUT.
 
-3. **[4.3] CORS z `settings.CORS_ORIGINS`**
-   - Plik: `backend/app/main.py` linie 95–100
-   - Zmiana: `allow_origins=settings.CORS_ORIGINS.split(",")` zamiast hardkodowanej listy
+3. ~~**[4.3]**~~ ✅ NAPRAWIONO **CORS z `settings.CORS_ORIGINS`**
+   - Plik: `backend/app/main.py`
+   - Zmiana: `allow_origins=[o.strip() for o in settings.CORS_ORIGINS.split(",")]` — strip() usuwa białe znaki
    - Efekt: Konfiguracja CORS z `.env` bez zmiany kodu.
 
-4. **[4.11] Naprawić `EventStatus` — usunąć `planowane_wylaczenie`/`remont`**
-   - Plik: `backend/app/schemas/event.py` linia 10
+4. ~~**[4.11]**~~ ✅ NAPRAWIONO **Naprawić `EventStatus` — usunąć `planowane_wylaczenie`/`remont`**
+   - Plik: `backend/app/schemas/event.py`
    - Zmiana: `EventStatus = Literal["zgloszona", "w_naprawie", "usunieta"]`
    - Efekt: Koniec semantycznego błędu — statusy != typy zdarzeń.
 

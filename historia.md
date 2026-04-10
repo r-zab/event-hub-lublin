@@ -1,6 +1,6 @@
 # Historia i stan projektu — Event Hub Lublin
 
-> Ostatnia aktualizacja: 2026-04-09 (Sesja 13: Bulk zgłaszanie awarii + 3-zakładkowy wybór zakresu + synchronizacja GIS)
+> Ostatnia aktualizacja: 2026-04-10 (Sesja 14: Poprawki jakości — strefy czasowe, interaktywność mapy, powiadomienia retroaktywne, eliminacja duplikatów)
 
 ---
 
@@ -130,7 +130,8 @@ event-hub-lublin/
 │       │
 │       ├── lib/
 │       │   ├── api.ts                 # apiFetch — VITE_API_URL, Bearer token, JSON; obsługa 401→logout+redirect
-│       │   └── utils.ts               # cn() helper (Tailwind)
+│       │   ├── utils.ts               # cn() + SSoT dat: parseUTC, toLocalISO, toUTCISO, formatDate, formatDateTime
+│       │   └── mapConfig.ts           # Konfiguracja Leaflet (tile URL, center Lublin, zoom)
 │       │
 │       └── data/
 │           └── mockData.ts            # Typy TypeScript + stałe (EVENT_TYPES, STATUS_LABELS)
@@ -208,6 +209,23 @@ MIESZKANIEC (SMS / Email)
 - Notification Engine: MockSMSGateway, EmailSender (mock/real), matching alfanumeryczny, nocna cisza, notification_log
 - Podłączenie powiadomień do events router (asyncio.create_task)
 - **seed.py usunięty** (2026-04-03) — baza wyczyszczona, zawiera wyłącznie 1378 ulic TERYT
+
+### Sesja 14 (2026-04-10) — Poprawki jakości: strefy czasowe, mapa, powiadomienia
+
+- **`backend/app/schemas/event.py`**: `_utc_iso()` + `@field_serializer` na wszystkich polach timestamp — serializacja z `+00:00`; eliminuje błąd wyświetlania dat o +2h w strefie CET/CEST
+- **`frontend/src/lib/utils.ts`**: nowe funkcje SSoT dla dat: `parseUTC`, `toLocalISO`, `toUTCISO`, `formatDate`, `formatDateTime`; zastosowane w AdminEventForm, EventCard, AdminDashboard, AdminSubscribers, AdminNotifications
+- **`backend/app/routers/events.py`**: `update_event` przechwytuje `old_status` przed zmianą; powiadomienia wysyłane tylko przy faktycznej zmianie statusu (`update_data["status"] != old_status`) — eliminacja duplikatów [4.12]
+- **`backend/app/services/notification_service.py`**: nowe szablony `build_sms_status_change_message` i `build_email_status_change_body`; dedykowany szablon zamknięcia awarii (bez szacowanego czasu); etykiety statusów po polsku; nowa funkcja `notify_new_subscriber_about_active_events()` [4.14] — powiadomienia retroaktywne przy rejestracji
+- **`backend/app/routers/subscribers.py`**: `asyncio.create_task(notify_new_subscriber_about_active_events())` po zapisie nowego subskrybenta [4.14]
+- **`frontend/src/pages/Index.tsx`**: stan `focusedEventId` + `setFocusedEventId` przekazany do EventMap i EventCard [4.15]
+- **`frontend/src/components/EventCard.tsx`**: `onFocus: (id) => void` + `cursor-pointer hover` [4.15]
+- **`frontend/src/components/EventMap.tsx`**: `MapController` z `flyToBounds` (FeatureCollection) i `flyTo` (punkt/Polyline); popup budynku z konkretnym numerem domu; `fillOpacity` 0.6 [4.15+4.16]
+- **`backend/app/main.py`**: CORS używa `settings.CORS_ORIGINS.split(",")` [4.3]
+- **`backend/alembic/versions/20260410_timestamp_with_timezone.py`** (nowy, nie uruchomiony): migracja zmieniająca kolumny na TIMESTAMPTZ — opcjonalna
+
+### Sesja 13 (2026-04-09) — Bulk zgłaszanie awarii + synchronizacja GIS
+
+- **`frontend/src/pages/AdminEventForm.tsx`**: kompletna przebudowa — 3-zakładkowy wybór zakresu (mapa/zakres/lista), `eventsQueue` koszyk z `Promise.all`, helpery `parseHouseNumber`/`isInRange`/`sortHouseNumbers`, naprawa [7.1]/[7.2]/[7.3]
 
 ### Sesja 12 (2026-04-09) — Obrysy budynków na mapie (zaznaczanie przez dyspozytora)
 

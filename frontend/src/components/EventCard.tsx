@@ -2,7 +2,7 @@ import { Clock, MapPin, AlertTriangle, Wrench, Calendar } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 import { type EventItem, TYPE_LABELS } from '@/data/mockData';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { formatEventNumbers } from '@/lib/utils';
+import { formatEventNumbers, formatDateTime } from '@/lib/utils';
 
 const typeIcons = {
   awaria: AlertTriangle,
@@ -12,14 +12,18 @@ const typeIcons = {
 
 interface EventCardProps {
   event: EventItem;
+  onFocus?: (id: number) => void;
 }
 
-export function EventCard({ event }: EventCardProps) {
+export function EventCard({ event, onFocus }: EventCardProps) {
   const Icon = typeIcons[event.event_type];
   const numbers = formatEventNumbers(event);
 
   return (
-    <Card className="hover:shadow-md transition-shadow border-border/60">
+    <Card
+      className="hover:shadow-md transition-shadow border-border/60 cursor-pointer hover:bg-muted/50"
+      onClick={() => onFocus?.(event.id)}
+    >
       <CardHeader className="pb-2 flex flex-row items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           {Icon && <Icon className="h-5 w-5 text-primary shrink-0" aria-hidden="true" />}
@@ -38,7 +42,7 @@ export function EventCard({ event }: EventCardProps) {
             <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <span>
               Szacowane zakończenie:{' '}
-              {new Date(event.estimated_end).toLocaleString('pl-PL', {
+              {formatDateTime(event.estimated_end, {
                 day: 'numeric',
                 month: 'short',
                 year: 'numeric',

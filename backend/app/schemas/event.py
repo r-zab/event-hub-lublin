@@ -1,13 +1,27 @@
 """Schematy Pydantic dla zdarzeń (awarie, wyłączenia, remonty)."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
+
+
+def _utc_iso(dt: datetime | None) -> str | None:
+    """Serializuj datetime jako ISO z jawnym +00:00 (UTC).
+
+    PostgreSQL zwraca naive datetime (bez tzinfo). JS parsuje string bez strefy
+    jako czas LOKALNY — stąd błąd przesunięcia +2h w przeglądarce.
+    Dodanie '+00:00' wymusza interpretację UTC zarówno w JS jak i narzędziach.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
 
 
 EventType = Literal["awaria", "planowane_wylaczenie", "remont"]
-EventStatus = Literal["zgloszona", "w_naprawie", "usunieta", "planowane_wylaczenie", "remont"]
+EventStatus = Literal["zgloszona", "w_naprawie", "usunieta"]
 
 
 class EventBase(BaseModel):
@@ -56,6 +70,10 @@ class EventHistoryResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @field_serializer("changed_at", when_used="json")
+    def serialize_changed_at(self, v: datetime) -> str | None:
+        return _utc_iso(v)
+
 
 class EventResponse(EventBase):
     """Pełna odpowiedź dla zdarzenia."""
@@ -68,3 +86,11 @@ class EventResponse(EventBase):
     street_geojson: dict | None = None
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("estimated_end", when_used="json")
+    def serialize_estimated_end(self, v: datetime | None) -> str | None:
+        return _utc_iso(v)
+
+    @field_serializer("created_at", "updated_at", when_used="json")
+    def serialize_timestamps(self, v: datetime) -> str | None:
+        return _utc_iso(v)

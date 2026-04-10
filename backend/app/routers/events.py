@@ -131,7 +131,7 @@ async def update_event(
     """Aktualizuj zdarzenie. Przy zmianie statusu zapisuje wpis do event_history. Wymaga JWT."""
     result = await db.execute(
         select(Event)
-        .options(selectinload(Event.history))
+        .options(selectinload(Event.history), selectinload(Event.street))
         .where(Event.id == event_id)
     )
     event = result.scalar_one_or_none()
@@ -139,11 +139,12 @@ async def update_event(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zdarzenie nie istnieje")
 
     update_data = data.model_dump(exclude_none=True)
+    old_status: str = event.status
 
-    if "status" in update_data and update_data["status"] != event.status:
+    if "status" in update_data and update_data["status"] != old_status:
         history_entry = EventHistory(
             event_id=event.id,
-            old_status=event.status,
+            old_status=old_status,
             new_status=update_data["status"],
             changed_by=current_user.id,
         )
@@ -151,7 +152,7 @@ async def update_event(
         logger.info(
             "Zmiana statusu zdarzenia id=%d: %r → %r przez user=%d",
             event.id,
-            event.status,
+            old_status,
             update_data["status"],
             current_user.id,
         )
@@ -164,9 +165,13 @@ async def update_event(
     await db.refresh(event)
     # Odśwież relację history po ewentualnym dodaniu wpisu
     result = await db.execute(
-        select(Event).options(selectinload(Event.history)).where(Event.id == event.id)
+        select(Event)
+        .options(selectinload(Event.history), selectinload(Event.street))
+        .where(Event.id == event.id)
     )
     event = result.scalar_one()
-    task = asyncio.create_task(notify_event(event.id))
-    task.add_done_callback(_log_task_exception)
+    event.street_geojson = event.street.geojson if event.street else None
+    if "status" in update_data and update_data["status"] != old_status:
+        task = asyncio.create_task(notify_event(event.id, old_status=old_status))
+        task.add_done_callback(_log_task_exception)
     return event

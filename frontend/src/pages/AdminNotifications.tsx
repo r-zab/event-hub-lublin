@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
+import { formatDateTime } from '@/lib/utils';
 import {
   Table,
   TableBody,
@@ -106,7 +107,7 @@ const AdminNotifications = () => {
             {data?.items.map((notif) => (
               <TableRow key={notif.id}>
                 <TableCell className="text-sm whitespace-nowrap">
-                  {new Date(notif.sent_at).toLocaleString('pl-PL')}
+                  {formatDateTime(notif.sent_at)}
                 </TableCell>
                 <TableCell>
                   <span

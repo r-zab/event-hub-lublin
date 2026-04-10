@@ -1,54 +1,173 @@
 # Event Hub Lublin
 
-System powiadamiania mieszkancow Lublina o awariach sieci wodociagowej MPWiK.
-Projekt realizowany na Festiwal Biznesu — Politechnika Lubelska.
+System powiadamiania mieszkańców Lublina o awariach i przerwach w dostawie wody, tworzony we współpracy z MPWiK Lublin.
 
-## Stack
+Projekt realizowany na **Festiwal Biznesu — Politechnika Lubelska**.
+Kierunek: Sztuczna Inteligencja w Biznesie | Zespół: Rafał Zaborek, Jakub Zatorski, Mateusz Duda
+
+---
+
+## Stack technologiczny
 
 | Warstwa | Technologie |
 |---------|-------------|
 | Backend | Python 3.12 + FastAPI (async) |
 | Baza danych | PostgreSQL 16 (Docker) |
-| ORM / migracje | SQLAlchemy 2.0 + Alembic |
-| Auth | JWT (python-jose) + bcrypt (passlib) |
-| Powiadomienia | aiosmtplib (email) + MockSMSGateway |
+| ORM / migracje | SQLAlchemy 2.0 async + Alembic |
+| Auth | JWT HS256 (python-jose) + bcrypt cost=12 (passlib) |
+| Powiadomienia | aiosmtplib (email) + SMSEagle / MockSMSGateway |
+| Harmonogram | APScheduler (poranna kolejka SMS 06:00 Warsaw) |
 | Frontend | React 18 + TypeScript + Vite |
-| Mapa | Leaflet + React-Leaflet |
+| Mapa | Leaflet + React-Leaflet (obrysy budynków, FeatureCollection) |
 | Infra | Docker Compose |
 
-## Quick Start
+---
 
-### Backend + baza danych
+## Uruchomienie projektu od zera
+
+### Wymagania
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Docker Engine + Compose v2)
+- [Node.js 20+](https://nodejs.org/) (dla frontendu)
+- Git
+
+### Krok 1 — Pobierz repozytorium
 
 ```bash
-# 1. Skopiuj i uzupelnij zmienne srodowiskowe
-cp .env.example .env
-
-# 2. Uruchom PostgreSQL i backend
-docker compose up -d
-
-# 3. Wejdz do kontenera backendowego i wykonaj migracje
-docker compose exec backend alembic upgrade head
-
-# 4. (Opcjonalnie) Zaladuj dane testowe
-docker compose exec backend python -m scripts.seed
-
-# 5. Sprawdz
-#   http://localhost:8000/health
-#   http://localhost:8000/docs  (Swagger UI)
-#   http://localhost:8000/redoc
+git clone <url-repozytorium>
+cd event-hub-lublin
 ```
 
-### Frontend (dev)
+### Krok 2 — Konfiguracja zmiennych środowiskowych
+
+Skopiuj przykładowy plik i uzupełnij wartości:
+
+```bash
+cp .env.example .env
+```
+
+Minimalna zawartość `.env` do uruchomienia lokalnego:
+
+```env
+# Baza danych
+DATABASE_URL=postgresql+asyncpg://eventhub:devpassword@db:5432/eventhub
+POSTGRES_DB=eventhub
+POSTGRES_USER=eventhub
+POSTGRES_PASSWORD=devpassword
+
+# JWT — zmień na losowy string min. 32 znaki!
+SECRET_KEY=zmien-na-tajny-klucz-minimum-32-znaki
+
+# CORS — adresy frontendu (przecinkami)
+CORS_ORIGINS=http://localhost:8080,http://localhost:5173
+
+# Email (opcjonalne — bez tego działa tryb mock)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASSWORD=
+ENABLE_EMAIL_NOTIFICATIONS=false
+
+# SMS
+SMS_GATEWAY_TYPE=mock
+# Dla produkcji z SMSEagle:
+# SMS_GATEWAY_TYPE=smseagle
+# SMSEAGLE_URL=http://192.168.1.100
+# SMSEAGLE_API_TOKEN=twoj-token
+
+# Geocoding (dla skryptu geocode_streets.py)
+NOMINATIM_USER_AGENT=eventhub-lublin/1.0
+
+# Debug
+DEBUG=true
+```
+
+### Krok 3 — Uruchom bazę danych i backend
+
+```bash
+docker compose up -d
+```
+
+To polecenie uruchamia:
+- `db` — PostgreSQL 16 na porcie `5432`
+- `backend` — FastAPI na porcie `8000`
+
+Sprawdź czy backend działa:
+
+```bash
+curl http://localhost:8000/health
+# {"status": "ok"}
+```
+
+Dokumentacja API (Swagger): http://localhost:8000/docs
+
+### Krok 4 — Wykonaj migracje bazy danych
+
+```bash
+docker compose exec backend alembic upgrade head
+```
+
+Tworzy wszystkie tabele: `users`, `streets`, `events`, `event_history`, `subscribers`, `subscriber_addresses`, `notification_log`, `api_keys`, `buildings`.
+
+### Krok 5 — Zasilanie bazy danych
+
+#### a) Import ulic z TERYT (wymagany)
+
+Pobierz plik `ULIC_*.xml` ze strony GUS (TERYT) i umieść go w `backend/data/`.
+Plik `ULIC_29-03-2026.xml` jest już dołączony do repozytorium.
+
+```bash
+docker compose exec backend python -m scripts.import_streets
+# Importuje 1378 ulic Lublina — idempotentny (bezpieczne wielokrotne uruchomienie)
+```
+
+#### b) Geocoding ulic (opcjonalne, ale zalecane)
+
+Uzupełnia kolumnę `geojson` w tabeli `streets` — poprawia wyświetlanie zdarzeń na mapie:
+
+```bash
+docker compose exec backend python -m scripts.geocode_streets
+# Odpytuje Nominatim, opóźnienie 1.2s/ulicę — ok. 30 min dla wszystkich ulic
+# Flagi: --limit 50 --dry-run --delay 1.5
+```
+
+#### c) Import obrysów budynków (opcjonalne)
+
+Wymaga pliku `lublin_budynki_final.geojson` (jest w repozytorium):
+
+```bash
+docker compose exec backend python -m scripts.import_buildings
+# Importuje poligony budynków dla funkcji zaznaczania na mapie w panelu admina
+```
+
+#### d) Konta deweloperskie
+
+```bash
+docker compose exec backend python -m scripts.setup_dev_users
+```
+
+Tworzy konta (idempotentne):
+
+| Login | Hasło | Rola |
+|-------|-------|------|
+| `admin` | `admin123` | admin |
+| `dyspozytor1` | `lublin123` | dispatcher |
+| `dyspozytor2` | `lublin123` | dispatcher |
+
+### Krok 6 — Uruchom frontend
 
 ```bash
 cd frontend
 npm install
 npm run dev
-# http://localhost:5173
+# http://localhost:8080
 ```
 
-Frontend komunikuje sie z backendem przez Vite proxy (`/api` → `localhost:8000`).
+Frontend komunikuje się z backendem przez proxy Vite (`/api` → `localhost:8000`).
+
+Panel admina: http://localhost:8080/admin/login
+
+---
 
 ## Struktura projektu
 
@@ -56,130 +175,113 @@ Frontend komunikuje sie z backendem przez Vite proxy (`/api` → `localhost:8000
 event-hub-lublin/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py               # FastAPI app, CORS, lifespan
-│   │   ├── config.py             # ustawienia z .env (Pydantic Settings)
-│   │   ├── database.py           # async engine + SessionLocal
+│   │   ├── main.py               # FastAPI app, CORS, scheduler, lifespan
+│   │   ├── config.py             # Pydantic Settings z .env
+│   │   ├── database.py           # AsyncEngine + AsyncSession
+│   │   ├── dependencies.py       # get_db, get_current_user, get_current_admin
+│   │   ├── limiter.py            # Shared slowapi Limiter (rate limiting)
 │   │   ├── models/               # SQLAlchemy 2.0 ORM
-│   │   │   ├── user.py
-│   │   │   ├── street.py
-│   │   │   ├── event.py
-│   │   │   ├── subscriber.py
-│   │   │   └── notification_log.py
 │   │   ├── schemas/              # Pydantic v2 I/O schemas
-│   │   ├── routers/              # endpointy API
-│   │   │   ├── auth.py           # POST /api/v1/auth/login
-│   │   │   ├── streets.py        # GET  /api/v1/streets?q=
-│   │   │   ├── events.py         # CRUD /api/v1/events
-│   │   │   └── subscribers.py    # POST/GET/DELETE /api/v1/subscribers
-│   │   ├── services/
-│   │   │   ├── gateways.py       # SMSGateway ABC + MockSMSGateway + EmailSender
-│   │   │   └── notification_service.py  # matching + nocna cisza + notification_log
-│   │   └── dependencies.py       # get_db, get_current_user
+│   │   ├── routers/              # endpointy API (auth, events, streets, subscribers, admin)
+│   │   └── services/
+│   │       ├── gateways.py       # SMSGateway ABC, MockSMSGateway, SMSEagleGateway, EmailSender
+│   │       └── notification_service.py  # matching, nocna cisza, queued_morning, powiadomienia retroaktywne
 │   ├── alembic/                  # migracje bazy danych
 │   ├── scripts/
-│   │   ├── seed.py               # dane testowe (admin/admin123, ulice, zdarzenia)
-│   │   └── import_streets.py     # import 1378 ulic z XML TERYT GUS
+│   │   ├── import_streets.py     # import 1378 ulic z XML TERYT GUS
+│   │   ├── geocode_streets.py    # geocoding Nominatim → street.geojson
+│   │   ├── import_buildings.py   # import obrysów budynków z GeoJSON OSM
+│   │   └── setup_dev_users.py    # konta deweloperskie (admin + dyspozytorzy)
 │   ├── data/
-│   │   └── ULIC_*.xml            # plik TERYT (pobierz ze strony GUS)
+│   │   └── ULIC_29-03-2026.xml   # plik TERYT z GUS
 │   ├── Dockerfile
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/
-│   │   │   ├── Index.tsx         # strona glowna z mapa i lista awarii
-│   │   │   ├── Register.tsx      # formularz subskrypcji (wieloadresowy, RODO)
-│   │   │   ├── Unsubscribe.tsx   # wyrejestrowanie przez token
-│   │   │   ├── AdminLogin.tsx    # logowanie dyspozytora
-│   │   │   ├── AdminDashboard.tsx # tabela zdarzen, historia, filtry
-│   │   │   ├── AdminEventForm.tsx # tworzenie/edycja zdarzenia (autocomplete TERYT)
-│   │   │   └── About.tsx
-│   │   ├── components/
-│   │   │   ├── EventMap.tsx      # mapa Leaflet z kolorowaniem statusow
-│   │   │   ├── EventCard.tsx
-│   │   │   ├── StatusBadge.tsx
-│   │   │   └── ...
-│   │   └── hooks/
-│   │       ├── useAuth.tsx       # OAuth2 x-www-form-urlencoded
-│   │       ├── useEvents.ts      # pobieranie + filtrowanie + paginacja
-│   │       └── useStreets.ts     # autocomplete (min 3 znaki, AbortController)
+│   │   ├── pages/                # Index, Register, Unsubscribe, AdminDashboard, AdminEventForm, ...
+│   │   ├── components/           # EventMap, EventCard, StatusBadge, AdminLayout, ...
+│   │   ├── hooks/                # useAuth, useEvents, useStreets
+│   │   └── lib/
+│   │       ├── api.ts            # apiFetch (Bearer, obsługa 401→logout)
+│   │       └── utils.ts          # SSoT konwersji dat (parseUTC, formatDateTime, ...)
 │   └── vite.config.ts            # proxy /api → localhost:8000
 ├── docs/
-│   ├── PROJECT_CONTEXT.md
-│   ├── TECH_SPEC.md
-│   ├── RULES.md
-│   └── PROGRESS.md
+│   ├── PROJECT_CONTEXT.md        # Kontekst biznesowy, decyzje projektowe
+│   ├── TECH_SPEC.md              # Specyfikacja API, schemat bazy, algorytmy
+│   ├── RULES.md                  # Zasady pracy i styl kodu
+│   ├── PROGRESS.md               # Co jest zrobione, backlog
+│   └── lista_rzeczy_do_poprawek.md  # Audyt techniczny
 ├── docker-compose.yml
-└── CLAUDE.md
+├── historia.md                   # Pełna historia sesji deweloperskich
+└── CLAUDE.md                     # Instrukcje dla Claude Code
 ```
 
-## API — glowne endpointy
+---
+
+## Główne endpointy API
 
 | Metoda | Endpoint | Auth | Opis |
 |--------|----------|------|------|
-| POST | `/api/v1/auth/login` | — | Logowanie dyspozytora (JWT) |
+| POST | `/api/v1/auth/login` | — | Logowanie (JWT 30 min) |
+| POST | `/api/v1/auth/refresh` | — | Odświeżenie tokenu (7 dni) |
 | GET | `/api/v1/events` | — | Lista aktywnych awarii (paginacja) |
-| GET | `/api/v1/events/{id}` | — | Szczegoly zdarzenia |
-| POST | `/api/v1/events` | JWT | Tworzenie zdarzenia |
-| PUT | `/api/v1/events/{id}` | JWT | Aktualizacja / zmiana statusu |
-| DELETE | `/api/v1/events/{id}` | JWT admin | Usuniecie zdarzenia |
+| GET | `/api/v1/events/{id}` | — | Szczegóły zdarzenia |
+| POST | `/api/v1/events` | JWT | Tworzenie zdarzenia + powiadomienia |
+| PUT | `/api/v1/events/{id}` | JWT | Zmiana statusu + powiadomienia o zmianie |
+| DELETE | `/api/v1/events/{id}` | JWT admin | Usunięcie zdarzenia |
 | GET | `/api/v1/streets?q=pilsud` | — | Autocomplete ulic TERYT |
-| POST | `/api/v1/subscribers` | — | Rejestracja subskrybenta |
-| GET | `/api/v1/subscribers/{token}` | — | Podglad przed wyrejestrowaniem |
-| DELETE | `/api/v1/subscribers/{token}` | — | Wyrejestrowanie (fizyczne, RODO) |
+| GET | `/api/v1/streets/{id}/buildings` | — | Obrysy budynków dla ulicy |
+| POST | `/api/v1/subscribers` | — | Rejestracja subskrybenta (wieloadresowa, RODO) |
+| GET | `/api/v1/subscribers/{token}` | — | Podgląd danych przed wyrejestrowaniem |
+| DELETE | `/api/v1/subscribers/{token}` | — | Fizyczne usunięcie danych (RODO) |
+| GET | `/api/v1/admin/stats` | JWT admin | Statystyki systemu |
+| GET | `/api/v1/admin/subscribers` | JWT admin | Lista subskrybentów |
+| GET | `/api/v1/admin/notifications` | JWT admin | Log wysłanych powiadomień |
 | GET | `/health` | — | Health check |
 
-Pelna dokumentacja: `http://localhost:8000/docs`
+Pełna dokumentacja (Swagger): http://localhost:8000/docs
 
-## Statusy awarii i kolory mapy
+---
 
-| Status | Kolor |
-|--------|-------|
-| zgloszona | czerwony `#EF4444` |
-| w_naprawie | pomaranczowy `#F59E0B` |
-| usunieta | zielony `#10B981` |
-| planowane_wylaczenie | niebieski `#3B82F6` |
-| remont | fioletowy `#8B5CF6` |
+## Statusy zdarzeń i kolory mapy
 
-## Dane testowe (po `seed.py`)
+| Status | Kolor | Hex |
+|--------|-------|-----|
+| `zgloszona` | czerwony | `#EF4444` |
+| `w_naprawie` | pomarańczowy | `#F59E0B` |
+| `usunieta` | zielony | `#10B981` |
+| `planowane_wylaczenie` | niebieski | `#3B82F6` |
+| `remont` | fioletowy | `#8B5CF6` |
 
-- Konto admina: `admin` / `admin123`
-- 5 ulic Lublina (Pilsudskiego, Lipowa, Nadbystrzycka, Zana, Krasnicka)
-- 3 zdarzenia z historia statusow
-- 2 subskrybenci z adresami
+---
 
-## Import ulic TERYT
+## Kluczowe zasady biznesowe
+
+1. **Adresy słownikowane z TERYT** — autocomplete, brak wpisywania ręcznego
+2. **Mapa: linie i poligony budynków** — NIE okręgi/promienie; zasięg = konkretne numery posesji
+3. **Wiele adresów na subskrybenta** — mieszkaniec może monitorować kilka lokalizacji
+4. **Fizyczne usunięcie danych** — RODO: DELETE zamiast soft-delete
+5. **Zgoda na SMS nocne** — osobna zgoda, domyślnie wyłączona; cisza 22:00–06:00 (Europe/Warsaw)
+6. **Multi-operator ready** — pole `source` w zdarzeniach; architektura gotowa na LPEC, zarząd dróg
+7. **100% open source** — zero kosztów licencyjnych
+
+---
+
+## Wdrożenie produkcyjne (Oracle Linux — planowane)
 
 ```bash
-# Pobierz plik ULIC_*.xml ze strony GUS (TERYT)
-# i umies go w backend/data/
+# 1. Ustaw SECRET_KEY na losowy string (min. 32 znaki)
+openssl rand -hex 32
+
+# 2. Ustaw SMS_GATEWAY_TYPE=smseagle + dane SMSEagle MPWiK
+# 3. Skonfiguruj SMTP dla emaili
+# 4. Ustaw ENABLE_EMAIL_NOTIFICATIONS=true
+# 5. Skonfiguruj nginx jako reverse proxy
+
+docker compose -f docker-compose.prod.yml up -d
+docker compose exec backend alembic upgrade head
 docker compose exec backend python -m scripts.import_streets
-# Importuje 1378 ulic Lublina (idempotentny)
+docker compose exec backend python -m scripts.setup_dev_users
 ```
 
-## Zmienne srodowiskowe (.env)
-
-```env
-DATABASE_URL=postgresql+asyncpg://eventhub:devpassword@localhost:5432/eventhub
-SECRET_KEY=zmien-na-tajny-klucz
-POSTGRES_DB=eventhub
-POSTGRES_USER=eventhub
-POSTGRES_PASSWORD=devpassword
-
-# Email (opcjonalne — bez tego dziala tryb mock)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=
-SMTP_PASSWORD=
-
-# SMS (mockowane w dev)
-SMS_GATEWAY_TYPE=mock
-```
-
-## Zespol
-
-- Rafal Zaborek
-- Jakub Zatorski
-- Mateusz Duda
-
-Politechnika Lubelska — Sztuczna Inteligencja w Biznesie
-Festiwal Biznesu 2026
+> Docelowy OS: Oracle Linux (zgodnie z wymaganiami MPWiK IT)

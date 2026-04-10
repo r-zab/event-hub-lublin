@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { EventCard } from '@/components/EventCard';
 import { EventMap } from '@/components/EventMap';
 import { useEvents } from '@/hooks/useEvents';
@@ -5,12 +6,13 @@ import { Loader2, Droplets } from 'lucide-react';
 
 const Index = () => {
   const { events, isLoading } = useEvents();
+  const [focusedEventId, setFocusedEventId] = useState<number | null>(null);
 
   return (
     <div className="space-y-8">
       {/* Map */}
       <section aria-label="Mapa zdarzeń">
-        <EventMap events={events} />
+        <EventMap events={events} focusedEventId={focusedEventId} setFocusedEventId={setFocusedEventId} />
       </section>
 
       {/* Events list */}
@@ -34,7 +36,7 @@ const Index = () => {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {events.map((event) => (
-              <EventCard key={event.id} event={event} />
+              <EventCard key={event.id} event={event} onFocus={setFocusedEventId} />
             ))}
           </div>
         )}

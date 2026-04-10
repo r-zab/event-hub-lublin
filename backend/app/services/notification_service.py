@@ -135,8 +135,34 @@ async def match_subscribers(
 # ---------------------------------------------------------------------------
 
 
+_STATUS_LABELS: dict[str, str] = {
+    "zgloszona": "zgłoszona",
+    "w_naprawie": "w naprawie",
+    "usunieta": "usunięta",
+    "planowane_wylaczenie": "planowane wyłączenie",
+    "remont": "remont",
+}
+
+
+def _status_label(status: str) -> str:
+    return _STATUS_LABELS.get(status, status)
+
+
+def _estimated_end_str(event: Event) -> str | None:
+    """Zwróć sformatowany szacowany czas naprawy w strefie Europe/Warsaw.
+
+    PostgreSQL przechowuje TIMESTAMP bez strefy jako UTC. Konwersja przez
+    astimezone(Warsaw) koryguje wyświetlany czas o +1h (CET) lub +2h (CEST).
+    """
+    if not event.estimated_end:
+        return None
+    warsaw = ZoneInfo("Europe/Warsaw")
+    end_local = event.estimated_end.replace(tzinfo=timezone.utc).astimezone(warsaw)
+    return end_local.strftime("%d.%m.%Y %H:%M")
+
+
 def build_sms_message(event: Event) -> str:
-    """Zbuduj krótką treść SMS o zdarzeniu."""
+    """Zbuduj krótką treść SMS o nowym zdarzeniu."""
     event_type_label = {
         "awaria": "Awaria",
         "planowane_wylaczenie": "Planowane wyłączenie",
@@ -153,16 +179,38 @@ def build_sms_message(event: Event) -> str:
         else:
             parts.append(f"nr {nr_from}-{nr_to}")
 
-    if event.estimated_end:
-        end_str = event.estimated_end.strftime("%d.%m %H:%M")
+    end_str = _estimated_end_str(event)
+    if end_str:
         parts.append(f"Szacowany czas naprawy: {end_str}")
 
     parts.append("Przepraszamy za utrudnienia.")
     return ". ".join(parts)
 
 
+def build_sms_status_change_message(event: Event, old_status: str) -> str:
+    """Zbuduj treść SMS informującego o zmianie statusu zdarzenia."""
+    if event.status == "usunieta":
+        return (
+            f"Szanowny mieszkańcu, informujemy, że awaria na ul. {event.street_name}"
+            " została usunięta."
+        )
+
+    parts = [
+        f"Szanowny mieszkańcu, informujemy, że status zgłoszenia"
+        f" zmienił się z \"{_status_label(old_status)}\""
+        f" na \"{_status_label(event.status)}\"",
+    ]
+
+    end_str = _estimated_end_str(event)
+    if end_str:
+        parts.append(f"Szacowany czas naprawy: {end_str}")
+
+    parts.append("Za utrudnienia przepraszamy.")
+    return ". ".join(parts)
+
+
 def build_email_subject(event: Event) -> str:
-    """Zbuduj temat emaila o zdarzeniu."""
+    """Zbuduj temat emaila o nowym zdarzeniu."""
     label = {
         "awaria": "Awaria wody",
         "planowane_wylaczenie": "Planowane wyłączenie wody",
@@ -172,7 +220,7 @@ def build_email_subject(event: Event) -> str:
 
 
 def build_email_body(event: Event) -> str:
-    """Zbuduj treść emaila o zdarzeniu."""
+    """Zbuduj treść emaila o nowym zdarzeniu."""
     event_type_label = {
         "awaria": "awaria sieci wodociągowej",
         "planowane_wylaczenie": "planowane wyłączenie wody",
@@ -198,13 +246,57 @@ def build_email_body(event: Event) -> str:
     if event.description:
         lines += ["", f"Opis: {event.description}"]
 
-    if event.estimated_end:
-        end_str = event.estimated_end.strftime("%d.%m.%Y %H:%M")
+    end_str = _estimated_end_str(event)
+    if end_str:
         lines += ["", f"Szacowany czas usunięcia awarii: {end_str}"]
 
     lines += [
         "",
         "Przepraszamy za utrudnienia.",
+        "",
+        "MPWiK Lublin",
+        "tel. alarmowy: 994",
+    ]
+    return "\n".join(lines)
+
+
+def build_email_status_change_subject(event: Event) -> str:
+    """Zbuduj temat emaila informującego o zmianie statusu zdarzenia."""
+    if event.status == "usunieta":
+        return f"[MPWiK Lublin] Awaria usunięta — ul. {event.street_name}"
+    return f"[MPWiK Lublin] Zmiana statusu zgłoszenia — ul. {event.street_name}"
+
+
+def build_email_status_change_body(event: Event, old_status: str) -> str:
+    """Zbuduj treść emaila informującego o zmianie statusu zdarzenia."""
+    if event.status == "usunieta":
+        lines = [
+            "Szanowny Mieszkańcu,",
+            "",
+            f"Informujemy, że awaria na ul. {event.street_name} została usunięta.",
+            "",
+            "Dziękujemy za cierpliwość.",
+            "",
+            "MPWiK Lublin",
+            "tel. alarmowy: 994",
+        ]
+        return "\n".join(lines)
+
+    lines = [
+        "Szanowny Mieszkańcu,",
+        "",
+        f"Informujemy, że status zgłoszenia dla ul. {event.street_name}"
+        f" zmienił się z \"{_status_label(old_status)}\""
+        f" na \"{_status_label(event.status)}\".",
+    ]
+
+    end_str = _estimated_end_str(event)
+    if end_str:
+        lines += ["", f"Szacowany czas naprawy: {end_str}"]
+
+    lines += [
+        "",
+        "Za utrudnienia przepraszamy.",
         "",
         "MPWiK Lublin",
         "tel. alarmowy: 994",
@@ -307,12 +399,18 @@ async def _send_notifications_for_subscriber(
         )
 
 
-async def notify_event(event_id: int) -> None:
+async def notify_event(event_id: int, old_status: str | None = None) -> None:
     """
     Wyślij powiadomienia do subskrybentów dotkniętych zdarzeniem.
 
     Otwiera własną sesję bazy danych — bezpieczne do uruchomienia jako
     asyncio.create_task() po zamknięciu sesji routera.
+
+    Parametry:
+        event_id:   ID zdarzenia w bazie.
+        old_status: Poprzedni status (przekazany z update_event przy zmianie statusu).
+                    Gdy None — zdarzenie nowe, używany szablon "nowe zgłoszenie".
+                    Gdy string — zmiana statusu, używany szablon "status zmienił się z X na Y".
 
     - Email: zawsze (o ile ENABLE_EMAIL_NOTIFICATIONS=True i subskrybent nie wyłączył).
     - SMS: jeśli czas nocny (22-06) i brak night_sms_consent → status 'queued_morning'.
@@ -353,9 +451,26 @@ async def notify_event(event_id: int) -> None:
             email_sender = EmailSender() if email_globally_enabled else None
             is_night = _is_night_hours()
 
-            sms_text = build_sms_message(event)
-            email_subject = build_email_subject(event)
-            email_body = build_email_body(event)
+            if old_status is not None:
+                # Zmiana statusu — szablon "status zmienił się z X na Y"
+                sms_text = build_sms_status_change_message(event, old_status)
+                email_subject = build_email_status_change_subject(event)
+                email_body = build_email_status_change_body(event, old_status)
+                logger.info(
+                    "notify_event: zdarzenie id=%d, zmiana statusu %r → %r, szablon status-change",
+                    event_id,
+                    old_status,
+                    event.status,
+                )
+            else:
+                # Nowe zdarzenie — szablon "nowe zgłoszenie"
+                sms_text = build_sms_message(event)
+                email_subject = build_email_subject(event)
+                email_body = build_email_body(event)
+                logger.info(
+                    "notify_event: zdarzenie id=%d, nowe zgłoszenie, szablon new-event",
+                    event_id,
+                )
 
             sent_count = 0
             error_count = 0
@@ -393,6 +508,129 @@ async def notify_event(event_id: int) -> None:
             )
     except Exception:
         logger.exception("Błąd podczas wysyłki powiadomień dla zdarzenia id=%d", event_id)
+
+
+# ---------------------------------------------------------------------------
+# Powiadomienia retroaktywne dla nowego subskrybenta
+# ---------------------------------------------------------------------------
+
+
+async def notify_new_subscriber_about_active_events(subscriber_id: int) -> None:
+    """
+    Wyślij nowemu subskrybentowi powiadomienia o wszystkich trwających awariach.
+
+    Wywołać zaraz po rejestracji jako asyncio.create_task() — otwiera własną sesję DB.
+    Dopasowanie: dla każdego aktywnego zdarzenia (status 'zgloszona' lub 'w_naprawie')
+    sprawdzane są adresy subskrybenta. Deduplikacja po event_id — jedno powiadomienie
+    nawet jeśli subskrybent ma kilka adresów na tej samej ulicy objętej awarią.
+
+    Używa szablonu 'nowe zdarzenie' (nie status-change), bo dla subskrybenta
+    jest to pierwsza informacja o tej awarii.
+    """
+    try:
+        async with AsyncSessionLocal() as db:
+            # Załaduj subskrybenta z adresami
+            result = await db.execute(
+                select(Subscriber)
+                .options(selectinload(Subscriber.addresses))
+                .where(Subscriber.id == subscriber_id)
+            )
+            subscriber = result.scalar_one_or_none()
+            if subscriber is None:
+                logger.error(
+                    "notify_new_subscriber: subskrybent id=%d nie istnieje w bazie",
+                    subscriber_id,
+                )
+                return
+
+            if not subscriber.rodo_consent:
+                logger.info(
+                    "notify_new_subscriber: sub_id=%d bez rodo_consent — pomijam",
+                    subscriber_id,
+                )
+                return
+
+            addresses = [a for a in subscriber.addresses if a.street_id is not None]
+            if not addresses:
+                logger.info(
+                    "notify_new_subscriber: sub_id=%d nie ma adresów z street_id — pomijam",
+                    subscriber_id,
+                )
+                return
+
+            # Pobierz wszystkie aktywne zdarzenia
+            events_result = await db.execute(
+                select(Event).where(Event.status.in_(["zgloszona", "w_naprawie"]))
+            )
+            active_events: list[Event] = list(events_result.scalars().all())
+
+            if not active_events:
+                logger.info(
+                    "notify_new_subscriber: sub_id=%d — brak aktywnych zdarzeń",
+                    subscriber_id,
+                )
+                return
+
+            sms_gateway = get_sms_gateway()
+            email_globally_enabled: bool = settings.ENABLE_EMAIL_NOTIFICATIONS
+            email_sender = EmailSender() if email_globally_enabled else None
+            is_night = _is_night_hours()
+
+            notified_event_ids: set[int] = set()
+            notified_count = 0
+
+            for event in active_events:
+                if event.id in notified_event_ids:
+                    continue  # deduplikacja
+
+                # Sprawdź dopasowanie przynajmniej jednego adresu
+                matched = False
+                for addr in addresses:
+                    if addr.street_id == event.street_id and is_in_range(
+                        addr.house_number, event.house_number_from, event.house_number_to
+                    ):
+                        matched = True
+                        break
+
+                if not matched:
+                    continue
+
+                sms_text = build_sms_message(event)
+                email_subject = build_email_subject(event)
+                email_body = build_email_body(event)
+
+                try:
+                    await _send_notifications_for_subscriber(
+                        db=db,
+                        event=event,
+                        subscriber=subscriber,
+                        sms_gateway=sms_gateway,
+                        email_sender=email_sender,
+                        email_globally_enabled=email_globally_enabled,
+                        is_night=is_night,
+                        sms_text=sms_text,
+                        email_subject=email_subject,
+                        email_body=email_body,
+                    )
+                    notified_event_ids.add(event.id)
+                    notified_count += 1
+                except Exception:
+                    logger.exception(
+                        "notify_new_subscriber: błąd wysyłki dla sub_id=%d event_id=%d",
+                        subscriber_id,
+                        event.id,
+                    )
+
+            await db.commit()
+            logger.info(
+                "notify_new_subscriber: sub_id=%d — wysłano powiadomienia o %d aktywnych zdarzeniach",
+                subscriber_id,
+                notified_count,
+            )
+    except Exception:
+        logger.exception(
+            "notify_new_subscriber: nieoczekiwany błąd dla sub_id=%d", subscriber_id
+        )
 
 
 # ---------------------------------------------------------------------------

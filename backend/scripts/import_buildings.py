@@ -30,7 +30,7 @@ from app.database import AsyncSessionLocal
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-DEFAULT_FILE = Path(__file__).parent.parent.parent / "lublin_budynki.geojson"
+DEFAULT_FILE = Path(__file__).parent.parent.parent / "lublin_budynki_final.geojson"
 BATCH_SIZE = 200
 
 CREATE_TABLE_SQL = """

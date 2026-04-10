@@ -15,6 +15,8 @@ import { useStreets } from '@/hooks/useStreets';
 import { apiFetch } from '@/lib/api';
 import { getEvent, updateEvent } from '@/hooks/useEvents';
 import { type Street } from '@/data/mockData';
+import { toLocalISO, toUTCISO } from '@/lib/utils';
+import { LUBLIN_BOUNDS, MIN_ZOOM } from '@/lib/mapConfig';
 import { Search, Loader2, MapPin, Plus, X, Send } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -274,7 +276,7 @@ const AdminEventForm = () => {
         setHouseTo(event.house_number_to ?? '');
         setDescription(event.description ?? '');
         setStatus(event.status);
-        if (event.estimated_end) setEstimatedEnd(event.estimated_end.slice(0, 16));
+        if (event.estimated_end) setEstimatedEnd(toLocalISO(event.estimated_end));
         setStreetQuery(event.street_name);
         if (event.street_id) {
           setSelectedStreet({
@@ -505,7 +507,7 @@ const AdminEventForm = () => {
       house_number_to: houseTo,
       description,
       status: status || 'zgloszona',
-      estimated_end: estimatedEnd || null,
+      estimated_end: estimatedEnd ? toUTCISO(estimatedEnd) : null,
       geojson_segment,
       displayLabel: buildDisplayLabel(houseFrom, houseTo, selectedNums),
     };
@@ -789,6 +791,9 @@ const AdminEventForm = () => {
                         zoom={16}
                         scrollWheelZoom
                         className="w-full h-[380px] z-0"
+                        maxBounds={LUBLIN_BOUNDS}
+                        maxBoundsViscosity={1.0}
+                        minZoom={MIN_ZOOM}
                       >
                         <TileLayer
                           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'

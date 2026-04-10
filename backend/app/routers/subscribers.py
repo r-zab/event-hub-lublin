@@ -2,6 +2,7 @@
 Router: Subscribers — rejestracja i wyrejestrowanie subskrybentów powiadomień.
 """
 
+import asyncio
 import logging
 import re
 import secrets
@@ -16,6 +17,7 @@ from app.limiter import limiter
 from app.models.street import Street
 from app.models.subscriber import Subscriber, SubscriberAddress
 from app.schemas.subscriber import SubscriberCreate, SubscriberResponse
+from app.services.notification_service import notify_new_subscriber_about_active_events
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +162,8 @@ async def register_subscriber(
         .where(Subscriber.id == subscriber.id)
     )
     subscriber = result.scalar_one()
+
+    asyncio.create_task(notify_new_subscriber_about_active_events(subscriber.id))
 
     logger.info(
         "Zarejestrowano subskrybenta id=%d email=%r adresy=%d",

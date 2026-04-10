@@ -104,8 +104,17 @@
 | ~~2~~ | ~~**Geocoding ulic** — Nominatim → GeoJSON w tabeli streets~~ | ~~ŚREDNI~~ | ✅ Zrobione (sesja 9, 2026-04-08) — `scripts/geocode_streets.py` |
 | 3 | **Endpoint GET /api/v1/events/feed** — plain text dla IVR 994 | ŚREDNI | Wymaganie biznesowe MPWiK: dyspozytor dzwoni na 994, system odczytuje aktywne awarie głosowo |
 
+### ✅ Zrobione — Sesja 14 (changelog skrócony — patrz sekcja wyżej)
+- [x] Retroaktywne powiadomienia dla nowych subskrybentów [4.14]
+- [x] Eliminacja duplikatów powiadomień przy update_event [4.12]
+- [x] Globalne strefy czasowe UTC+serializer+utils.ts [3.11]
+- [x] Interaktywność mapy + flyToBounds [4.15]
+- [x] Stylizacja poligonów + popup z numerem domu [4.16]
+- [x] CORS z settings.CORS_ORIGINS [4.3]
+- [x] Naprawa update_event selectinload [7.4]
+
 ### Backlog (po powyższych)
-- [ ] **[7.4] Naprawa update_event** — dodać `selectinload(Event.street)` w finalnym query + ustawić `event.street_geojson` (2 linie kodu)
+- [x] **[7.4] Naprawa update_event** — `selectinload(Event.street)` dodany w obu query + `event.street_geojson` ustawiany po zapisie (2026-04-10)
 - [ ] **[7.6] Import danych buildings** — skrypt importu obrysów budynków z OSM/BDOT dla Lublina (bez danych zakładka mapy pusta, ale zakres/lista działają)
 - [ ] **[7.5] Walidacja schematu FeatureCollection** — Pydantic validator na `geojson_segment` (nice-to-have)
 - [ ] Testy jednostkowe i integracyjne backendu (pytest + httpx)
@@ -114,6 +123,16 @@
 - [ ] Konfiguracja nginx jako reverse proxy (frontend + backend)
 - [ ] Wdrożenie na Oracle Linux (docelowy OS MPWiK)
 - [ ] WCAG — audyt dostępności frontendu
+### ✅ Zrobione — Sesja 14 (2026-04-10) — Poprawki jakości: strefy czasowe, mapa, powiadomienia
+- [x] **[3.11] Globalna naprawa stref czasowych** — `_utc_iso()` + `@field_serializer` w `schemas/event.py`; wszystkie timestampy z `+00:00`; `utils.ts` SSoT (`parseUTC`, `toLocalISO`, `toUTCISO`, `formatDate`, `formatDateTime`); zastosowane w AdminEventForm, EventCard, AdminDashboard, AdminSubscribers, AdminNotifications
+- [x] **[4.12] Eliminacja duplikatów powiadomień** — `update_event` sprawdza `update_data["status"] != old_status`; powiadomienia wysyłane tylko przy faktycznej zmianie statusu; stary status przekazany do `notify_event(old_status=)`; nowe szablony SMS/email dla zmiany statusu i zamknięcia awarii; etykiety po polsku
+- [x] **[4.14] Powiadomienia retroaktywne** — `notify_new_subscriber_about_active_events()` w notification_service; dla każdej aktywnej awarii (`zgloszona`/`w_naprawie`) sprawdza dopasowanie adresu nowego subskrybenta; deduplikacja po `event_id`; wywołanie przez `asyncio.create_task` w `POST /subscribers`
+- [x] **[4.15] Interaktywność mapy** — `focusedEventId` state w Index.tsx; `EventCard.onClick` ustawia fokus; `EventMap` reaguje `flyToBounds` (FeatureCollection) lub `flyTo` (punkt/Polyline); kliknięcie pinezki synchronizuje stan
+- [x] **[4.16] Stylizacja poligonów** — `fillOpacity` 0.5→0.6; popup każdego budynku pokazuje konkretny numer domu z `feature.properties.house_number`
+- [x] **[7.4] Naprawa update_event** — oba `select` ładują `selectinload(Event.street)`; `event.street_geojson` ustawiane po zapisie; fix MissingGreenlet
+- [x] **[4.3] CORS z config** — `main.py` używa `settings.CORS_ORIGINS.split(",")` zamiast hardkodowanych origins
+- [x] **Migracja TIMESTAMPTZ** — przygotowana jako `backend/alembic/versions/20260410_timestamp_with_timezone.py` (nie uruchomiona — opcjonalna, Pydantic serializer już gwarantuje poprawne Z w JSON)
+
 ### ✅ Zrobione — Sesja 13 (2026-04-09) — Bulk zgłaszanie + synchronizacja GIS
 - [x] `frontend/src/pages/AdminEventForm.tsx` — kompletna przebudowa:
   - **3-zakładkowy wybór zakresu** (`Tabs` shadcn/ui): „Zaznacz na mapie" / „Zakres numerów" / „Lista numerów"
@@ -167,3 +186,6 @@
 - 2026-04-08: Integracja przestrzenna GeoJSON → Leaflet — EventResponse.street_geojson (backend selectinload Street + atrybut Python); EventMap.tsx: Polyline > Marker w koordynatach ulicy (odwrócenie lon/lat → lat/lon) > fallback centrum; typ street_geojson w mockData.ts
 - 2026-04-09: Obrysy budynków na mapie — Building model+schema, GET /streets/{id}/buildings, AdminEventForm z mapą + zaznaczaniem poligonów (FeatureCollection → geojson_segment), EventMap obsługuje FeatureCollection
 - 2026-04-09: Bulk zgłaszanie + synchronizacja GIS (Sesja 13) — AdminEventForm kompletna przebudowa: 3-zakładkowy wybór zakresu (mapa/zakres/lista), wspólny stan selectedBuildingIds, helpery parseHouseNumber/isInRange/sortHouseNumbers, mechanizm koszyka eventsQueue z Promise.all, QueueCard komponent, naprawiono [7.1]/[7.2]/[7.3] z listy poprawek GIS
+- 2026-04-10: Naprawa [7.4] + [4.12] — `update_event`: oba selecty ładują `selectinload(Event.street)`, `event.street_geojson` ustawiane po zapisie; powiadomienia wysyłane tylko przy faktycznej zmianie statusu (`update_data["status"] != old_status`); stary status przekazywany do `notify_event(old_status=)` → nowy szablon SMS/email "status zmienił się z X na Y" z etykietami po polsku
+- 2026-04-10: Globalna naprawa stref czasowych [3.11] — Backend: `_utc_iso()` + `@field_serializer` w `schemas/event.py` (wszystkie timestampy z `+00:00`). Frontend: `utils.ts` SSoT (`parseUTC`, `toLocalISO`, `toUTCISO`, `formatDate`, `formatDateTime`) zastosowane w AdminEventForm/EventCard/AdminDashboard/AdminSubscribers/AdminNotifications. Migracja TIMESTAMPTZ przygotowana (nie uruchomiona).
+- 2026-04-10: Zaawansowana interaktywność mapy [4.15+4.16] — `EventMap.Props`: `setFocusedEventId`; markery z `eventHandlers.click`. `MapController`: `flyToBounds` dla FeatureCollection (L.geoJSON().getBounds(), padding 50px, maxZoom 18), `flyTo` dla punktów/Polyline. Poligony: `fillOpacity` 0.5→0.6. `Index.tsx` przekazuje `setFocusedEventId` do `EventMap`.
