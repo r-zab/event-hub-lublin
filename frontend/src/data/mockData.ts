@@ -62,5 +62,3 @@ export const TYPE_LABELS: Record<EventType, string> = {
   remont: 'Remont',
 };
 
-// Mock events kept only as fallback
-export const mockEvents: EventItem[] = [];

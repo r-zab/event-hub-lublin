@@ -17,7 +17,16 @@
       "Bash(docker*)",
       "Bash(git status)",
       "Bash(git diff*)",
-      "Bash(git log*)"
+      "Bash(git log*)",
+      "Bash(grep -v \"^\\\\-\\\\-$\")",
+      "Bash(mv /c/Users/rafal/PycharmProjects/event-hub-lublin/lublin_budynki.geojson /c/Users/rafal/PycharmProjects/event-hub-lublin/backend/data/)",
+      "Bash(mv /c/Users/rafal/PycharmProjects/event-hub-lublin/lublin_budynki_final.geojson /c/Users/rafal/PycharmProjects/event-hub-lublin/backend/data/)",
+      "Bash(mv /c/Users/rafal/PycharmProjects/event-hub-lublin/users.json /c/Users/rafal/PycharmProjects/event-hub-lublin/backend/data/)",
+      "Bash(mv /c/Users/rafal/PycharmProjects/event-hub-lublin/docs/pobierz_budynki_lublin.py /c/Users/rafal/PycharmProjects/event-hub-lublin/backend/scripts/)",
+      "Bash(mv /c/Users/rafal/PycharmProjects/event-hub-lublin/docs/spatial_join_budynki.py /c/Users/rafal/PycharmProjects/event-hub-lublin/backend/scripts/)",
+      "Bash(ls /c/Users/rafal/PycharmProjects/event-hub-lublin/*.geojson)",
+      "Bash(ls /c/Users/rafal/PycharmProjects/event-hub-lublin/frontend/bun.lock*)",
+      "Bash(curl:*)"
     ],
     "deny": [
       "Bash(git push*)",
@@ -33,7 +42,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [[ \"$CLAUDE_TOOL_ARGS\" == *\"backend/\"*\".py\"* ]]; then cd backend && ruff check .; fi"
+            "command": "if [[ \"$CLAUDE_TOOL_ARGS\" == *\"backend/\"*\".py\"* ]]; then cd /c/Users/rafal/PycharmProjects/event-hub-lublin/backend && ruff check . 2>&1 | head -30; fi"
+          },
+          {
+            "type": "command",
+            "command": "if [[ \"$CLAUDE_TOOL_ARGS\" == *\"frontend/src/\"*\".tsx\"* ]] || [[ \"$CLAUDE_TOOL_ARGS\" == *\"frontend/src/\"*\".ts\"* ]]; then cd /c/Users/rafal/PycharmProjects/event-hub-lublin/frontend && npx tsc --noEmit 2>&1 | head -30; fi"
           }
         ]
       }

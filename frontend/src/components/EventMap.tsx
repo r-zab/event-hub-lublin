@@ -22,6 +22,20 @@ interface Props {
 
 const LUBLIN_CENTER: [number, number] = [51.2465, 22.5684];
 
+/** Type-safe check: is geojson_segment a FeatureCollection with at least one feature? */
+function isValidFeatureCollection(
+  seg: EventItem['geojson_segment'],
+): seg is GeoJsonFeatureCollection {
+  return (
+    !!seg &&
+    typeof seg === 'object' &&
+    !Array.isArray(seg) &&
+    (seg as GeoJsonFeatureCollection).type === 'FeatureCollection' &&
+    Array.isArray((seg as GeoJsonFeatureCollection).features) &&
+    (seg as GeoJsonFeatureCollection).features.length > 0
+  );
+}
+
 function makeIcon(color: string) {
   return L.divIcon({
     className: '',
@@ -58,11 +72,7 @@ function MapController({ events, focusedEventId }: MapControllerProps) {
     if (!event) return;
 
     // FeatureCollection (obrysy budynków) → flyToBounds
-    if (
-      event.geojson_segment &&
-      !Array.isArray(event.geojson_segment) &&
-      (event.geojson_segment as GeoJsonFeatureCollection).type === 'FeatureCollection'
-    ) {
+    if (isValidFeatureCollection(event.geojson_segment)) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const bounds = L.geoJSON(event.geojson_segment as any).getBounds();
@@ -96,7 +106,7 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
       center={LUBLIN_CENTER}
       zoom={14}
       scrollWheelZoom={true}
-      className="w-full h-[350px] sm:h-[500px] z-0"
+      className="w-full h-full z-0"
       maxBounds={LUBLIN_BOUNDS}
       maxBoundsViscosity={1.0}
       minZoom={MIN_ZOOM}
@@ -113,12 +123,7 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
 
         // Oblicz pozycję markera: centroid poligonów > street_geojson > centrum Lublina
         let markerPos: [number, number] = getMarkerPosition(event);
-        if (
-          event.geojson_segment &&
-          !Array.isArray(event.geojson_segment) &&
-          (event.geojson_segment as GeoJsonFeatureCollection).type === 'FeatureCollection' &&
-          (event.geojson_segment as GeoJsonFeatureCollection).features?.length > 0
-        ) {
+        if (isValidFeatureCollection(event.geojson_segment)) {
           try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const bounds = L.geoJSON(event.geojson_segment as any).getBounds();
@@ -147,11 +152,7 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
           : undefined;
 
         // FeatureCollection — obrysy budynków + pinezka nad nimi
-        if (
-          event.geojson_segment &&
-          !Array.isArray(event.geojson_segment) &&
-          (event.geojson_segment as GeoJsonFeatureCollection).type === 'FeatureCollection'
-        ) {
+        if (isValidFeatureCollection(event.geojson_segment)) {
           const fc = event.geojson_segment as GeoJsonFeatureCollection;
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const onEachFeature = (feature: any, layer: L.Layer) => {

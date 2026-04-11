@@ -472,3 +472,37 @@ Data audytu: 2026-04-03
 10. **[4.4] Testy jednostkowe i integracyjne (pytest)**
     - Katalog `backend/tests/` jest pusty — krytyczne przed oddaniem MPWiK
     - Priorytety: auth flow, subscribers CRUD, notification matching logic.
+
+---
+
+## 8. CLEANUP & OPTYMALIZACJA (Wykonano 2026-04-11)
+
+### Struktura plików
+
+- **Usunięto `frontend/bun.lock` i `frontend/bun.lockb`** — projekt używa npm (jest `package-lock.json`). Bun był pozostałością po inicjalizacji projektu — powodował confusion przy `npm install`.
+- **Przeniesiono `lublin_budynki.geojson` → `backend/data/`** (~13 MB, surowe dane OSM). Zaktualizowano domyślną ścieżkę w `backend/scripts/import_buildings.py`.
+- **Przeniesiono `lublin_budynki_final.geojson` → `backend/data/`** (~16 MB, dane po spatial join). Zaktualizowano `DEFAULT_FILE` w `import_buildings.py`.
+- **Przeniesiono `users.json` → `backend/data/`** — testowe dane subskrybentów dev, nie powinny leżeć w root.
+- **Usunięto `create-structure.ps1`** z root — 27 KB skryptu PowerShell do jednorazowego tworzenia struktury projektu, zbędny po inicjalizacji.
+- **Przeniesiono `docs/pobierz_budynki_lublin.py` → `backend/scripts/`** — skrypt pobrania geometrii budynków z OSM, logicznie należy obok `import_buildings.py`.
+- **Przeniesiono `docs/spatial_join_budynki.py` → `backend/scripts/`** — skrypt spatial join. Zaktualizowano ścieżki `OUTPUT_FILE` w obu skryptach (teraz wskazują na `backend/data/`).
+
+### Hooki Claude Code
+
+- **Dodano hook PostToolUse dla TypeScript** — po każdej edycji pliku w `frontend/src/**/*.tsx` lub `*.ts` automatycznie uruchamia `npx tsc --noEmit`. Zapobiega produkowaniu kodu z błędami typowania.
+
+### Martwy kod (Dead Code)
+
+- **Usunięto `frontend/src/App.css`** — boilerplate z szablonu Vite (animacje logo, selektory `.card`, `.read-the-docs`). Plik nie był nigdzie importowany.
+- **Usunięto `frontend/src/components/NavLink.tsx`** — wrapper na `react-router-dom NavLink` nie był importowany przez żaden komponent ani stronę.
+- **Usunięto `export const mockEvents: EventItem[] = []`** z `frontend/src/data/mockData.ts` — pusta tablica, nigdzie nie używana, pozostałość po etapie mockowania danych.
+- **Usunięto zombie code z `backend/app/main.py`** — zakomentowany blok `# TODO: Include remaining routers` z martwym importem `routers/external` (router nigdy nie powstał).
+
+---
+
+## 9. UX PUBLICZNEJ STRONY GŁÓWNEJ
+
+- ✅ Dodanie wyszukiwarki lokalizacji "Hero Search" — sekcja hero z gradientowym tłem, centralny pasek wyszukiwania filtrujący aktywne awarie po nazwie ulicy. Komunikat sukcesu (zielony) gdy brak awarii w podanej lokalizacji.
+- ✅ Zmiana layoutu na Sticky Map (rozwiązanie problemu ucinania mapy przy scrollowaniu) — układ side-by-side (lista awarii po lewej, sticky mapa po prawej na desktop). Na mobile mapa nad listą z h-[400px]. `EventMap` zmieniony na `h-full` aby wypełniał kontener.
+- ✅ [HOTFIX] Naprawa WSOD (TypeError: Cannot read properties of undefined reading 'features') przy renderowaniu zdarzeń bez `geojson_segment` — dodano `Array.isArray(features)` guard w `formatEventNumbers()` (`utils.ts`) oraz type-guard helper `isValidFeatureCollection()` w `EventMap.tsx` eliminujący 3 niebezpieczne castowania.
+

@@ -117,7 +117,3 @@ app.include_router(streets.router, prefix="/api/v1/streets", tags=["Streets"])
 app.include_router(events.router, prefix="/api/v1/events", tags=["Events"])
 app.include_router(subscribers.router, prefix="/api/v1/subscribers", tags=["Subscribers"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
-
-# TODO: Include remaining routers as they are implemented
-# from app.routers import external
-# app.include_router(external.router, prefix="/api/v1/external", tags=["External API"])

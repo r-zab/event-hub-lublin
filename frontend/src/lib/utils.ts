@@ -78,7 +78,9 @@ export function formatEventNumbers(event: EventItem): string {
     seg &&
     typeof seg === "object" &&
     !Array.isArray(seg) &&
-    (seg as GeoJsonFeatureCollection).type === "FeatureCollection"
+    (seg as GeoJsonFeatureCollection).type === "FeatureCollection" &&
+    Array.isArray((seg as GeoJsonFeatureCollection).features) &&
+    (seg as GeoJsonFeatureCollection).features.length > 0
   ) {
     const fc = seg as GeoJsonFeatureCollection;
     const nums = fc.features

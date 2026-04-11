@@ -5,7 +5,7 @@ Import poligonów budynków z GeoJSON do PostgreSQL — Event Hub Lublin
 
 Uruchomienie (z katalogu backend/):
     python -m scripts.import_buildings
-    python -m scripts.import_buildings --file ../lublin_budynki.geojson
+    python -m scripts.import_buildings --file data/lublin_budynki_final.geojson
 
 Tworzy tabelę buildings z kolumnami:
   - geojson_polygon  — pełny obrys budynku (JSONB) do wyświetlenia na Leaflet
@@ -30,7 +30,7 @@ from app.database import AsyncSessionLocal
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-DEFAULT_FILE = Path(__file__).parent.parent.parent / "lublin_budynki_final.geojson"
+DEFAULT_FILE = Path(__file__).parent.parent / "data" / "lublin_budynki_final.geojson"
 BATCH_SIZE = 200
 
 CREATE_TABLE_SQL = """
