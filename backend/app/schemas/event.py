@@ -84,6 +84,7 @@ class EventResponse(EventBase):
     updated_at: datetime
     history: list[EventHistoryResponse] = []
     street_geojson: dict | None = None
+    notified_count: int = 0
 
     model_config = {"from_attributes": True}
 

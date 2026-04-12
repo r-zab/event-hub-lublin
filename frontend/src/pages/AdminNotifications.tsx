@@ -1,8 +1,16 @@
-import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Loader2, Search } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { formatDateTime } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -43,8 +51,27 @@ const STATUS_COLORS: Record<string, string> = {
   queued: 'bg-yellow-100 text-yellow-800',
 };
 
+function isToday(dateStr: string): boolean {
+  const d = new Date(dateStr);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+}
+
+function isLast7Days(dateStr: string): boolean {
+  const d = new Date(dateStr);
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 7);
+  return d >= cutoff;
+}
+
 const AdminNotifications = () => {
   const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [channelFilter, setChannelFilter] = useState<'all' | 'sms' | 'email'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'failed'>('all');
+  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'last7'>('all');
   const skip = (page - 1) * PAGE_SIZE;
 
   const { data, isLoading, error } = useQuery<NotificationsResponse>({
@@ -54,6 +81,45 @@ const AdminNotifications = () => {
   });
 
   const totalPages = data ? Math.ceil(data.total_count / PAGE_SIZE) : 1;
+
+  const filteredItems = useMemo(() => {
+    let items = data?.items ?? [];
+
+    if (channelFilter !== 'all') {
+      items = items.filter((n) => n.channel === channelFilter);
+    }
+    if (statusFilter === 'sent') {
+      items = items.filter((n) => n.status === 'sent');
+    } else if (statusFilter === 'failed') {
+      items = items.filter((n) => n.status === 'failed');
+    }
+    if (periodFilter === 'today') {
+      items = items.filter((n) => isToday(n.sent_at));
+    } else if (periodFilter === 'last7') {
+      items = items.filter((n) => isLast7Days(n.sent_at));
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      items = items.filter(
+        (n) =>
+          n.recipient.toLowerCase().includes(q) ||
+          (n.message_text ?? '').toLowerCase().includes(q),
+      );
+    }
+
+    return items;
+  }, [data?.items, searchQuery, channelFilter, statusFilter, periodFilter]);
+
+  const stats = useMemo(() => {
+    const items = data?.items ?? [];
+    const sent = items.filter((n) => n.status === 'sent').length;
+    const total = items.length;
+    const rate = total > 0 ? Math.round((sent / total) * 100) : 0;
+    return { sent, total, rate };
+  }, [data?.items]);
+
+  const hasFilters =
+    searchQuery || channelFilter !== 'all' || statusFilter !== 'all' || periodFilter !== 'all';
 
   if (isLoading) {
     return (
@@ -84,6 +150,79 @@ const AdminNotifications = () => {
         </h1>
       </div>
 
+      {/* Stats bar */}
+      {data && (
+        <div className="flex flex-wrap gap-4 text-sm">
+          <span className="text-muted-foreground">
+            Wysłano łącznie:{' '}
+            <span className="font-semibold text-foreground">{stats.sent}</span>
+          </span>
+          <span className="text-muted-foreground">
+            Skuteczność:{' '}
+            <span className={`font-semibold ${stats.rate >= 90 ? 'text-green-600' : stats.rate >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
+              {stats.rate}%
+            </span>
+          </span>
+        </div>
+      )}
+
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3">
+        {/* Wyszukiwarka */}
+        <div className="relative flex-1 min-w-[180px] max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Odbiorca lub treść..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-9 bg-background"
+          />
+        </div>
+
+        {/* Dropdown kanału */}
+        <Select value={channelFilter} onValueChange={(v) => setChannelFilter(v as typeof channelFilter)}>
+          <SelectTrigger className="w-36 h-9 bg-background" aria-label="Filtr kanału">
+            <SelectValue placeholder="Kanał" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Wszystkie kanały</SelectItem>
+            <SelectItem value="sms">SMS</SelectItem>
+            <SelectItem value="email">E-mail</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Dropdown statusu */}
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+          <SelectTrigger className="w-36 h-9 bg-background" aria-label="Filtr statusu">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Wszystkie statusy</SelectItem>
+            <SelectItem value="sent">Sukces</SelectItem>
+            <SelectItem value="failed">Błąd</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Dropdown okresu */}
+        <Select value={periodFilter} onValueChange={(v) => setPeriodFilter(v as typeof periodFilter)}>
+          <SelectTrigger className="w-36 h-9 bg-background" aria-label="Filtr okresu">
+            <SelectValue placeholder="Okres" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Wszystkie</SelectItem>
+            <SelectItem value="today">Dzisiaj</SelectItem>
+            <SelectItem value="last7">Ostatnie 7 dni</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Licznik */}
+        <span className="ml-auto text-sm whitespace-nowrap">
+          Wyświetlane:{' '}
+          <span className="font-medium text-foreground">{filteredItems.length}</span>{' '}
+          <span className="text-muted-foreground">z {data?.items.length ?? 0}</span>
+        </span>
+      </div>
+
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -97,14 +236,14 @@ const AdminNotifications = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data?.items.length === 0 && (
+            {filteredItems.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                  Brak wpisów w logu.
+                  {hasFilters ? 'Brak wyników dla wybranych filtrów.' : 'Brak wpisów w logu.'}
                 </TableCell>
               </TableRow>
             )}
-            {data?.items.map((notif) => (
+            {filteredItems.map((notif) => (
               <TableRow key={notif.id}>
                 <TableCell className="text-sm whitespace-nowrap">
                   {formatDateTime(notif.sent_at)}

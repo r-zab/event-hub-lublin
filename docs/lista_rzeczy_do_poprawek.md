@@ -93,7 +93,7 @@ Data audytu: 2026-04-03
 - **Plik:** `frontend/src/pages/Unsubscribe.tsx`
 - Zweryfikowano w kodzie — formularz przyjmuje `unsubscribe_token`, auto-load z `?token=` w URL, `GET /subscribers/{token}` → podgląd danych, `DELETE /subscribers/{token}` → fizyczne usunięcie + redirect do `/`. Flow zgodny z RODO.
 
-### 3.2 Brak informacji o wyslanych powiadomieniach w dashboard
+### ~~3.2~~ ✅ NAPRAWIONO — Brak informacji o wyslanych powiadomieniach w dashboard
 - **Plik:** `frontend/src/pages/AdminDashboard.tsx:188-189`
 - **Problem:** Kolumna "Powiadomienia" wyswietla `event.notified_count ?? '-'`. Backend NIE zwraca pola `notified_count` w `EventResponse`. Zawsze pokazuje "–".
 - **Naprawa:** Dodac pole `notified_count` do EventResponse (count z notification_log) lub osobny endpoint.
@@ -103,7 +103,7 @@ Data audytu: 2026-04-03
 - `apiFetch` sprawdza `res.status === 401` → `localStorage.removeItem('mpwik_token')` + `removeItem('mpwik_refresh_token')` + `window.location.href = '/admin/login'`.
 - Działa dla dowolnego endpointu admin — wylogowuje automatycznie po wygaśnięciu tokenu (30 min).
 
-### 3.4 Brak walidacji pustych pol adresu przy rejestracji
+### ~~3.4~~ ✅ NAPRAWIONO - Brak walidacji pustych pol adresu przy rejestracji
 - **Plik:** `frontend/src/pages/Register.tsx`
 - **Problem:** Mozna wyslac formularz z pustym `street_name` lub `house_number` - HTML `required` jest na inputach, ale `AddressRow` ustawia `required` na input ulicy, nie na calej grupie. Jesli uzytkownik doda drugi adres i go nie wypelni, formularz moze przejsc.
 - **Naprawa:** Walidacja JS przed submitem - kazdy adres musi miec street_name i house_number.
@@ -177,7 +177,7 @@ Data audytu: 2026-04-03
 - **Problem:** `apiFetch<EventItem[]>('/events')` - pobiera wszystko, potem filtruje in-memory. Przy setkach zdarzen beda problemy z wydajnoscia. Backend ma paginacje (skip/limit) ale frontend jej nie uzywa.
 - **Naprawa:** Przekazywac parametry skip/limit/filter do backendu. Backend powinien zwracac tez `total_count`.
 
-### 4.9 Brak obslugi `source` w widoku frontendu
+### ~~4.9~~ ✅ NAPRAWIONO — Brak obslugi `source` w widoku frontendu
 - **Problem:** Model `Event` ma pole `source` (multi-operator ready), ale frontend nie wyswietla zrodla zdarzenia. Gdy podlaczy sie LPEC, dyspozytor nie zobaczy kto zglosil event.
 - **Naprawa:** Dodac kolumne "Zrodlo" w tabeli AdminDashboard.
 
@@ -505,4 +505,21 @@ Data audytu: 2026-04-03
 - ✅ Dodanie wyszukiwarki lokalizacji "Hero Search" — sekcja hero z gradientowym tłem, centralny pasek wyszukiwania filtrujący aktywne awarie po nazwie ulicy. Komunikat sukcesu (zielony) gdy brak awarii w podanej lokalizacji.
 - ✅ Zmiana layoutu na Sticky Map (rozwiązanie problemu ucinania mapy przy scrollowaniu) — układ side-by-side (lista awarii po lewej, sticky mapa po prawej na desktop). Na mobile mapa nad listą z h-[400px]. `EventMap` zmieniony na `h-full` aby wypełniał kontener.
 - ✅ [HOTFIX] Naprawa WSOD (TypeError: Cannot read properties of undefined reading 'features') przy renderowaniu zdarzeń bez `geojson_segment` — dodano `Array.isArray(features)` guard w `formatEventNumbers()` (`utils.ts`) oraz type-guard helper `isValidFeatureCollection()` w `EventMap.tsx` eliminujący 3 niebezpieczne castowania.
+
+---
+
+## 10. PODSUMOWANIE PRAC (12.04.2026)
+
+* Ostateczne rozwiązanie problemu z CORS i wylogowywaniem dyspozytorów (FastAPI + Vite Proxy).
+* Naprawa krytycznego błędu mapy (WSOD) przy braku danych z Leaflet.
+* Zastąpienie Hero Search inteligentnym Autocomplete TERYT na froncie.
+* Zasilenie dashboardu dyspozytora realnym licznikiem wysłanych powiadomień.
+* Dodano kolumnę Źródło w panelu admina (multi-operator ready).
+* Uelastyczniono format telefonu podczas rejestracji (akceptacja spacji z czyszczeniem JS).
+* Skorygowano dropdown statusów awarii (tylko: Zgłoszona, W naprawie, Usunięta).
+* Rozbudowano tabele Admina o paski wyszukiwania, selektory kanałów i dynamiczne liczniki rekordów.
+* Wdrożono twardą normalizację numerów telefonów na backendzie (automatyczne dodawanie prefiksu +48 dla 9-cyfrowych numerów), aby zapobiec duplikatom w bazie i błędom bramki SMS.
+* Naprawiono błąd "White Screen of Death" przy rejestracji subskrybenta, dodając poprawne parsowanie tablicowych błędów walidacji Pydantic (HTTP 422) wyświetlanych w Toastach.
+* Dodano przyciski nawigacyjne (Powrót do strony głównej / Zarejestruj kolejny adres) na ekranie sukcesu subskrybenta, zapobiegające ślepemu zaułkowi UX.
+* Wdrożono zaawansowany system filtrowania w panelach Subskrybentów (ulica, kanał, zgoda nocna) i Logów Powiadomień (kanał, status, okres) wraz z licznikami statystyk i wskaźnikiem skuteczności wysyłki w czasie rzeczywistym.
 

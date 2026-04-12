@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus, CheckCircle2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Plus, CheckCircle2, Home, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -62,7 +63,7 @@ const Register = () => {
     setIsSubmitting(true);
 
     const payload = {
-      phone,
+      phone: phone.replace(/[\s-]/g, ''),
       email,
       rodo_consent: gdprConsent,
       night_sms_consent: nightNotifications,
@@ -87,7 +88,13 @@ const Register = () => {
       let description = 'Spróbuj ponownie lub skontaktuj się z administratorem.';
       try {
         const parsed = JSON.parse(raw);
-        description = parsed?.detail ?? description;
+        if (parsed?.detail) {
+          if (Array.isArray(parsed.detail)) {
+            description = parsed.detail.map((e: { msg?: string }) => e.msg ?? String(e)).join(', ');
+          } else if (typeof parsed.detail === 'string') {
+            description = parsed.detail;
+          }
+        }
       } catch {
         if (raw) description = raw;
       }
@@ -98,6 +105,17 @@ const Register = () => {
   };
 
   // --- Ekran sukcesu ---
+  const resetForm = () => {
+    setUnsubscribeToken(null);
+    setAddresses([emptyAddress()]);
+    setPhone('');
+    setEmail('');
+    setGdprConsent(false);
+    setNightNotifications(false);
+    setNotifyByEmail(true);
+    setNotifyBySms(true);
+  };
+
   if (unsubscribeToken) {
     return (
       <div className="container max-w-2xl py-10">
@@ -113,6 +131,18 @@ const Register = () => {
             <p className="text-xs text-muted-foreground">
               Możesz go użyć w dowolnym momencie, aby usunąć swoje dane z systemu (wymaganie RODO).
             </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-4 mt-2">
+            <Button asChild variant="outline">
+              <Link to="/">
+                <Home className="h-4 w-4 mr-2" />
+                Wróć do strony głównej
+              </Link>
+            </Button>
+            <Button onClick={resetForm}>
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Zarejestruj kolejny adres
+            </Button>
           </div>
         </div>
       </div>
@@ -168,8 +198,8 @@ const Register = () => {
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+48 600 000 000"
                 required
-                pattern="^(\+48)?\d{9}$"
-                title="Format: 123456789 lub +48123456789"
+                pattern="^(\+48[\s-]?)?\d{3}[\s-]?\d{3}[\s-]?\d{3}$"
+                title="Format: 600 000 000, +48 600 000 000 lub 600-000-000"
                 aria-label="Numer telefonu"
               />
             </div>

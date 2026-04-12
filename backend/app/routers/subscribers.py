@@ -90,7 +90,7 @@ async def _resolve_street_id(db: AsyncSession, street_name: str) -> int | None:
 
 
 @router.post(
-    "/",
+    "",
     response_model=SubscriberResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Zarejestruj subskrybenta",

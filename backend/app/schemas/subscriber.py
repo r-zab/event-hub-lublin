@@ -5,8 +5,6 @@ from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, field_validator
 
-_PHONE_RE = re.compile(r"^\+48\d{9}$|^\d{9}$")
-
 
 class AddressCreate(BaseModel):
     """Adres subskrybenta przy rejestracji."""
@@ -44,14 +42,16 @@ class SubscriberCreate(BaseModel):
     @field_validator("phone")
     @classmethod
     def phone_format(cls, v: str) -> str:
-        """Akceptuje 9 cyfr (123456789) lub +48 i 9 cyfr (+48123456789)."""
+        """Normalizuje numer: usuwa spacje/myślniki, dodaje +48 dla 9 cyfr."""
         cleaned = v.strip().replace(" ", "").replace("-", "")
-        if not _PHONE_RE.match(cleaned):
-            raise ValueError(
-                "Nieprawidłowy format numeru telefonu. "
-                "Podaj 9 cyfr (np. 600000000) lub numer z prefiksem +48 (np. +48600000000)."
-            )
-        return cleaned
+        if re.fullmatch(r"\d{9}", cleaned):
+            return f"+48{cleaned}"
+        if re.fullmatch(r"\+48\d{9}", cleaned):
+            return cleaned
+        raise ValueError(
+            "Nieprawidłowy format numeru telefonu. "
+            "Podaj 9 cyfr (np. 600000000) lub numer z prefiksem +48 (np. +48600000000)."
+        )
 
     @field_validator("rodo_consent")
     @classmethod

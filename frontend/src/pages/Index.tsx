@@ -1,23 +1,51 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { EventCard } from '@/components/EventCard';
 import { EventMap } from '@/components/EventMap';
 import { useEvents } from '@/hooks/useEvents';
+import { useStreets } from '@/hooks/useStreets';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2, Droplets, Search, CheckCircle2 } from 'lucide-react';
+import { type Street } from '@/data/mockData';
 
 const Index = () => {
   const { events, allEvents, isLoading } = useEvents();
   const [focusedEventId, setFocusedEventId] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [streetQuery, setStreetQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const { streets: suggestions, isLoading: streetsLoading } = useStreets(streetQuery);
 
   const handleSearch = () => {
-    setSubmittedQuery(searchQuery.trim());
+    setSubmittedQuery(streetQuery.trim());
+    setShowSuggestions(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleSearch();
+    if (e.key === 'Escape') setShowSuggestions(false);
+  };
+
+  const selectStreet = (street: Street) => {
+    setStreetQuery(street.full_name);
+    setSubmittedQuery(street.full_name);
+    setShowSuggestions(false);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setStreetQuery(val);
+    if (val.length >= 3) setShowSuggestions(true);
+    else setShowSuggestions(false);
+    if (!val) setSubmittedQuery('');
+  };
+
+  const handleBlur = () => {
+    // Opóźnienie pozwala kliknięciu w sugestię odpalić się przed ukryciem listy
+    setTimeout(() => setShowSuggestions(false), 150);
   };
 
   const filteredEvents = useMemo(() => {
@@ -44,14 +72,46 @@ const Index = () => {
           <p className="text-blue-100 text-sm sm:text-base">
             Wpisz nazwę ulicy, aby sprawdzić aktywne awarie i planowane wyłączenia.
           </p>
+
+          {/* Search bar with autocomplete */}
           <div className="flex gap-2 max-w-lg mx-auto">
-            <Input
-              placeholder="Wpisz nazwę ulicy..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="bg-white text-foreground placeholder:text-muted-foreground border-0 h-12 text-base"
-            />
+            <div className="relative flex-1" ref={containerRef}>
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
+              <Input
+                placeholder="Wpisz nazwę ulicy..."
+                value={streetQuery}
+                onChange={handleInputChange}
+                onFocus={() => streetQuery.length >= 3 && suggestions.length > 0 && setShowSuggestions(true)}
+                onKeyDown={handleKeyDown}
+                onBlur={handleBlur}
+                className="bg-white text-foreground placeholder:text-muted-foreground border-0 h-12 text-base pl-9"
+              />
+              {streetsLoading && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+              {showSuggestions && suggestions.length > 0 && (
+                <ul
+                  className="absolute z-50 left-0 right-0 mt-1 bg-white border border-border rounded-md shadow-lg max-h-52 overflow-y-auto text-left"
+                  role="listbox"
+                >
+                  {suggestions.map((s) => (
+                    <li
+                      key={s.id}
+                      role="option"
+                      aria-selected={false}
+                      className="px-3 py-2 text-sm cursor-pointer hover:bg-accent transition-colors"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => selectStreet(s)}
+                    >
+                      <span className="font-medium text-foreground">
+                        {s.street_type} {s.full_name}
+                      </span>
+                      <span className="text-muted-foreground ml-2 text-xs">{s.city}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             <Button
               onClick={handleSearch}
               size="lg"
@@ -61,6 +121,7 @@ const Index = () => {
               Sprawdź
             </Button>
           </div>
+
           {noResultsForQuery && (
             <div className="flex items-center justify-center gap-2 bg-green-500/20 border border-green-300/40 rounded-lg py-3 px-4 max-w-lg mx-auto">
               <CheckCircle2 className="h-5 w-5 text-green-200 shrink-0" />

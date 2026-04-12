@@ -44,8 +44,8 @@ logging.config.dictConfig(
             "sqlalchemy.engine": {"level": "WARNING", "propagate": False},
             "sqlalchemy.pool": {"level": "WARNING", "propagate": False},
             # Uvicorn access — zostaw na INFO, ale bez duplikatów
-            "uvicorn.access": {"level": "INFO", "propagate": False},
-            "uvicorn.error": {"level": "INFO", "propagate": False},
+            "uvicorn.access": {"level": "INFO", "handlers": ["console"], "propagate": False},
+            "uvicorn.error": {"level": "INFO", "handlers": ["console"], "propagate": False},
         },
         "root": {
             "level": _app_level,

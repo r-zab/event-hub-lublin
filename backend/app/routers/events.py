@@ -34,7 +34,7 @@ def _log_task_exception(task: Task) -> None:
         )
 
 
-@router.get("/", response_model=list[EventResponse], summary="Lista aktywnych zdarzeń")
+@router.get("", response_model=list[EventResponse], summary="Lista aktywnych zdarzeń")
 async def list_events(
     skip: Annotated[int, Query(ge=0, description="Pominięte rekordy")] = 0,
     limit: Annotated[int, Query(ge=1, le=100, description="Liczba wyników (max 100)")] = 20,
@@ -43,7 +43,7 @@ async def list_events(
     """Zwróć listę aktywnych zdarzeń (status != 'usunieta'). Endpoint publiczny."""
     result = await db.execute(
         select(Event)
-        .options(selectinload(Event.history), selectinload(Event.street))
+        .options(selectinload(Event.history), selectinload(Event.street), selectinload(Event.notifications))
         .where(Event.status != "usunieta")
         .order_by(Event.created_at.desc())
         .offset(skip)
@@ -52,6 +52,7 @@ async def list_events(
     events = result.scalars().all()
     for event in events:
         event.street_geojson = event.street.geojson if event.street else None
+        event.notified_count = len(event.notifications)
     logger.debug("Lista zdarzeń: skip=%d limit=%d → %d wyników", skip, limit, len(events))
     return events
 
@@ -64,17 +65,18 @@ async def get_event(
     """Pobierz szczegóły konkretnego zdarzenia. Endpoint publiczny."""
     result = await db.execute(
         select(Event)
-        .options(selectinload(Event.history), selectinload(Event.street))
+        .options(selectinload(Event.history), selectinload(Event.street), selectinload(Event.notifications))
         .where(Event.id == event_id)
     )
     event = result.scalar_one_or_none()
     if event is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zdarzenie nie istnieje")
     event.street_geojson = event.street.geojson if event.street else None
+    event.notified_count = len(event.notifications)
     return event
 
 
-@router.post("/", response_model=EventResponse, status_code=status.HTTP_201_CREATED, summary="Utwórz zdarzenie")
+@router.post("", response_model=EventResponse, status_code=status.HTTP_201_CREATED, summary="Utwórz zdarzenie")
 async def create_event(
     data: EventCreate,
     db: AsyncSession = Depends(get_db),
@@ -85,8 +87,9 @@ async def create_event(
     db.add(event)
     await db.commit()
     await db.refresh(event)
-    # Załaduj relację history (pusta przy tworzeniu)
+    # Załaduj relacje (puste przy tworzeniu)
     await db.execute(select(Event).options(selectinload(Event.history)).where(Event.id == event.id))
+    event.notified_count = 0
     logger.info("Utworzono zdarzenie id=%d typ=%r przez user=%d", event.id, event.event_type, current_user.id)
     task = asyncio.create_task(notify_event(event.id))
     task.add_done_callback(_log_task_exception)
@@ -179,14 +182,15 @@ async def update_event(
     db.add(event)
     await db.commit()
     await db.refresh(event)
-    # Odśwież relację history po ewentualnym dodaniu wpisu
+    # Odśwież relacje po ewentualnym dodaniu wpisu historii
     result = await db.execute(
         select(Event)
-        .options(selectinload(Event.history), selectinload(Event.street))
+        .options(selectinload(Event.history), selectinload(Event.street), selectinload(Event.notifications))
         .where(Event.id == event.id)
     )
     event = result.scalar_one()
     event.street_geojson = event.street.geojson if event.street else None
+    event.notified_count = len(event.notifications)
     if "status" in update_data and update_data["status"] != old_status:
         task = asyncio.create_task(notify_event(event.id, old_status=old_status))
         task.add_done_callback(_log_task_exception)

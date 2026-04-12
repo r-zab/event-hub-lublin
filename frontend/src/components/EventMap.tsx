@@ -71,25 +71,30 @@ function MapController({ events, focusedEventId }: MapControllerProps) {
     const event = events.find((e) => e.id === focusedEventId);
     if (!event) return;
 
-    // FeatureCollection (obrysy budynków) → flyToBounds
-    if (isValidFeatureCollection(event.geojson_segment)) {
-      try {
+    try {
+      // FeatureCollection (obrysy budynków) → flyToBounds
+      if (isValidFeatureCollection(event.geojson_segment)) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const bounds = L.geoJSON(event.geojson_segment as any).getBounds();
-        if (bounds.isValid()) {
+        if (bounds && bounds.isValid()) {
           map.flyToBounds(bounds, { padding: [50, 50], duration: 1.5, maxZoom: 18 });
           return;
         }
-      } catch {
-        // jeśli getBounds() zawiedzie, wpadamy w fallback poniżej
       }
-    }
 
-    // Punkt (street_geojson) lub fallback centrum — używamy flyTo
-    const [lat, lon] = getMarkerPosition(event);
-    // Nie leć do centrum Lublina — brak precyzyjnych danych
-    if (lat === LUBLIN_CENTER[0] && lon === LUBLIN_CENTER[1]) return;
-    map.flyTo([lat, lon], 16, { duration: 1.5 });
+      // Punkt (street_geojson) lub fallback centrum — używamy flyTo
+      const [lat, lon] = getMarkerPosition(event);
+      // Nie leć do centrum Lublina — brak precyzyjnych danych
+      if (lat === LUBLIN_CENTER[0] && lon === LUBLIN_CENTER[1]) return;
+      if (
+        typeof lat === 'number' && !isNaN(lat) &&
+        typeof lon === 'number' && !isNaN(lon)
+      ) {
+        map.flyTo([lat, lon], 16, { duration: 1.5 });
+      }
+    } catch {
+      // nieprawidłowe współrzędne — ignorujemy, aby nie crashować aplikacji
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusedEventId]);
 

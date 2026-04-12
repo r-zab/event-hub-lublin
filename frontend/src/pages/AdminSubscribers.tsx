@@ -1,8 +1,18 @@
-import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Loader2, Search } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -39,6 +49,10 @@ const PAGE_SIZE = 20;
 
 const AdminSubscribers = () => {
   const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [streetFilter, setStreetFilter] = useState('all');
+  const [channelFilter, setChannelFilter] = useState<'all' | 'sms' | 'email'>('all');
+  const [nightOnly, setNightOnly] = useState(false);
   const skip = (page - 1) * PAGE_SIZE;
 
   const { data, isLoading, error } = useQuery<SubscribersResponse>({
@@ -49,10 +63,44 @@ const AdminSubscribers = () => {
 
   const totalPages = data ? Math.ceil(data.total_count / PAGE_SIZE) : 1;
 
+  const uniqueStreets = useMemo(() => {
+    const names = new Set<string>();
+    data?.items.forEach((s) => s.addresses.forEach((a) => names.add(a.street_name)));
+    return Array.from(names).sort();
+  }, [data?.items]);
+
+  const filteredItems = useMemo(() => {
+    let items = data?.items ?? [];
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      items = items.filter(
+        (s) => s.email.toLowerCase().includes(q) || s.phone.includes(q),
+      );
+    }
+    if (streetFilter !== 'all') {
+      items = items.filter((s) =>
+        s.addresses.some((a) => a.street_name === streetFilter),
+      );
+    }
+    if (channelFilter === 'sms') {
+      items = items.filter((s) => s.notify_by_sms);
+    } else if (channelFilter === 'email') {
+      items = items.filter((s) => s.notify_by_email);
+    }
+    if (nightOnly) {
+      items = items.filter((s) => s.night_sms_consent);
+    }
+
+    return items;
+  }, [data?.items, searchQuery, streetFilter, channelFilter, nightOnly]);
+
   const formatAddress = (addr: AddressItem) => {
     const flat = addr.flat_number ? `/${addr.flat_number}` : '';
     return `${addr.street_name} ${addr.house_number}${flat}`;
   };
+
+  const hasFilters = searchQuery || streetFilter !== 'all' || channelFilter !== 'all' || nightOnly;
 
   if (isLoading) {
     return (
@@ -83,6 +131,64 @@ const AdminSubscribers = () => {
         </h1>
       </div>
 
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3">
+        {/* Wyszukiwarka */}
+        <div className="relative flex-1 min-w-[180px] max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="E-mail lub telefon..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-9 bg-background"
+          />
+        </div>
+
+        {/* Dropdown ulicy */}
+        <Select value={streetFilter} onValueChange={setStreetFilter}>
+          <SelectTrigger className="w-44 h-9 bg-background" aria-label="Filtr ulicy">
+            <SelectValue placeholder="Ulica" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Wszystkie ulice</SelectItem>
+            {uniqueStreets.map((s) => (
+              <SelectItem key={s} value={s}>{s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Dropdown kanału */}
+        <Select value={channelFilter} onValueChange={(v) => setChannelFilter(v as typeof channelFilter)}>
+          <SelectTrigger className="w-36 h-9 bg-background" aria-label="Filtr kanału">
+            <SelectValue placeholder="Kanał" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Wszystkie kanały</SelectItem>
+            <SelectItem value="sms">SMS</SelectItem>
+            <SelectItem value="email">E-mail</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Przełącznik zgody nocnej */}
+        <div className="flex items-center gap-2">
+          <Switch
+            id="night-filter"
+            checked={nightOnly}
+            onCheckedChange={setNightOnly}
+          />
+          <Label htmlFor="night-filter" className="text-sm cursor-pointer whitespace-nowrap">
+            Zgoda nocna
+          </Label>
+        </div>
+
+        {/* Licznik */}
+        <span className="ml-auto text-sm font-medium whitespace-nowrap">
+          Znaleziono:{' '}
+          <span className="text-foreground">{filteredItems.length}</span>{' '}
+          <span className="text-muted-foreground">subskrybentów</span>
+        </span>
+      </div>
+
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -96,14 +202,14 @@ const AdminSubscribers = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data?.items.length === 0 && (
+            {filteredItems.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                  Brak subskrybentów.
+                  {hasFilters ? 'Brak wyników dla wybranych filtrów.' : 'Brak subskrybentów.'}
                 </TableCell>
               </TableRow>
             )}
-            {data?.items.map((sub) => (
+            {filteredItems.map((sub) => (
               <TableRow key={sub.id}>
                 <TableCell className="font-medium">{sub.email}</TableCell>
                 <TableCell>{sub.phone}</TableCell>
