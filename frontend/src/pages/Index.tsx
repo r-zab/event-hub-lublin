@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { EventCard } from '@/components/EventCard';
 import { EventMap } from '@/components/EventMap';
 import { useEvents } from '@/hooks/useEvents';
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2, Droplets, Search, CheckCircle2 } from 'lucide-react';
 import { type Street } from '@/data/mockData';
+import { formatEventNumbers } from '@/lib/utils';
 
 const Index = () => {
   const { events, allEvents, isLoading } = useEvents();
@@ -48,18 +49,33 @@ const Index = () => {
     setTimeout(() => setShowSuggestions(false), 150);
   };
 
-  const filteredEvents = useMemo(() => {
-    if (!submittedQuery) return events;
-    const q = submittedQuery.toLowerCase();
-    return events.filter((e) => e.street_name.toLowerCase().includes(q));
-  }, [events, submittedQuery]);
-
   const activeEvents = useMemo(
     () => allEvents.filter((e) => e.status !== 'usunieta'),
     [allEvents],
   );
 
+  const filteredEvents = useMemo(() => {
+    if (!submittedQuery) return events;
+    const searchTerms = submittedQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    if (searchTerms.length === 0) return events;
+    return activeEvents.filter((e) => {
+      const searchableText = `${e.street_name ?? ''} ${formatEventNumbers(e)}`.toLowerCase();
+      return searchTerms.every((term) => searchableText.includes(term));
+    });
+  }, [events, activeEvents, submittedQuery]);
+
   const noResultsForQuery = submittedQuery && filteredEvents.length === 0 && !isLoading;
+
+  // Fly-To: po wyszukaniu wycentruj mapę na pierwszym wyniku.
+  useEffect(() => {
+    if (!submittedQuery) {
+      setFocusedEventId(null);
+      return;
+    }
+    if (filteredEvents.length > 0) {
+      setFocusedEventId(filteredEvents[0].id);
+    }
+  }, [submittedQuery, filteredEvents]);
 
   return (
     <div className="flex flex-col">

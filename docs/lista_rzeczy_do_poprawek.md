@@ -505,6 +505,10 @@ Data audytu: 2026-04-03
 - ✅ Dodanie wyszukiwarki lokalizacji "Hero Search" — sekcja hero z gradientowym tłem, centralny pasek wyszukiwania filtrujący aktywne awarie po nazwie ulicy. Komunikat sukcesu (zielony) gdy brak awarii w podanej lokalizacji.
 - ✅ Zmiana layoutu na Sticky Map (rozwiązanie problemu ucinania mapy przy scrollowaniu) — układ side-by-side (lista awarii po lewej, sticky mapa po prawej na desktop). Na mobile mapa nad listą z h-[400px]. `EventMap` zmieniony na `h-full` aby wypełniał kontener.
 - ✅ [HOTFIX] Naprawa WSOD (TypeError: Cannot read properties of undefined reading 'features') przy renderowaniu zdarzeń bez `geojson_segment` — dodano `Array.isArray(features)` guard w `formatEventNumbers()` (`utils.ts`) oraz type-guard helper `isValidFeatureCollection()` w `EventMap.tsx` eliminujący 3 niebezpieczne castowania.
+- ✅ Naprawa logicznego błędu w wyszukiwarce na stronie głównej (case-insensitive fuzzy search) — `filteredEvents` w `Index.tsx` filtruje teraz pełny zbiór `activeEvents` (a nie spaginowany `events`), z normalizacją `trim().toLowerCase()` i `.includes()`. Dzięki temu wpisanie „głęb" znajduje awarię „Głęboka" niezależnie od strony paginacji.
+- ✅ Dodanie automatycznego centrowania mapy i płynnego najeżdżania (Fly-To) na wyszukiwany adres — `Index.tsx` ustawia `focusedEventId` na pierwszy wynik wyszukiwania (`useEffect` na `submittedQuery` + `filteredEvents`); istniejący `MapController` w `EventMap.tsx` wykonuje `flyToBounds` (dla `FeatureCollection` budynków) lub `flyTo([lat,lng], 16)` (dla `Point`).
+- ✅ Rozbudowa wyszukiwarki awarii o obsługę numerów budynków (multi-term search logic) — `Index.tsx`: `searchableText` łączy `street_name` z `formatEventNumbers(event)`, a zapytanie dzielone jest na słowa (`split(/\s+/)`) i sprawdzane przez `.every(...includes)`. Wpisanie „Przeskok 18", „18 Przeskok" lub samego „18" zwraca poprawne dopasowanie.
+- ✅ Nowe, customowe znaczniki na mapie (`L.divIcon` z kroplą wody) — `EventMap.tsx`: zastąpiono płaską kropkę okrągłą białą tarczą z kolorową obwódką (kolor wg statusu), inline SVG ikoną kropli wody i trójkątnym ogonem CSS celującym ostrzem w punkt awarii (`iconAnchor: [16, 40]`). Inspiracja: MPWiK Wrocław.
 
 ---
 
@@ -522,4 +526,16 @@ Data audytu: 2026-04-03
 * Naprawiono błąd "White Screen of Death" przy rejestracji subskrybenta, dodając poprawne parsowanie tablicowych błędów walidacji Pydantic (HTTP 422) wyświetlanych w Toastach.
 * Dodano przyciski nawigacyjne (Powrót do strony głównej / Zarejestruj kolejny adres) na ekranie sukcesu subskrybenta, zapobiegające ślepemu zaułkowi UX.
 * Wdrożono zaawansowany system filtrowania w panelach Subskrybentów (ulica, kanał, zgoda nocna) i Logów Powiadomień (kanał, status, okres) wraz z licznikami statystyk i wskaźnikiem skuteczności wysyłki w czasie rzeczywistym.
+
+---
+
+## 11. ZMIANY BIZNESOWE I UX (13.04.2026)
+
+> Uwaga: numeracja przesunięta na 11, ponieważ sekcja 10 jest już zajęta przez „Podsumowanie prac (12.04.2026)".
+
+- ✅ Dodano `start_time` do modelu zdarzeń i obsługę w UI (zakresy „od-do" dla planowanych wyłączeń) — nowa kolumna `events.start_time` (`DateTime(timezone=True)`, nullable), migracja `1f213e3939ab`, pola w `EventBase`/`EventUpdate`/`EventResponse` (serializator UTC), warunkowy input `datetime-local` w `AdminEventForm` (widoczny + wymagany dla `planowane_wylaczenie`), `EventCard` renderuje „Planowane: [start] – [koniec]" gdy oba pola obecne, w przeciwnym razie zachowuje poprzedni format „Szacowane zakończenie".
+- ✅ Ujednolicono kolory poligonów na mapie z kolorami pinezek (oparte na typie zdarzenia) — `EventMap.tsx`: `<GeoJSON>` style używa teraz `TYPE_COLORS`/`TYPE_FILL_COLORS` (`color: #DC2626 + fillColor: #EF4444` dla awarii, `#2563EB + #3B82F6` dla planowanych, `#D97706 + #F59E0B` dla remontów). Dodano widoczny obrys (`stroke: true, weight: 1.5`). `STATUS_COLORS` zostaje jako fallback. Polygon i pinezka są wizualnie spójne.
+- ✅ Dodano pływającą legendę objaśniającą kolory na mapie publicznej — komponent `MapLegend` (white/95 + backdrop-blur, shadow-md, rounded-lg, border) pozycjonowany `absolute bottom-4 right-4 z-[1000]`, `pointer-events-none` aby nie blokował interakcji z mapą. `MapContainer` opakowany w `relative w-full h-full`.
+- ✅ Dynamiczne pinezki Leaflet na mapie (różne ikony i kolory dla Awarii oraz Planowanych wyłączeń) — `EventMap.tsx`: `makeIcon(event_type)` zastąpiło `makeIcon(color)`. Mapy `ICON_SVGS` i `TYPE_COLORS` per typ: `awaria` → czerwona ramka + ogon (`#DC2626`) i ikona `TriangleAlert`, `planowane_wylaczenie` → niebieski (`#2563EB`) + `CalendarClock`, `remont` → bursztynowy (`#D97706`) + `Wrench`. Spójne wizualnie z `EventCard`.
+- ✅ Zróżnicowano kolorystykę i ikony kart w zależności od typu zdarzenia (Awaria = czerwony, Planowane = niebieski) — `EventCard.tsx`: `typeStyles` mapuje `event_type` na klasy Tailwind (`awaria` → `text-red-600/700` + `TriangleAlert`, `planowane_wylaczenie` → `text-blue-600/700` + `CalendarClock`, `remont` → `text-amber-600/700` + `Wrench`). `StatusBadge` pozostawiony bez zmian — już używa unikalnych kolorów per status (`status-planned`, `status-renovation` w design tokens).
 

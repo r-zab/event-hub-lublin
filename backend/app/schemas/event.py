@@ -35,6 +35,7 @@ class EventBase(BaseModel):
     house_number_to: str | None = None
     description: str | None = None
     status: EventStatus = "zgloszona"
+    start_time: datetime | None = None
     estimated_end: datetime | None = None
     geojson_segment: dict | None = None
 
@@ -54,6 +55,7 @@ class EventUpdate(BaseModel):
     house_number_to: str | None = None
     description: str | None = None
     status: EventStatus | None = None
+    start_time: datetime | None = None
     estimated_end: datetime | None = None
     geojson_segment: dict | None = None
 
@@ -88,7 +90,7 @@ class EventResponse(EventBase):
 
     model_config = {"from_attributes": True}
 
-    @field_serializer("estimated_end", when_used="json")
+    @field_serializer("estimated_end", "start_time", when_used="json")
     def serialize_estimated_end(self, v: datetime | None) -> str | None:
         return _utc_iso(v)
 

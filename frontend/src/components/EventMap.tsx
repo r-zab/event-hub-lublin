@@ -36,12 +36,38 @@ function isValidFeatureCollection(
   );
 }
 
-function makeIcon(color: string) {
+const ICON_SVGS: Record<EventItem['event_type'], string> = {
+  awaria: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.73 18 13.73 3.99a2 2 0 0 0-3.46 0L2.27 18a2 2 0 0 0 1.73 3h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`,
+  planowane_wylaczenie: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><path d="M17.5 17.5 16 16.3V14"/><circle cx="16" cy="16" r="6"/></svg>`,
+  remont: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
+};
+
+const TYPE_COLORS: Record<EventItem['event_type'], string> = {
+  awaria: '#DC2626',           // red-600
+  planowane_wylaczenie: '#2563EB', // blue-600
+  remont: '#D97706',           // amber-600
+};
+
+const TYPE_FILL_COLORS: Record<EventItem['event_type'], string> = {
+  awaria: '#EF4444',           // red-500
+  planowane_wylaczenie: '#3B82F6', // blue-500
+  remont: '#F59E0B',           // amber-500
+};
+
+function makeIcon(eventType: EventItem['event_type']) {
+  const color = TYPE_COLORS[eventType] ?? '#6B7280';
+  const svg = ICON_SVGS[eventType] ?? ICON_SVGS.awaria;
   return L.divIcon({
     className: '',
-    html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.3)"></div>`,
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
+    html: `
+      <div class="relative flex items-center justify-center w-8 h-8 bg-white border-2 rounded-full shadow-md" style="border-color:${color};color:${color}">
+        ${svg}
+        <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px]" style="border-top-color:${color}"></div>
+      </div>
+    `,
+    iconSize: [32, 40],
+    iconAnchor: [16, 40],
+    popupAnchor: [0, -40],
   });
 }
 
@@ -105,8 +131,31 @@ function MapController({ events, focusedEventId }: MapControllerProps) {
 // EventMap
 // ---------------------------------------------------------------------------
 
+function MapLegend() {
+  return (
+    <div
+      className="absolute bottom-4 right-4 z-[1000] bg-white/95 backdrop-blur-sm shadow-md rounded-lg border border-border p-3 text-sm space-y-1.5 pointer-events-none"
+      role="note"
+      aria-label="Legenda mapy"
+    >
+      <div className="font-semibold text-xs text-muted-foreground uppercase tracking-wide mb-1">
+        Legenda
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="inline-block w-3 h-3 rounded-full bg-red-600 border border-red-700" />
+        <span>Awaria</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="inline-block w-3 h-3 rounded-full bg-blue-600 border border-blue-700" />
+        <span>Planowane wyłączenie</span>
+      </div>
+    </div>
+  );
+}
+
 export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
   return (
+    <div className="relative w-full h-full">
     <MapContainer
       center={LUBLIN_CENTER}
       zoom={14}
@@ -124,7 +173,8 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
       <MapController events={events} focusedEventId={focusedEventId} />
 
       {events.map((event) => {
-        const color = STATUS_COLORS[event.status] ?? '#6B7280';
+        const color = TYPE_COLORS[event.event_type] ?? STATUS_COLORS[event.status] ?? '#6B7280';
+        const fillColor = TYPE_FILL_COLORS[event.event_type] ?? color;
 
         // Oblicz pozycję markera: centroid poligonów > street_geojson > centrum Lublina
         let markerPos: [number, number] = getMarkerPosition(event);
@@ -182,13 +232,13 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
                 key={`fc-${event.id}`}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 data={fc as any}
-                style={{ color, fillColor: color, stroke: false, weight: 0, fillOpacity: 0.6 }}
+                style={{ color, fillColor, stroke: true, weight: 1.5, fillOpacity: 0.6 }}
                 onEachFeature={onEachFeature}
               />
               <Marker
                 key={`pin-${event.id}`}
                 position={markerPos}
-                icon={makeIcon(color)}
+                icon={makeIcon(event.event_type)}
                 eventHandlers={markerEvents}
               >
                 {popup}
@@ -211,7 +261,7 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
               <Marker
                 key={`pin-${event.id}`}
                 position={markerPos}
-                icon={makeIcon(color)}
+                icon={makeIcon(event.event_type)}
                 eventHandlers={markerEvents}
               >
                 {popup}
@@ -225,7 +275,7 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
           <Marker
             key={event.id}
             position={markerPos}
-            icon={makeIcon(color)}
+            icon={makeIcon(event.event_type)}
             eventHandlers={markerEvents}
           >
             {popup}
@@ -233,5 +283,7 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
         );
       })}
     </MapContainer>
+      <MapLegend />
+    </div>
   );
 }

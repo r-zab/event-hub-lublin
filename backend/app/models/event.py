@@ -25,6 +25,7 @@ class Event(Base):
     house_number_to: Mapped[str | None] = mapped_column(String(10))
     description: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(30), server_default="zgloszona")
+    start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     estimated_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     geojson_segment: Mapped[dict | None] = mapped_column(JSONB)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))

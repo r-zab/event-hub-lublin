@@ -45,6 +45,7 @@ interface QueueItem {
   house_number_to: string;
   description: string;
   status: string;
+  start_time: string | null;
   estimated_end: string | null;
   geojson_segment: object | null;
   displayLabel: string;
@@ -231,6 +232,7 @@ const AdminEventForm = () => {
   const [streetQuery, setStreetQuery] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState('zgloszona');
+  const [startTime, setStartTime] = useState('');
   const [estimatedEnd, setEstimatedEnd] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingEvent, setIsLoadingEvent] = useState(isEdit);
@@ -276,6 +278,7 @@ const AdminEventForm = () => {
         setHouseTo(event.house_number_to ?? '');
         setDescription(event.description ?? '');
         setStatus(event.status);
+        if (event.start_time) setStartTime(toLocalISO(event.start_time));
         if (event.estimated_end) setEstimatedEnd(toLocalISO(event.estimated_end));
         setStreetQuery(event.street_name);
         if (event.street_id) {
@@ -507,13 +510,14 @@ const AdminEventForm = () => {
       house_number_to: houseTo,
       description,
       status: status || 'zgloszona',
+      start_time: startTime ? toUTCISO(startTime) : null,
       estimated_end: estimatedEnd ? toUTCISO(estimatedEnd) : null,
       geojson_segment,
       displayLabel: buildDisplayLabel(houseFrom, houseTo, selectedNums),
     };
   }, [
     eventType, selectedStreet, streetQuery, houseFrom, houseTo,
-    description, status, estimatedEnd, buildingFeatures, selectedBuildingIds, selectedNums,
+    description, status, startTime, estimatedEnd, buildingFeatures, selectedBuildingIds, selectedNums,
   ]);
 
   // ---------------------------------------------------------------------------
@@ -587,6 +591,7 @@ const AdminEventForm = () => {
           house_number_to: item.house_number_to || null,
           description: item.description || null,
           status: item.status,
+          start_time: item.start_time,
           estimated_end: item.estimated_end,
           geojson_segment: item.geojson_segment,
         });
@@ -934,13 +939,29 @@ const AdminEventForm = () => {
               </SelectContent>
             </Select>
           </div>
+          {eventType === 'planowane_wylaczenie' && (
+            <div>
+              <Label htmlFor="start-time">Czas rozpoczęcia *</Label>
+              <Input
+                id="start-time"
+                type="datetime-local"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                required
+                aria-label="Planowany czas rozpoczęcia"
+              />
+            </div>
+          )}
           <div>
-            <Label htmlFor="est-end">Szacowany czas usunięcia</Label>
+            <Label htmlFor="est-end">
+              {eventType === 'planowane_wylaczenie' ? 'Czas zakończenia *' : 'Szacowany czas usunięcia'}
+            </Label>
             <Input
               id="est-end"
               type="datetime-local"
               value={estimatedEnd}
               onChange={(e) => setEstimatedEnd(e.target.value)}
+              required={eventType === 'planowane_wylaczenie'}
               aria-label="Szacowany czas zakończenia"
             />
           </div>
