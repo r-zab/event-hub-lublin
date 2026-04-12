@@ -149,6 +149,10 @@ function MapLegend() {
         <span className="inline-block w-3 h-3 rounded-full bg-blue-600 border border-blue-700" />
         <span>Planowane wyłączenie</span>
       </div>
+      <div className="flex items-center gap-2">
+        <span className="inline-block w-3 h-3 rounded-full bg-amber-600 border border-amber-700" />
+        <span>Remont</span>
+      </div>
     </div>
   );
 }
