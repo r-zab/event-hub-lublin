@@ -77,7 +77,9 @@ export function AddressRow({
                 aria-selected={street_name === s.full_name}
                 className="px-3 py-2 text-sm cursor-pointer hover:bg-accent transition-colors"
                 onClick={() => {
-                  const displayName = `${s.street_type} ${s.full_name}`;
+                  const displayName = s.street_type && !/^\d+$/.test(s.street_type.trim())
+                    ? `${s.street_type} ${s.full_name}`
+                    : s.full_name;
                   setQuery(displayName);
                   onChange(index, 'street_name', displayName);
                   // Kluczowe: przekaż street_id z bazy TERYT
@@ -85,7 +87,11 @@ export function AddressRow({
                   setShowSuggestions(false);
                 }}
               >
-                <span className="font-medium">{s.street_type} {s.full_name}</span>
+                <span className="font-medium">
+                  {s.street_type && !/^\d+$/.test(s.street_type.trim())
+                    ? `${s.street_type} ${s.full_name}`
+                    : s.full_name}
+                </span>
                 <span className="text-muted-foreground ml-2 text-xs">{s.city}</span>
               </li>
             ))}

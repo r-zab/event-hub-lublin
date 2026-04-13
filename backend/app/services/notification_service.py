@@ -148,6 +148,45 @@ def _status_label(status: str) -> str:
     return _STATUS_LABELS.get(status, status)
 
 
+def _get_formatted_address(event: "Event") -> str:
+    """Zwróć sformatowany adres zdarzenia: 'ul. [Nazwa] [Numery]'.
+
+    Jeśli event.geojson_segment zawiera klucz 'features', wyciąga numery posesji
+    z właściwości każdego feature (pola: 'nr', 'house_number', 'number') i sortuje
+    je alfanumerycznie. W przeciwnym razie buduje zakres z house_number_from/to.
+    """
+    street = event.street_name or ""
+    numbers_str = ""
+
+    geojson = event.geojson_segment
+    if geojson and isinstance(geojson, dict) and "features" in geojson:
+        raw_numbers: list[str] = []
+        for feature in geojson["features"]:
+            props = feature.get("properties") or {}
+            nr = props.get("nr") or props.get("house_number") or props.get("number")
+            if nr:
+                raw_numbers.append(str(nr).strip())
+
+        if raw_numbers:
+            # Deduplikacja + sortowanie alfanumeryczne
+            unique = list(dict.fromkeys(raw_numbers))
+            unique.sort(key=lambda x: parse_house_number(x))
+            numbers_str = ", ".join(unique)
+    else:
+        nr_from = event.house_number_from
+        nr_to = event.house_number_to
+        if nr_from and nr_to:
+            numbers_str = nr_from if nr_from == nr_to else f"{nr_from}-{nr_to}"
+        elif nr_from:
+            numbers_str = nr_from
+        elif nr_to:
+            numbers_str = nr_to
+
+    if numbers_str:
+        return f"ul. {street} {numbers_str}"
+    return f"ul. {street}"
+
+
 def _estimated_end_str(event: Event) -> str | None:
     """Zwróć sformatowany szacowany czas naprawy w strefie Europe/Warsaw.
 
@@ -169,35 +208,29 @@ def build_sms_message(event: Event) -> str:
         "remont": "Remont",
     }.get(event.event_type, event.event_type.capitalize())
 
-    parts = [f"MPWiK Lublin: {event_type_label} — ul. {event.street_name}"]
-
-    if event.house_number_from or event.house_number_to:
-        nr_from = event.house_number_from or "?"
-        nr_to = event.house_number_to or "?"
-        if nr_from == nr_to:
-            parts.append(f"nr {nr_from}")
-        else:
-            parts.append(f"nr {nr_from}-{nr_to}")
+    parts = [f"MPWiK Lublin: {event_type_label} — {_get_formatted_address(event)}"]
 
     end_str = _estimated_end_str(event)
     if end_str:
         parts.append(f"Szacowany czas naprawy: {end_str}")
 
-    parts.append("Przepraszamy za utrudnienia.")
+    parts.append("Za utrudnienia przepraszamy. MPWiK Lublin tel. 994")
     return ". ".join(parts)
 
 
 def build_sms_status_change_message(event: Event, old_status: str) -> str:
     """Zbuduj treść SMS informującego o zmianie statusu zdarzenia."""
+    addr = _get_formatted_address(event)
+
     if event.status == "usunieta":
         return (
-            f"Szanowny mieszkańcu, informujemy, że awaria na ul. {event.street_name}"
-            " została usunięta."
+            f"{addr}: awaria została usunięta."
+            " Za utrudnienia przepraszamy. MPWiK Lublin tel. 994"
         )
 
     parts = [
-        f"Szanowny mieszkańcu, informujemy, że status zgłoszenia"
-        f" zmienił się z \"{_status_label(old_status)}\""
+        f"{addr}: status zgłoszenia zmienił się"
+        f" z \"{_status_label(old_status)}\""
         f" na \"{_status_label(event.status)}\"",
     ]
 
@@ -205,7 +238,7 @@ def build_sms_status_change_message(event: Event, old_status: str) -> str:
     if end_str:
         parts.append(f"Szacowany czas naprawy: {end_str}")
 
-    parts.append("Za utrudnienia przepraszamy.")
+    parts.append("Za utrudnienia przepraszamy. MPWiK Lublin tel. 994")
     return ". ".join(parts)
 
 
@@ -230,18 +263,8 @@ def build_email_body(event: Event) -> str:
     lines = [
         "Szanowny Mieszkańcu,",
         "",
-        f"Informujemy, że wystąpiła {event_type_label} przy ul. {event.street_name}",
+        f"Informujemy, że wystąpiła {event_type_label} przy {_get_formatted_address(event)}.",
     ]
-
-    if event.house_number_from or event.house_number_to:
-        nr_from = event.house_number_from or "?"
-        nr_to = event.house_number_to or "?"
-        if nr_from == nr_to:
-            lines[-1] += f" nr {nr_from}."
-        else:
-            lines[-1] += f" nr {nr_from}–{nr_to}."
-    else:
-        lines[-1] += "."
 
     if event.description:
         lines += ["", f"Opis: {event.description}"]
@@ -275,12 +298,7 @@ def build_sms_retroactive_message(event: Event) -> str:
         "remont": "Remont",
     }.get(event.event_type, event.event_type.capitalize())
 
-    parts = [f"MPWiK Lublin: {event_type_label} — ul. {event.street_name}"]
-
-    if event.house_number_from or event.house_number_to:
-        nr_from = event.house_number_from or "?"
-        nr_to = event.house_number_to or "?"
-        parts.append(f"nr {nr_from}-{nr_to}" if nr_from != nr_to else f"nr {nr_from}")
+    parts = [f"MPWiK Lublin: {event_type_label} — {_get_formatted_address(event)}"]
 
     parts.append(f"Aktualny status: {_status_label(event.status)}")
 
@@ -288,7 +306,7 @@ def build_sms_retroactive_message(event: Event) -> str:
     if end_str:
         parts.append(f"Szacowany czas naprawy: {end_str}")
 
-    parts.append("Przepraszamy za utrudnienia.")
+    parts.append("Za utrudnienia przepraszamy. MPWiK Lublin tel. 994")
     return ". ".join(parts)
 
 
@@ -303,15 +321,8 @@ def build_email_retroactive_body(event: Event) -> str:
     lines = [
         "Szanowny Mieszkańcu,",
         "",
-        f"Informujemy, że trwa {event_type_label} przy ul. {event.street_name}",
+        f"Informujemy, że trwa {event_type_label} przy {_get_formatted_address(event)}.",
     ]
-
-    if event.house_number_from or event.house_number_to:
-        nr_from = event.house_number_from or "?"
-        nr_to = event.house_number_to or "?"
-        lines[-1] += f" nr {nr_from}–{nr_to}." if nr_from != nr_to else f" nr {nr_from}."
-    else:
-        lines[-1] += "."
 
     lines += ["", f"Aktualny status: {_status_label(event.status)}."]
 
@@ -334,11 +345,13 @@ def build_email_retroactive_body(event: Event) -> str:
 
 def build_email_status_change_body(event: Event, old_status: str) -> str:
     """Zbuduj treść emaila informującego o zmianie statusu zdarzenia."""
+    addr = _get_formatted_address(event)
+
     if event.status == "usunieta":
         lines = [
             "Szanowny Mieszkańcu,",
             "",
-            f"Informujemy, że awaria na ul. {event.street_name} została usunięta.",
+            f"Informujemy, że awaria przy {addr} została usunięta.",
             "",
             "Dziękujemy za cierpliwość.",
             "",
@@ -350,7 +363,7 @@ def build_email_status_change_body(event: Event, old_status: str) -> str:
     lines = [
         "Szanowny Mieszkańcu,",
         "",
-        f"Informujemy, że status zgłoszenia dla ul. {event.street_name}"
+        f"Informujemy, że status zgłoszenia dla {addr}"
         f" zmienił się z \"{_status_label(old_status)}\""
         f" na \"{_status_label(event.status)}\".",
     ]

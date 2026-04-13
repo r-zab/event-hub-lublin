@@ -538,4 +538,36 @@ Data audytu: 2026-04-03
 - ✅ Dodano pływającą legendę objaśniającą kolory na mapie publicznej — komponent `MapLegend` (white/95 + backdrop-blur, shadow-md, rounded-lg, border) pozycjonowany `absolute bottom-4 right-4 z-[1000]`, `pointer-events-none` aby nie blokował interakcji z mapą. `MapContainer` opakowany w `relative w-full h-full`.
 - ✅ Dynamiczne pinezki Leaflet na mapie (różne ikony i kolory dla Awarii oraz Planowanych wyłączeń) — `EventMap.tsx`: `makeIcon(event_type)` zastąpiło `makeIcon(color)`. Mapy `ICON_SVGS` i `TYPE_COLORS` per typ: `awaria` → czerwona ramka + ogon (`#DC2626`) i ikona `TriangleAlert`, `planowane_wylaczenie` → niebieski (`#2563EB`) + `CalendarClock`, `remont` → bursztynowy (`#D97706`) + `Wrench`. Spójne wizualnie z `EventCard`.
 - ✅ Zróżnicowano kolorystykę i ikony kart w zależności od typu zdarzenia (Awaria = czerwony, Planowane = niebieski) — `EventCard.tsx`: `typeStyles` mapuje `event_type` na klasy Tailwind (`awaria` → `text-red-600/700` + `TriangleAlert`, `planowane_wylaczenie` → `text-blue-600/700` + `CalendarClock`, `remont` → `text-amber-600/700` + `Wrench`). `StatusBadge` pozostawiony bez zmian — już używa unikalnych kolorów per status (`status-planned`, `status-renovation` w design tokens).
+- ✅ Usunięto wyświetlanie numerycznego ID/kodu ulicy w dropdownach formularzy — `AdminEventForm.tsx` i `AddressRow.tsx`: pole `street_type` importowane z GeoJSON GUGiK zawiera kod `"1"` (RODZAJ) zamiast czytelnego prefiksu. Dodano funkcję pomocniczą `streetLabel(type, name)` pomijającą typy pasujące do `/^\d+$/`. Usunięto też jawną etykietę `(ID: {selectedStreet.id})` z potwierdzenia wyboru ulicy w formularzu dyspozytora. Atrybuty `key` i `value` komponentów oraz wywołania API nadal używają `street.id`.
+
+---
+
+## 12. PODSUMOWANIE PRAC (13.04.2026)
+- ✅ Rozbudowano silnik powiadomień o inteligentne formatowanie adresów (nazwa ulicy + precyzyjne numery posesji pobierane z danych GIS).
+- ✅ Zmodyfikowano treść SMS-ów o zmianie statusu, stawiając lokalizację awarii na pierwszym miejscu dla lepszej czytelności.
+- ✅ Dodano numer alarmowy 994 oraz ujednolicone przeprosiny za utrudnienia do wszystkich szablonów wiadomości SMS.
+
+---
+
+## 13. IMPORT DANYCH WEKTOROWYCH GIS (13.04.2026)
+
+### Import ulic — `streets_lublin__final.geojson`
+- ✅ Zaimportowano **1 333 ulice** z pliku `backend/data/streets_lublin__final.geojson` (źródło: QGIS/GUGiK EPSG:4326).
+- ✅ Mapowanie pól: `ID_ULIC` → `teryt_sym_ul` (unikalny klucz upsert), `NAZWA_TER1` → `name` (człon główny, np. „Mickiewicza"), `NAZWA_ULC` → `full_name` (pełna nazwa, np. „Adama Mickiewicza"), `RODZAJ` → `street_type`, geometria MultiLineString → `geojson` (JSONB).
+- ✅ Skrypt `import_streets.py` obsługuje teraz dwa formaty: GeoJSON (domyślny, plik `.geojson`) oraz XML TERYT (legacy, plik `.xml`) — wybór automatyczny na podstawie rozszerzenia.
+- ✅ Układ współrzędnych potwierdzony: EPSG:4326 (WGS84) — współrzędne w formacie `[lon, lat]` zgodnym z Leaflet.
+
+### Import budynków — programowy Spatial Join (geopandas) — `budynki_surowe.geojson` + `adresy_surowe.geojson`
+- ✅ Zmiana podejścia: zamiast pliku wstępnie złączonego w QGIS, join wykonywany jest programowo w Pythonie przez `geopandas`, co daje pełną kontrolę nad procesem i gwarantuje zachowanie wszystkich poligonów.
+- ✅ Zainstalowano i dodano do `requirements.txt` pakiety GIS: `geopandas>=0.14.0`, `shapely>=2.0.0`, `rtree>=1.0.0` (indeks przestrzenny R-tree dla wydajności).
+- ✅ Zaimportowano **46 596 budynków** (wszystkie poligony z `budynki_surowe.geojson` — zero utraconych).
+- ✅ Algorytm: `gpd.sjoin(budynki, adresy, how='left', predicate='intersects')` — flaga `how='left'` jest kluczowa i zachowuje budynki bezadresowe. Po joinie deduplikacja po `fid` (usunięto 85 duplikatów — przypadki jednego poligonu przeciętego przez kilka punktów adresowych).
+- ✅ **25 967 budynków z adresem** po KROK 1 — `full_address = "ul. NAZWA_ULC NUMER_PORZ"` (np. `"ul. Wapienna 21B"`). Dopasowanie `street_id` przez TERYT: `ID_ULIC` z punktów adresowych = `teryt_sym_ul` w tabeli `streets` — bezpośrednie, bez fuzzy matching.
+- ✅ **20 629 budynków bezadresowych** po KROK 1 — luka wynikająca z przesunięcia punktów PRG (GUGiK) względem poligonów BDOT10k (zwłaszcza rodzaj `'m'` — mieszkalne).
+- ✅ **Wprowadzono 15-metrowy bufor bezpieczeństwa (KROK 2 — sjoin_nearest)** — `import_buildings.py` wykonuje teraz dwuetapowy spatial join:
+  - **KROK 1 (rygorystyczny):** `gpd.sjoin(predicate='intersects')` — punkt adresowy wewnątrz poligonu.
+  - **KROK 2 (ratunkowy):** `gpd.sjoin_nearest(max_distance=15, EPSG:2180)` — dla budynków nadal bez adresu, znajdź najbliższy punkt PRG w promieniu ≤ 15 m w układzie metrycznym PUWG 1992.
+  - Wynik: **+10 711 budynków uratowanych** przez KROK 2, łącznie **36 678 budynków z adresem** (wzrost z 26 tys. do prawie 37 tys. — pokrycie adresowe ponad 78% wszystkich poligonów).
+- ✅ **9 918 budynków bezadresowych** — faktycznie bezadresowe (garaże, budynki techniczne, obiekty gospodarcze) — zaimportowane z `NULL` w polach adresowych. Wszystkie posiadają geometrię i `id_budynku`.
+- ✅ Układ współrzędnych potwierdzony: EPSG:4326 (WGS84, `lon≈22, lat≈51`). Geometria MultiPolygon przechowywana w `geojson_polygon` (JSONB) — gotowa do renderowania w Leaflet bez konwersji.
 

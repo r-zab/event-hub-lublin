@@ -1,27 +1,34 @@
 """
-Skrypt importu ulic TERYT do tabeli streets.
+Skrypt importu ulic do tabeli streets.
 
-Źródło: backend/data/ULIC_29-03-2026.xml (format GUS TERYT ULIC)
+Obsługuje dwa formaty wejściowe:
+  1. GeoJSON (domyślny) — backend/data/streets_lublin__final.geojson
+     Mapowanie pól:
+       ID_ULIC    -> teryt_sym_ul  (unikalny klucz, podstawa upsert)
+       NAZWA_TER1 -> name          (człon główny, np. "Mickiewicza")
+       NAZWA_ULC  -> full_name     (pełna nazwa, np. "Adama Mickiewicza")
+       RODZAJ     -> street_type
+       geometry   -> geojson       (JSONB, MultiLineString, EPSG:4326)
 
-Mapowanie pól:
-  SYM_UL  -> teryt_sym_ul  (unikalny klucz, podstawa upsert)
-  CECHA   -> street_type   (ul., al., rondo, skwer, …)
-  NAZWA_1 -> name          (człon główny, np. "Mickiewicza")
-  NAZWA_2 -> prefix        (człon dodatkowy, np. "Adama")
-  full_name = NAZWA_2 + " " + NAZWA_1  gdy NAZWA_2 niepuste
-            = NAZWA_1                  gdy NAZWA_2 puste
+  2. XML (legacy) — backend/data/ULIC_29-03-2026.xml (format GUS TERYT ULIC)
+     Mapowanie pól:
+       SYM_UL  -> teryt_sym_ul
+       CECHA   -> street_type
+       NAZWA_1 -> name
+       NAZWA_2 -> prefix
 
 Idempotentność: ON CONFLICT (teryt_sym_ul) DO UPDATE — bezpieczne przy
 ponownym uruchomieniu, aktualizuje istniejące rekordy.
 
 Uruchomienie (z katalogu backend/):
-    python -m scripts.import_streets
-    python -m scripts.import_streets --file data/ULIC_29-03-2026.xml
-    python -m scripts.import_streets --file data/ULIC_29-03-2026.xml --city Lublin
+    python -m scripts.import_streets                                        # GeoJSON (domyślny)
+    python -m scripts.import_streets --file data/streets_lublin__final.geojson
+    python -m scripts.import_streets --file data/ULIC_29-03-2026.xml       # tryb XML (legacy)
 """
 
 import argparse
 import asyncio
+import json
 import logging
 import os
 import sys
@@ -38,13 +45,61 @@ from app.models.street import Street
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
+DEFAULT_GEOJSON = Path(__file__).parent.parent / "data" / "streets_lublin__final.geojson"
 DEFAULT_XML = Path(__file__).parent.parent / "data" / "ULIC_29-03-2026.xml"
 BATCH_SIZE = 100
 LOG_EVERY = 100
 
 
 # ---------------------------------------------------------------------------
-# Parsowanie XML
+# Parsowanie GeoJSON (tryb domyślny)
+# ---------------------------------------------------------------------------
+
+
+def parse_rows_geojson(geojson_path: Path) -> list[dict]:
+    """Parsuj plik GeoJSON i zwróć listę słowników gotowych do wstawienia do bazy."""
+    logger.info("Parsowanie GeoJSON: %s", geojson_path)
+    with open(geojson_path, encoding="utf-8") as f:
+        geojson = json.load(f)
+
+    features = geojson.get("features", [])
+    logger.info("Zaladowano %d features z pliku GeoJSON", len(features))
+
+    records: list[dict] = []
+    skipped = 0
+
+    for feature in features:
+        props = feature.get("properties") or {}
+        geom = feature.get("geometry")
+
+        id_ulic = str(props.get("ID_ULIC") or "").strip()
+        if not id_ulic:
+            skipped += 1
+            continue
+
+        nazwa_ter1 = (props.get("NAZWA_TER1") or "").strip()   # człon główny
+        nazwa_ulc = (props.get("NAZWA_ULC") or "").strip()     # pełna nazwa
+
+        # Fallback: jeśli brak full_name, użyj głównego członu
+        full_name = nazwa_ulc if nazwa_ulc else nazwa_ter1
+
+        records.append({
+            "teryt_sym_ul": id_ulic,
+            "name":         nazwa_ter1 if nazwa_ter1 else full_name,
+            "full_name":    full_name,
+            "street_type":  str(props.get("RODZAJ") or "").strip() or None,
+            "city":         "Lublin",
+            "geojson":      geom,  # dict przekazywany bezpośrednio do JSONB
+        })
+
+    if skipped:
+        logger.warning("Pominieto %d featurow bez ID_ULIC", skipped)
+    logger.info("Sparsowano %d rekordow z GeoJSON", len(records))
+    return records
+
+
+# ---------------------------------------------------------------------------
+# Parsowanie XML (tryb legacy — TERYT ULIC)
 # ---------------------------------------------------------------------------
 
 
@@ -53,9 +108,9 @@ def _text(row: ET.Element, tag: str) -> str:
     return (row.findtext(tag) or "").strip()
 
 
-def parse_rows(xml_path: Path) -> list[dict]:
+def parse_rows_xml(xml_path: Path) -> list[dict]:
     """Parsuj plik XML i zwróć listę słowników gotowych do wstawienia do bazy."""
-    logger.info("Parsowanie pliku: %s", xml_path)
+    logger.info("Parsowanie XML: %s", xml_path)
     tree = ET.parse(xml_path)
     root = tree.getroot()
 
@@ -69,68 +124,53 @@ def parse_rows(xml_path: Path) -> list[dict]:
         nazwa_2 = _text(row, "NAZWA_2")
         full_name = f"{nazwa_2} {nazwa_1}".strip() if nazwa_2 else nazwa_1
 
-        records.append(
-            {
-                "teryt_sym_ul": sym_ul,
-                "name": nazwa_1,
-                "full_name": full_name,
-                "street_type": _text(row, "CECHA") or None,
-                "city": "Lublin",
-            }
-        )
+        records.append({
+            "teryt_sym_ul": sym_ul,
+            "name":         nazwa_1,
+            "full_name":    full_name,
+            "street_type":  _text(row, "CECHA") or None,
+            "city":         "Lublin",
+            "geojson":      None,
+        })
 
-    logger.info("Sparsowano %d rekordów", len(records))
+    logger.info("Sparsowano %d rekordow z XML", len(records))
     return records
 
 
 # ---------------------------------------------------------------------------
-# Import do bazy
+# Import do bazy (wspólny dla obu formatów)
 # ---------------------------------------------------------------------------
 
 
-async def import_streets(xml_path: Path) -> None:
-    records = parse_rows(xml_path)
+async def import_streets(records: list[dict]) -> None:
     if not records:
-        logger.warning("Brak rekordów do zaimportowania.")
+        logger.warning("Brak rekordow do zaimportowania.")
         return
-
-    inserted = 0
-    updated = 0
 
     async with AsyncSessionLocal() as db:
         for batch_start in range(0, len(records), BATCH_SIZE):
-            batch = records[batch_start : batch_start + BATCH_SIZE]
+            batch = records[batch_start: batch_start + BATCH_SIZE]
 
             stmt = pg_insert(Street).values(batch)
             stmt = stmt.on_conflict_do_update(
                 index_elements=["teryt_sym_ul"],
                 set_={
-                    "name": stmt.excluded.name,
-                    "full_name": stmt.excluded.full_name,
+                    "name":        stmt.excluded.name,
+                    "full_name":   stmt.excluded.full_name,
                     "street_type": stmt.excluded.street_type,
-                    "city": stmt.excluded.city,
+                    "city":        stmt.excluded.city,
+                    "geojson":     stmt.excluded.geojson,
                 },
             )
-            result = await db.execute(stmt)
+            await db.execute(stmt)
 
-            # rowcount przy ON CONFLICT DO UPDATE: 1 = insert, 2 = update (PostgreSQL)
-            for row_result in range(len(batch)):
-                _ = row_result  # tylko liczymy
-
-            inserted += len(batch)
-
-            if (batch_start + BATCH_SIZE) % LOG_EVERY == 0 or batch_start + BATCH_SIZE >= len(
-                records
-            ):
-                logger.info(
-                    "Postęp: %d / %d ulic przetworzonych",
-                    min(batch_start + BATCH_SIZE, len(records)),
-                    len(records),
-                )
+            progress = min(batch_start + BATCH_SIZE, len(records))
+            if progress % LOG_EVERY == 0 or progress == len(records):
+                logger.info("Postep: %d / %d ulic przetworzonych", progress, len(records))
 
         await db.commit()
 
-    logger.info("=== Import zakończony: %d ulic w bazie (upsert) ===", len(records))
+    logger.info("=== Import ulic zakonczony: %d ulic w bazie (upsert) ===", len(records))
 
 
 # ---------------------------------------------------------------------------
@@ -138,13 +178,21 @@ async def import_streets(xml_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _detect_format(path: Path) -> str:
+    """Wykryj format pliku na podstawie rozszerzenia."""
+    suffix = path.suffix.lower()
+    if suffix == ".xml":
+        return "xml"
+    return "geojson"
+
+
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Import ulic TERYT do bazy danych")
+    parser = argparse.ArgumentParser(description="Import ulic do bazy danych (GeoJSON lub XML TERYT)")
     parser.add_argument(
         "--file",
         type=Path,
-        default=DEFAULT_XML,
-        help=f"Ścieżka do pliku XML (domyślnie: {DEFAULT_XML})",
+        default=DEFAULT_GEOJSON,
+        help=f"Sciezka do pliku GeoJSON lub XML (domyslnie: {DEFAULT_GEOJSON})",
     )
     return parser.parse_args()
 
@@ -154,4 +202,11 @@ if __name__ == "__main__":
     if not args.file.exists():
         logger.error("Plik nie istnieje: %s", args.file)
         sys.exit(1)
-    asyncio.run(import_streets(args.file))
+
+    fmt = _detect_format(args.file)
+    if fmt == "xml":
+        records = parse_rows_xml(args.file)
+    else:
+        records = parse_rows_geojson(args.file)
+
+    asyncio.run(import_streets(records))

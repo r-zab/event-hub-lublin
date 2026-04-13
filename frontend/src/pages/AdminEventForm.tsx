@@ -96,6 +96,16 @@ function buildDisplayLabel(houseFrom: string, houseTo: string, selectedNums: str
   return 'wszystkie budynki';
 }
 
+/**
+ * Formatuje nazwę ulicy do wyświetlenia użytkownikowi.
+ * Pomija street_type gdy jest kodem numerycznym (np. "1" z importu GUGiK/GeoJSON)
+ * zamiast czytelnym prefiksem ("ul.", "al.", "pl." itp.).
+ */
+function streetLabel(streetType: string | null | undefined, name: string): string {
+  if (!streetType || /^\d+$/.test(streetType.trim())) return name;
+  return `${streetType} ${name}`;
+}
+
 // ---------------------------------------------------------------------------
 // Pomocniczy komponent: dopasowuje widok mapy do granic załadowanych budynków
 // ---------------------------------------------------------------------------
@@ -192,7 +202,7 @@ function QueueCard({ item, onRemove }: { item: QueueItem; onRemove: () => void }
         </Badge>
         <div className="min-w-0">
           <p className="font-medium truncate">
-            {item.street_type} {item.street_name}
+            {streetLabel(item.street_type, item.street_name)}
           </p>
           <p className="text-xs text-muted-foreground">{item.displayLabel}</p>
           {item.description && (
@@ -483,7 +493,7 @@ const AdminEventForm = () => {
 
   const selectStreet = (s: Street) => {
     setSelectedStreet(s);
-    setStreetQuery(`${s.street_type} ${s.full_name}`.trim());
+    setStreetQuery(streetLabel(s.street_type, s.full_name));
     setShowSuggestions(false);
   };
 
@@ -535,7 +545,7 @@ const AdminEventForm = () => {
     }
     const item = buildCurrentItem();
     setEventsQueue((prev) => [...prev, item]);
-    toast({ title: 'Dodano do kolejki', description: `${item.street_type} ${item.street_name} — ${item.displayLabel}` });
+    toast({ title: 'Dodano do kolejki', description: `${streetLabel(item.street_type, item.street_name)} — ${item.displayLabel}` });
 
     // Reset pól ulicy i budynków, zachowaj typ/status/datę
     setSelectedStreet(null);
@@ -725,7 +735,7 @@ const AdminEventForm = () => {
                   onClick={() => selectStreet(s)}
                 >
                   <span className="font-medium">
-                    {s.street_type} {s.full_name}
+                    {streetLabel(s.street_type, s.full_name)}
                   </span>
                   <span className="text-muted-foreground ml-2 text-xs">{s.city}</span>
                 </li>
@@ -734,8 +744,7 @@ const AdminEventForm = () => {
           )}
           {selectedStreet && (
             <p className="text-xs text-muted-foreground mt-1">
-              Wybrano: {selectedStreet.street_type} {selectedStreet.full_name}{' '}
-              <span className="opacity-60">(ID: {selectedStreet.id})</span>
+              Wybrano: {streetLabel(selectedStreet.street_type, selectedStreet.full_name)}
             </p>
           )}
         </div>
@@ -1006,7 +1015,7 @@ const AdminEventForm = () => {
             {selectedStreet && (
               <p className="text-xs text-muted-foreground pt-1">
                 + bieżący formularz (
-                {selectedStreet.street_type} {selectedStreet.full_name})
+                {streetLabel(selectedStreet.street_type, selectedStreet.full_name)})
               </p>
             )}
           </div>
