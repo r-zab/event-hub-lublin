@@ -4,7 +4,7 @@
 
 ### ✅ Zrobione — Backend
 - [x] Struktura katalogów i pliki startowe
-- [x] docker-compose.yml z PostgreSQL 16
+- [x] docker-compose.yml z PostgreSQL 16 (2026-04-13: migracja obrazu na `postgis/postgis:16-3.4-alpine` — natywne wsparcie PostGIS 3.4; po re-imporcie i geokodowaniu w bazie: **1378 ulic** pełne pokrycie TERYT (6 bez geom — niemapowane w Nominatim), **46 596 budynków** (9918 bez `street_id` = bezadresowe PRG))
 - [x] FastAPI starter (main.py, config.py, database.py)
 - [x] Dokumentacja (CLAUDE.md, PROJECT_CONTEXT.md, TECH_SPEC.md)
 - [x] Modele SQLAlchemy 2.0 (user, street, event, event_history, subscriber, subscriber_addresses, notification_log, api_key, **building**)

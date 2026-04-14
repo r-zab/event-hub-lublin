@@ -37,6 +37,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.database import AsyncSessionLocal
@@ -168,6 +169,15 @@ async def import_streets(records: list[dict]) -> None:
             if progress % LOG_EVERY == 0 or progress == len(records):
                 logger.info("Postep: %d / %d ulic przetworzonych", progress, len(records))
 
+        # Normalizacja: SQLAlchemy zapisuje Python None jako JSONB literal 'null',
+        # a geocode_streets.py filtruje po `geojson IS NULL`. Konwertujemy, zeby
+        # brakujace geometrie byly wykrywalne przez geokoder.
+        result = await db.execute(
+            text("UPDATE streets SET geojson = NULL WHERE geojson = 'null'::jsonb")
+        )
+        if result.rowcount:
+            logger.info("Znormalizowano %d rekordow z JSONB 'null' -> SQL NULL", result.rowcount)
+
         await db.commit()
 
     logger.info("=== Import ulic zakonczony: %d ulic w bazie (upsert) ===", len(records))
@@ -186,6 +196,31 @@ def _detect_format(path: Path) -> str:
     return "geojson"
 
 
+def _supplement_from_teryt(geo_records: list[dict], xml_path: Path) -> list[dict]:
+    """Dołącz do listy rekordów te ulice TERYT, których brakuje w GeoJSON (geojson=NULL).
+
+    Takie ulice (place, skwery, parki, rzadkie ulice bez mapy OSM) można później
+    uzupełnić o geometrię uruchamiając `scripts/geocode_streets.py`.
+    """
+    if not xml_path.exists():
+        logger.warning("Brak pliku TERYT XML (%s) — pomijam uzupelnianie brakujacych ulic.", xml_path)
+        return geo_records
+
+    existing_ids = {r["teryt_sym_ul"] for r in geo_records}
+    xml_records = parse_rows_xml(xml_path)
+    supplemented = [r for r in xml_records if r["teryt_sym_ul"] not in existing_ids]
+
+    if supplemented:
+        logger.info(
+            "Uzupelniono %d ulic z TERYT bez geometrii (geojson=NULL) — do geokodowania",
+            len(supplemented),
+        )
+    else:
+        logger.info("Wszystkie ulice TERYT maja pokrycie w GeoJSON — brak uzupelnien.")
+
+    return geo_records + supplemented
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Import ulic do bazy danych (GeoJSON lub XML TERYT)")
     parser.add_argument(
@@ -193,6 +228,16 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         default=DEFAULT_GEOJSON,
         help=f"Sciezka do pliku GeoJSON lub XML (domyslnie: {DEFAULT_GEOJSON})",
+    )
+    parser.add_argument(
+        "--teryt-xml",
+        type=Path,
+        default=DEFAULT_XML,
+        help=(
+            "Sciezka do XML TERYT ULIC, uzywana w trybie GeoJSON do uzupelnienia "
+            f"brakujacych ulic (geojson=NULL). Domyslnie: {DEFAULT_XML}. "
+            "Podaj pusty string, aby wylaczyc."
+        ),
     )
     return parser.parse_args()
 
@@ -208,5 +253,7 @@ if __name__ == "__main__":
         records = parse_rows_xml(args.file)
     else:
         records = parse_rows_geojson(args.file)
+        if args.teryt_xml and str(args.teryt_xml):
+            records = _supplement_from_teryt(records, args.teryt_xml)
 
     asyncio.run(import_streets(records))

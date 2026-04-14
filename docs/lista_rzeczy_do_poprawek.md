@@ -4,6 +4,57 @@ Data audytu: 2026-04-03
 
 ---
 
+## 0. Poprawa jakości danych GIS - obsługa budynków narożnych i buforowanie
+
+### ~~[0.3]~~ ✅ NAPRAWIONO — Scenariusz 4: uzupełnienie braków PZGIK węzłami OSM PBF (2026-04-15)
+
+- **Pliki:** `backend/scripts/import_osm_supplement.py` (nowy), `backend/alembic/versions/20260415_add_osm_columns_to_buildings.py` (migracja), `backend/app/models/building.py`, `backend/scripts/import_buildings.py` (CREATE TABLE).
+- **Cel:** po głównym imporcie (BDOT10k + PRG → 36 678 adresów) dołożyć brakujące adresy z pliku `lubelskie-260413.osm.pbf`. OSM zawiera m.in. `node` z `addr:housenumber` (klatki w blokach, adresy bez obrysu), których PRG nie eksportuje.
+- **Schema:** migracja `20260415_osm_cols` dodaje do `buildings` kolumny `osm_way_id BIGINT`, `osm_node_id BIGINT`, `geom_type VARCHAR(10) DEFAULT 'polygon'`, `geojson_point JSONB`. `fid` jest nullowalne (adresy OSM nie mają BDOT fid). CREATE TABLE w `import_buildings.py` został równolegle rozszerzony o te kolumny, żeby świeży import od zera dawał spójny schemat.
+- **Algorytm skryptu:**
+  1. Streamingowy parser `osmium.FileProcessor(...).with_locations()` — na Windows działa z pyosmium ≥ 4.x bez kompilacji.
+  2. Zbieramy tylko obiekty z `addr:city=Lublin` + `addr:housenumber` + `addr:street`; deduplikacja w pamięci po (nazwa_ulicy, numer) — `way` (poligon) ma pierwszeństwo nad `node` (punkt).
+  3. Z bazy ładujemy set istniejących `(street_norm, number_norm)` i słownik `street_norm → street_id`. Normalizacja: iteracyjne zdejmowanie prefiksów `ul./al./pl./os./aleja...` + `casefold()`.
+  4. Filtrujemy adresy OSM już obecne w bazie; resztę wstawiamy partiami po 500:
+     - `way`  → `geom_type='polygon'`, `geojson_polygon`, `osm_way_id`
+     - `node` → `geom_type='point'`, `geojson_point`, `osm_node_id`
+  5. `full_address` budowane jako `"ul. {street} {number}"`, `street_id` z lookupu (NULL gdy brak dopasowania — rekord wciąż przydatny do wyszukiwania tekstowego w panelu admina).
+- **Uruchomienie:** `cd backend && python -m scripts.import_osm_supplement --pbf C:/Users/rafal/Downloads/lubelskie-260413.osm.pbf`. Skrypt jest idempotentny — każde kolejne uruchomienie dokłada tylko adresy, których jeszcze nie ma (nie duplikuje).
+- **Wynik w bazie (2026-04-15, po wykonaniu):**
+  - łącznie: **51 643** budynki (było 46 596)
+  - z `full_address`: **41 725** (było 36 678, **+5 047 adresów**)
+  - bez adresu: 9 918 (bez zmian — OSM dokłada tylko adresy, nie zmienia obiektów technicznych BDOT10k)
+  - `geom_type='polygon'`: 48 973 | `geom_type='point'`: 2 670
+  - `osm_way_id IS NOT NULL`: 2 377 | `osm_node_id IS NOT NULL`: 2 670
+  - adresy OSM bez dopasowanego `street_id`: 885 (ulica spoza `streets` — wyszukiwanie tekstowe działa, ale subskrypcje po `street_id` ich nie znajdą)
+- **Zidentyfikowany kolejny problem (do przyszłego zadania, NIE w tym PR):** część poligonów BDOT10k widocznych na Geoportalu nie ma adresu ani w PRG, ani w OSM — np. `Muzyczna 1` (Piekarnia Różana, pokazywana przez Google/Targeo). Pełna analiza przypadku + opcje rozwiązania (A–E) w `docs/mozliwosci.md` → sekcja „Adresy widoczne na Geoportalu, ale bez obrysu + adresu w bazie". Rekomendacja: kombinacja C + E (akceptacja luki + ręczny fallback w panelu admina przez dyspozytora, gdy zgłosi brak).
+- **Dalsze kroki (frontend, poza zakresem tego zadania):** autocomplete w panelu admina + render w Leaflet — poligon dla `geom_type='polygon'`, marker dla `geom_type='point'`. Zgodnie z sekcją „Widok w panelu admina" w `docs/mozliwosci.md`.
+
+### ~~[0.2]~~ ✅ NAPRAWIONO — OSM supplement dla adresów brakujących w PRG (2026-04-13)
+
+- **Pliki:** `backend/scripts/import_buildings.py` (funkcja `append_osm_buildings`), `backend/data/lublin_budynki.geojson`
+- **Problem (regresja zgłoszona):** Panel Dyspozytora → "Brak dopasowań w obrysach" dla `Matejki 7`. Również `Matejki 2`. Tych numerów **nie ma w pliku PRG/GUGiK** `adresy_surowe.geojson` (są tylko nieparzyste 1, 3, 9, ... i parzyste od 10), więc żaden spatial join BDOT10k×PRG nie mógł ich wykryć.
+- **Źródło rozwiązania:** plik `backend/data/lublin_budynki.geojson` (z OSM) ma 23 219 features z **bezpośrednimi tagami** `street` + `house_number` + polygon. OSM zawiera m.in. `Matejki 2, 7, 10, 12, 13, 20b` — czyli dokładnie te, których brakuje w PRG.
+- **Naprawa:** dodano funkcję `append_osm_buildings()` do `import_buildings.py`: po zakończonym spatial join (KROK 1+2) skrypt czyta OSM GeoJSON i dopisuje rekordy dla par `(street, house_number)`, których jeszcze nie ma w bazie. `street_id` przez lookup po `streets.name`/`full_name`. `id_budynku` przyjmuje format `osm:way:{osm_id}`.
+- **Weryfikacja API:** `GET /api/v1/streets/1630/buildings` (Matejki) zwraca **64 rekordów**; `house_number='2'` → 1 Polygon OSM, `house_number='7'` → 1 Polygon OSM. Format GeoJSON poprawny (nie HEX — tabela używa JSONB, nie PostGIS `geometry`, więc `ST_AsGeoJSON` nie jest potrzebne; API zwraca dict bezpośrednio przez Pydantic `geojson_polygon: dict | None`).
+- **Efekt w bazie:** 65 406 → **68 677 rekordów**, **wszystkie z `geojson_polygon`** (0 rekordów bez geometrii). 3 271 budynków dopisanych z OSM.
+- **Dalszy brak:** `Matejki 4, 5, 6` nie istnieją w żadnym z plików źródłowych (PRG ani OSM) — to luka w obu dostępnych datasetach, nie problem skryptu. Do wyjaśnienia z GUGiK / OSM community.
+
+### ~~[0.1]~~ ✅ NAPRAWIONO — Many-to-one spatial join + bufor 10 m (2026-04-13)
+
+- **Pliki:** `backend/scripts/import_buildings.py`, tabela `buildings`
+- **Problem:** poprzednia logika `import_buildings.py` robiła `drop_duplicates(subset=['fid'], keep='first')` — budynek narożny z 2+ punktami adresowymi dostawał tylko **jeden** rekord (pierwszy adres). Przykład: budynek na rogu Matejki/Kunickiego 132 → zapisany tylko jako `Kunickiego 132`, brak rekordu `Matejki 7`. Dodatkowo `fid UNIQUE` na tabeli uniemożliwiał wiele rekordów per poligon. Wiele adresów z PRG leżało 2-10 m od obrysu BDOT10k (przesunięcie geodezyjne) i wypadało z `intersects`.
+- **Naprawa:**
+  1. Usunięto `UNIQUE` z `fid` + dodano indeks non-unique.
+  2. Usunięto `ON CONFLICT (fid)` z upsertu — tabela jest `DROP TABLE` + `CREATE TABLE` przy każdym re-imporcie, więc wystarczy czysty `INSERT`.
+  3. **Bufor 10 m**: poligony budynków są buforowane w `EPSG:2180` (PUWG 1992 metryczne) przed `sjoin(intersects)`. Oryginalna geometria jest zachowana w `_orig_geom` i przywracana po joinnie.
+  4. **Many-to-one**: brak `drop_duplicates` po `fid` — każda para (budynek, adres) daje osobny rekord.
+  5. KROK 2 (rescue `sjoin_nearest ≤15 m`) uruchamia się tylko dla fid, które w KROK 1 nie dostały **żadnego** matchu (zachowuje stare zachowanie dla budynków całkowicie odseparowanych).
+- **Efekt:** 46 596 → **65 406 rekordów** w tabeli `buildings`, adresów z **36 678 → 55 488** (+18 810 adresów odzyskanych dzięki buforowi i many-to-one). **13 581 budynków narożnych** (jeden `id_budynku` → wiele różnych `full_address`). Puste ulice: 178 → 176.
+- **Ograniczenie zewnętrzne (nie błąd skryptu):** część adresów (np. Matejki 2, 4, 5, 6, 7) **nie istnieje w pliku źródłowym PRG/GUGiK** `adresy_surowe.geojson` — w nim lista dla Matejki zaczyna się od 1, 3, 9, 10, 14, 14a, 15... Brak tych numerów = luka w danych GUGiK, do wyjaśnienia z dostawcą danych. Skrypt robi maximum tego, co pozwalają mu dane źródłowe.
+
+---
+
 ## 1. BLEDY KRYTYCZNE
 
 ### ~~1.1~~ ✅ NAPRAWIONO — Wyrejestrowanie (Unsubscribe) - frontend kompletnie nie dziala z backendem
@@ -357,10 +408,13 @@ Data audytu: 2026-04-03
 - **Problem:** `geojson_segment: dict | None = None` akceptuje dowolny słownik bez walidacji struktury. Można wysłać `{"foo": "bar"}` i zostanie zapisany do bazy. Gdy silnik powiadomień (Opcja B z [7.1]) będzie czytać `features[].properties.house_number`, brak tej właściwości nie zostanie wykryty przy zapisie.
 - **Naprawa:** Dodać Pydantic validator lub osobny model `GeoJsonFeatureCollection` sprawdzający `type == "FeatureCollection"` oraz `features` jako listę z `geometry` i `properties.house_number`. Alternatywnie: lekka walidacja `@field_validator` z `mode="before"`.
 
-### ~~[7.6]~~ ✅ ZASILONO — Dane buildings istnieją w bazie
+### ~~[7.6]~~ ✅ NAPRAWIONO — Dane buildings zasilone + migracja na PostGIS
 
-- **Plik:** `backend/app/models/building.py`, `backend/app/routers/streets.py`
-- Potwierdzone przez użytkownika (2026-04-09): tabela `buildings` zawiera dane widoczne w DBeaverze. Endpoint `GET /streets/{id}/buildings` działa i zwraca obrysy budynków. Zakładka „Zaznacz na mapie" w AdminEventForm działa. Punkt zamknięty.
+- **Plik:** `backend/app/models/building.py`, `backend/app/routers/streets.py`, `docker-compose.yml`
+- Potwierdzone przez użytkownika (2026-04-09): tabela `buildings` zawiera dane widoczne w DBeaverze. Endpoint `GET /streets/{id}/buildings` działa i zwraca obrysy budynków. Zakładka „Zaznacz na mapie" w AdminEventForm działa.
+- **Aktualizacja 2026-04-13:** Infrastruktura zmigrowana na obraz `postgis/postgis:16-3.4-alpine` (wcześniej `postgres:16-alpine`). Rozszerzenie `postgis` włączone (`CREATE EXTENSION postgis` — v3.4, GEOS/PROJ). Pełny re-import: `scripts/import_streets.py` + `scripts/import_buildings.py` (spatial join KROK1 intersects + KROK2 sjoin_nearest ≤15 m, EPSG:2180). Wynik: **46 596 budynków** (36 678 z adresem, 9 918 bezadresowych). Punkt zamknięty.
+- **Aktualizacja 2026-04-13 (ulice — pełne pokrycie TERYT):** Plik `streets_lublin__final.geojson` (spatial join OSM × TERYT) zawierał tylko 1333/1378 ulic — brakowało 45 obiektów typu `pl.`, `skwer`, `park`, `inne` oraz 1 `ul.` (Wandy Papiewskiej), których OSM nie mapuje jako `highway`. Zmodyfikowano `scripts/import_streets.py`: w trybie GeoJSON funkcja `_supplement_from_teryt()` uzupełnia brakujące SYM_UL z `ULIC_29-03-2026.xml` jako rekordy z `geojson = NULL`. Dodano też post-import normalizację JSONB `'null'` → SQL `NULL` (SQLAlchemy domyślnie zapisywał Python `None` jako JSONB literal `'null'`, przez co `geocode_streets.py` z filtrem `Street.geojson.is_(None)` ich nie widział).
+- **Aktualizacja 2026-04-13 (geokodowanie brakujących 45):** Uruchomiono `scripts/geocode_streets.py` (Nominatim, delay 1.2 s). Zgeokodowano **39/45**; 6 nieznalezionych przez Nominatim (`Park Rury im. urbanisty Romualda Dylewskiego`, `Plac Króla Władysława Łokietka`, `Plac Obrońców Lublina`, `Plac im. Marii Curie-Skłodowskiej`, `Skwer arch. T. Witkowskiego`, `ul. Wandy Papiewskiej`) — to bardzo nowe lub lokalnie niemapowane obiekty OSM. Dodatkowo SQL `UPDATE buildings SET street_id = s.id FROM streets s WHERE b.street_id IS NULL AND b.street_name = s.name/full_name` — **podpiął 33 budynki** do nowo zaimportowanych ulic. **Stan końcowy:** 1378 ulic (6 bez geom), **46 596 budynków** (9918 bez `street_id` — to dokładnie liczba "bezadresowych" z PRG, nie problem brakujących ulic). ✅ Import + geokodowanie zamknięte.
 
 ### ~~[7.7]~~ ✅ NAPRAWIONO — Selekcja budynków nadpisywana przez zakładkę Zakres/Lista
 

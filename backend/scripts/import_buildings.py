@@ -77,6 +77,10 @@ CREATE TABLE IF NOT EXISTS buildings (
     kondygnacje_nadziemne INTEGER,
     kondygnacje_podziemne INTEGER,
     geojson_polygon       JSONB,
+    geojson_point         JSONB,
+    geom_type             VARCHAR(10) NOT NULL DEFAULT 'polygon',
+    osm_way_id            BIGINT,
+    osm_node_id           BIGINT,
     created_at            TIMESTAMP DEFAULT NOW()
 )
 """
@@ -86,6 +90,9 @@ CREATE_INDEXES_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_buildings_street_name  ON buildings(street_name)",
     "CREATE INDEX IF NOT EXISTS idx_buildings_house_number ON buildings(house_number)",
     "CREATE INDEX IF NOT EXISTS idx_buildings_full_address ON buildings(full_address)",
+    "CREATE INDEX IF NOT EXISTS idx_buildings_osm_way_id   ON buildings(osm_way_id)",
+    "CREATE INDEX IF NOT EXISTS idx_buildings_osm_node_id  ON buildings(osm_node_id)",
+    "CREATE INDEX IF NOT EXISTS idx_buildings_geom_type    ON buildings(geom_type)",
 ]
 
 
