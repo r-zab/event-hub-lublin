@@ -50,20 +50,72 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-function parseHouseNumber(raw: string): [number, string] {
+export function parseHouseNumber(raw: string): [number, string] {
   const normalized = raw.trim().toUpperCase();
   const match = normalized.match(/^(\d+)([A-Z]?)$/);
   if (match) return [parseInt(match[1], 10), match[2]];
   return [0, normalized];
 }
 
-function sortHouseNumbers(nums: string[]): string[] {
+export function sortHouseNumbers(nums: string[]): string[] {
   return [...nums].sort((a, b) => {
     const [an, al] = parseHouseNumber(a);
     const [bn, bl] = parseHouseNumber(b);
     if (an !== bn) return an - bn;
     return al.localeCompare(bl);
   });
+}
+
+/**
+ * Sprawdza, czy numer posesji `num` mieści się w zakresie [from, to].
+ * Puste `from`/`to` traktowane jako brak ograniczenia.
+ */
+export function isInRange(num: string, from: string | null | undefined, to: string | null | undefined): boolean {
+  const [n, l] = parseHouseNumber(num);
+  if (from) {
+    const [fn, fl] = parseHouseNumber(from);
+    if (n < fn || (n === fn && l < fl)) return false;
+  }
+  if (to) {
+    const [tn, tl] = parseHouseNumber(to);
+    if (n > tn || (n === tn && l > tl)) return false;
+  }
+  return true;
+}
+
+/**
+ * Formatuje nazwę ulicy do wyświetlenia — pomija `street_type`, gdy jest
+ * kodem numerycznym (np. "1" z importu GUGiK/TERYT) zamiast czytelnym
+ * prefiksem ("ul.", "al.", "pl." itp.).
+ */
+export function streetLabel(streetType: string | null | undefined, name: string): string {
+  if (!streetType || /^\d+$/.test(streetType.trim())) return name;
+  return `${streetType} ${name}`;
+}
+
+/**
+ * Sprawdza, czy zdarzenie dotyczy podanego numeru budynku.
+ * Priorytet: lista z geojson_segment → zakres house_number_from/to.
+ */
+export function isEventAffectingHouseNumber(event: EventItem, houseNum: string): boolean {
+  const normalized = houseNum.trim().toUpperCase();
+  const seg = event.geojson_segment;
+  if (
+    seg &&
+    typeof seg === 'object' &&
+    !Array.isArray(seg) &&
+    (seg as GeoJsonFeatureCollection).type === 'FeatureCollection' &&
+    Array.isArray((seg as GeoJsonFeatureCollection).features)
+  ) {
+    const fc = seg as GeoJsonFeatureCollection;
+    const nums = fc.features
+      .map((f) => f.properties?.house_number as string | undefined)
+      .filter((n): n is string => Boolean(n))
+      .map((n) => n.toUpperCase());
+    if (nums.length > 0) return nums.includes(normalized);
+  }
+  // Fallback: zakres numerów
+  return isInRange(normalized, event.house_number_from, event.house_number_to);
 }
 
 /**

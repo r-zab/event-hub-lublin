@@ -4,6 +4,8 @@ from sqlalchemy import BigInteger, Index, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from geoalchemy2 import Geometry
+
 from app.database import Base
 
 
@@ -19,12 +21,16 @@ class Building(Base):
     geom_type: Mapped[str] = mapped_column(String(10), default="polygon", server_default="polygon")
     osm_way_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     osm_node_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # Kolumna geometryczna PostGIS — wypełniana migracją 20260416_geom_buildings
+    # Nie używamy Mapped[...] — GeoAlchemy2 WKBElement nie integruje się z typowaniem SA 2.0
+    geom = mapped_column(Geometry("GEOMETRY", srid=4326), nullable=True)
 
     __table_args__ = (
         Index("idx_buildings_street_id", "street_id"),
         Index("idx_buildings_osm_way_id", "osm_way_id"),
         Index("idx_buildings_osm_node_id", "osm_node_id"),
         Index("idx_buildings_geom_type", "geom_type"),
+        # idx_buildings_geom_gist jest tworzony przez migrację (GIST wymaga raw SQL)
     )
 
     def __repr__(self) -> str:

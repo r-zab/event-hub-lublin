@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import { useStreets } from '@/hooks/useStreets';
 import { apiFetch } from '@/lib/api';
 import { getEvent, updateEvent } from '@/hooks/useEvents';
 import { type Street } from '@/data/mockData';
-import { toLocalISO, toUTCISO } from '@/lib/utils';
+import { toLocalISO, toUTCISO, streetLabel } from '@/lib/utils';
 import { LUBLIN_BOUNDS, MIN_ZOOM } from '@/lib/mapConfig';
 import { Search, Loader2, MapPin, Plus, X, Send } from 'lucide-react';
 
@@ -26,7 +26,9 @@ import { Search, Loader2, MapPin, Plus, X, Send } from 'lucide-react';
 interface BuildingItem {
   id: number;
   house_number: string | null;
+  geom_type: string;
   geojson_polygon: object | null;
+  geojson_point: object | null;
 }
 
 interface GeoJsonFeature {
@@ -96,15 +98,6 @@ function buildDisplayLabel(houseFrom: string, houseTo: string, selectedNums: str
   return 'wszystkie budynki';
 }
 
-/**
- * Formatuje nazwę ulicy do wyświetlenia użytkownikowi.
- * Pomija street_type gdy jest kodem numerycznym (np. "1" z importu GUGiK/GeoJSON)
- * zamiast czytelnym prefiksem ("ul.", "al.", "pl." itp.).
- */
-function streetLabel(streetType: string | null | undefined, name: string): string {
-  if (!streetType || /^\d+$/.test(streetType.trim())) return name;
-  return `${streetType} ${name}`;
-}
 
 // ---------------------------------------------------------------------------
 // Pomocniczy komponent: dopasowuje widok mapy do granic załadowanych budynków
@@ -172,6 +165,21 @@ function BuildingLayer({ features, selectedIds, onToggle, renderKey, streetName 
     layer.on('click', () => onToggle(id));
   }, [onToggle, streetName]);
 
+  // Budynki-punkty renderujemy jako CircleMarker z tym samym kolorem co poligony
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pointToLayer = useCallback((feature: any, latlng: L.LatLng): L.Layer => {
+    const id: number | undefined = feature?.properties?.id;
+    const selected = id !== undefined && selectedIds.has(id);
+    return L.circleMarker(latlng, {
+      radius: 8,
+      color: selected ? '#EF4444' : '#3B82F6',
+      fillColor: selected ? '#EF4444' : '#93C5FD',
+      weight: selected ? 2.5 : 1,
+      fillOpacity: selected ? 0.8 : 0.4,
+      opacity: 0.9,
+    });
+  }, [selectedIds]);
+
   return (
     <GeoJSON
       key={renderKey}
@@ -179,6 +187,7 @@ function BuildingLayer({ features, selectedIds, onToggle, renderKey, streetName 
       data={fc as any}
       style={style}
       onEachFeature={onEachFeature}
+      pointToLayer={pointToLayer}
     />
   );
 }
@@ -397,13 +406,25 @@ const AdminEventForm = () => {
 
   const buildingFeatures = useMemo<GeoJsonFeature[]>(
     () =>
-      buildings
-        .filter((b) => b.geojson_polygon !== null)
-        .map((b) => ({
-          type: 'Feature',
-          geometry: b.geojson_polygon!,
-          properties: { id: b.id, house_number: b.house_number },
-        })),
+      buildings.flatMap((b) => {
+        // Poligon — preferowany
+        if (b.geojson_polygon !== null) {
+          return [{
+            type: 'Feature' as const,
+            geometry: b.geojson_polygon,
+            properties: { id: b.id, house_number: b.house_number, geom_type: b.geom_type },
+          }];
+        }
+        // Punkt — gdy brak poligonu (geom_type='point', np. adresy z OSM nodes)
+        if (b.geojson_point !== null) {
+          return [{
+            type: 'Feature' as const,
+            geometry: b.geojson_point,
+            properties: { id: b.id, house_number: b.house_number, geom_type: b.geom_type },
+          }];
+        }
+        return [];
+      }),
     [buildings],
   );
 
@@ -461,16 +482,20 @@ const AdminEventForm = () => {
   const handleListInputChange = (value: string) => {
     setListInput(value);
     selectionSourceRef.current = 'list';
-    const nums = value
-      .split(/[,\s]+/)
-      .map((s) => s.trim().toUpperCase())
-      .filter(Boolean);
+    // Parsuj tylko tokeny zakończone przecinkiem lub spacją — nie matchuj częściowo wpisanego numeru
+    const raw = value;
+    // Rozdziel na segmenty przecinkami; ostatni segment (bez przecinka na końcu) ignorujemy
+    // żeby nie matchować np. "1" gdy user wciąż pisze "12"
+    const trailingComma = /[,\s]+$/.test(raw);
+    const parts = raw.split(/[,\s]+/).map((s) => s.trim().toUpperCase()).filter(Boolean);
+    // Jeśli ostatni znak NIE jest separatorem, ostatni token jest niekompletny — pomijamy go
+    const completedNums = trailingComma ? parts : parts.slice(0, -1);
     const newIds = new Set(
       buildings
-        .filter((b) => b.house_number && nums.includes(b.house_number.toUpperCase()))
+        .filter((b) => b.house_number && completedNums.includes(b.house_number.toUpperCase()))
         .map((b) => b.id),
     );
-    setSelectedBuildingIds((prev) => new Set([...prev, ...newIds]));
+    setSelectedBuildingIds(newIds);
   };
 
   const clearSelection = () => {
@@ -781,57 +806,11 @@ const AdminEventForm = () => {
                 <TabsTrigger value="list">Lista numerów</TabsTrigger>
               </TabsList>
 
-              {/* --- Zakładka 1: Mapa --- */}
-              <TabsContent value="map" className="space-y-2 mt-3">
-                {buildingsLoading ? (
-                  <div className="flex items-center justify-center h-40 rounded-md border border-border bg-muted/20">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
-                    <span className="text-sm text-muted-foreground">Ładowanie obrysów…</span>
-                  </div>
-                ) : buildingFeatures.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-24 rounded-md border border-border bg-muted/20 gap-1">
-                    <p className="text-sm text-muted-foreground">
-                      Brak obrysów budynków dla tej ulicy.
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Użyj zakładki „Zakres numerów" lub „Lista numerów".
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="rounded-md overflow-hidden border border-border">
-                      <MapContainer
-                        center={LUBLIN_CENTER}
-                        zoom={16}
-                        scrollWheelZoom
-                        className="w-full h-[380px] z-0"
-                        maxBounds={LUBLIN_BOUNDS}
-                        maxBoundsViscosity={1.0}
-                        minZoom={MIN_ZOOM}
-                      >
-                        <TileLayer
-                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        />
-                        <FitBounds features={buildingFeatures} />
-                        <BuildingLayer
-                          features={buildingFeatures}
-                          selectedIds={selectedBuildingIds}
-                          onToggle={toggleBuilding}
-                          renderKey={buildingLayerKey}
-                          streetName={selectedStreet?.full_name ?? ''}
-                        />
-                      </MapContainer>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Budynki z obrysami:{' '}
-                      <span className="font-medium">{buildingFeatures.length}</span> •{' '}
-                      <span className="text-red-500 font-medium">
-                        Zaznaczono: {selectedBuildingIds.size}
-                      </span>
-                    </p>
-                  </>
-                )}
+              {/* --- Zakładka 1: hint --- */}
+              <TabsContent value="map" className="mt-3">
+                <p className="text-xs text-muted-foreground">
+                  Kliknij budynki na mapie poniżej, aby je zaznaczyć lub odznaczyć.
+                </p>
               </TabsContent>
 
               {/* --- Zakładka 2: Zakres numerów --- */}
@@ -888,7 +867,7 @@ const AdminEventForm = () => {
                 <div>
                   <Label htmlFor="list-input">
                     Numery posesji{' '}
-                    <span className="text-xs text-muted-foreground">(oddzielone przecinkiem)</span>
+                    <span className="text-xs text-muted-foreground">(oddzielone przecinkiem, zatwierdź przecinkiem)</span>
                   </Label>
                   <Input
                     id="list-input"
@@ -913,6 +892,57 @@ const AdminEventForm = () => {
                 ) : null}
               </TabsContent>
             </Tabs>
+
+            {/* --- Mapa — widoczna we wszystkich zakładkach --- */}
+            {buildingsLoading ? (
+              <div className="flex items-center justify-center h-40 rounded-md border border-border bg-muted/20 mt-3">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
+                <span className="text-sm text-muted-foreground">Ładowanie obrysów…</span>
+              </div>
+            ) : buildingFeatures.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-24 rounded-md border border-border bg-muted/20 gap-1 mt-3">
+                <p className="text-sm text-muted-foreground">
+                  Brak obrysów budynków dla tej ulicy.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Użyj zakładki „Zakres numerów" lub „Lista numerów".
+                </p>
+              </div>
+            ) : (
+              <div className="mt-3 space-y-2">
+                <div className="rounded-md overflow-hidden border border-border">
+                  <MapContainer
+                    center={LUBLIN_CENTER}
+                    zoom={16}
+                    scrollWheelZoom
+                    className="w-full h-[380px] z-0"
+                    maxBounds={LUBLIN_BOUNDS}
+                    maxBoundsViscosity={1.0}
+                    minZoom={MIN_ZOOM}
+                  >
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    <FitBounds features={buildingFeatures} />
+                    <BuildingLayer
+                      features={buildingFeatures}
+                      selectedIds={selectedBuildingIds}
+                      onToggle={toggleBuilding}
+                      renderKey={buildingLayerKey}
+                      streetName={selectedStreet?.full_name ?? ''}
+                    />
+                  </MapContainer>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Budynki z obrysami:{' '}
+                  <span className="font-medium">{buildingFeatures.length}</span> •{' '}
+                  <span className="text-red-500 font-medium">
+                    Zaznaczono: {selectedBuildingIds.size}
+                  </span>
+                </p>
+              </div>
+            )}
           </div>
         )}
 

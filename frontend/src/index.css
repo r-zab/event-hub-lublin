@@ -6,55 +6,62 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 215 50% 12%;
+    /* ------------------------------------------------------------------ */
+    /* Paleta MPWiK Lublin — kolor bazowy: rgb(28, 60, 102) = hsl(214,57%,25%) */
+    /* ------------------------------------------------------------------ */
+
+    --background: 214 30% 98%;
+    --foreground: 214 57% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 215 50% 12%;
+    --card-foreground: 214 57% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 50% 12%;
+    --popover-foreground: 214 57% 12%;
 
-    --primary: 213 80% 45%;
+    /* Kolor główny = dokładny kolor MPWiK */
+    --primary: 214 57% 25%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 60% 94%;
-    --secondary-foreground: 215 50% 20%;
+    --secondary: 214 50% 93%;
+    --secondary-foreground: 214 57% 18%;
 
-    --muted: 210 30% 95%;
-    --muted-foreground: 215 15% 45%;
+    --muted: 214 25% 95%;
+    --muted-foreground: 214 15% 45%;
 
-    --accent: 210 50% 90%;
-    --accent-foreground: 215 50% 15%;
+    --accent: 214 45% 90%;
+    --accent-foreground: 214 57% 16%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 30% 88%;
-    --input: 214 30% 88%;
-    --ring: 213 80% 45%;
+    --border: 214 30% 87%;
+    --input: 214 30% 87%;
+    --ring: 214 57% 25%;
 
     --radius: 0.625rem;
 
-    --sidebar-background: 215 50% 15%;
-    --sidebar-foreground: 210 30% 90%;
-    --sidebar-primary: 213 80% 55%;
+    /* Sidebar — ciemna granatowa nawigacja MPWiK */
+    --sidebar-background: 214 60% 13%;
+    --sidebar-foreground: 214 30% 88%;
+    --sidebar-primary: 214 55% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 40% 22%;
-    --sidebar-accent-foreground: 210 30% 92%;
-    --sidebar-border: 215 35% 25%;
-    --sidebar-ring: 213 80% 55%;
+    --sidebar-accent: 214 50% 20%;
+    --sidebar-accent-foreground: 214 25% 92%;
+    --sidebar-border: 214 45% 20%;
+    --sidebar-ring: 214 55% 55%;
 
-    /* Custom tokens */
-    --water-50: 210 60% 97%;
-    --water-100: 210 55% 92%;
-    --water-200: 210 50% 84%;
-    --water-500: 213 80% 45%;
-    --water-600: 213 85% 38%;
-    --water-700: 215 80% 30%;
-    --water-800: 215 70% 22%;
-    --water-900: 215 55% 15%;
+    /* Water tokens — pełna skala odcieni MPWiK (hue 214, sat 57%) */
+    --water-50:  214 57% 97%;
+    --water-100: 214 57% 92%;
+    --water-200: 214 57% 82%;
+    --water-500: 214 57% 42%;
+    --water-600: 214 57% 33%;
+    --water-700: 214 57% 25%;   /* ← rgb(28,60,102) — MPWiK brand */
+    --water-800: 214 58% 16%;
+    --water-900: 214 60% 10%;
 
+    /* Kolory statusów zdarzeń — semantyczne, niezależne od brandingu */
     --status-reported: 0 84% 60%;
     --status-repairing: 38 92% 50%;
     --status-resolved: 160 64% 43%;
@@ -66,33 +73,33 @@
   }
 
   .dark {
-    --background: 215 55% 8%;
-    --foreground: 210 30% 92%;
-    --card: 215 50% 12%;
-    --card-foreground: 210 30% 92%;
-    --popover: 215 50% 12%;
-    --popover-foreground: 210 30% 92%;
-    --primary: 213 80% 55%;
+    --background: 214 60% 7%;
+    --foreground: 214 25% 92%;
+    --card: 214 55% 11%;
+    --card-foreground: 214 25% 92%;
+    --popover: 214 55% 11%;
+    --popover-foreground: 214 25% 92%;
+    --primary: 214 57% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 215 40% 18%;
-    --secondary-foreground: 210 30% 90%;
-    --muted: 215 35% 16%;
-    --muted-foreground: 215 15% 55%;
-    --accent: 215 40% 20%;
-    --accent-foreground: 210 30% 92%;
+    --secondary: 214 45% 17%;
+    --secondary-foreground: 214 25% 90%;
+    --muted: 214 40% 15%;
+    --muted-foreground: 214 15% 55%;
+    --accent: 214 45% 19%;
+    --accent-foreground: 214 25% 92%;
     --destructive: 0 62% 30%;
     --destructive-foreground: 0 0% 100%;
-    --border: 215 35% 20%;
-    --input: 215 35% 20%;
-    --ring: 213 80% 55%;
-    --sidebar-background: 215 55% 8%;
-    --sidebar-foreground: 210 30% 90%;
-    --sidebar-primary: 213 80% 55%;
+    --border: 214 40% 19%;
+    --input: 214 40% 19%;
+    --ring: 214 57% 50%;
+    --sidebar-background: 214 60% 7%;
+    --sidebar-foreground: 214 25% 88%;
+    --sidebar-primary: 214 57% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 40% 15%;
-    --sidebar-accent-foreground: 210 30% 92%;
-    --sidebar-border: 215 35% 18%;
-    --sidebar-ring: 213 80% 55%;
+    --sidebar-accent: 214 50% 14%;
+    --sidebar-accent-foreground: 214 25% 92%;
+    --sidebar-border: 214 45% 17%;
+    --sidebar-ring: 214 57% 50%;
   }
 }
 

@@ -4,6 +4,16 @@ Data audytu: 2026-04-03
 
 ---
 
+## 0a. ✅ ZROBIONE — Wizualizacja budynków na mapie + edycja adresu przez dyspozytora (2026-04-16)
+
+- **Pliki backend:** `backend/app/models/building.py` (kolumna `geom` GeoAlchemy2), `backend/app/schemas/building.py` (`BuildingBboxResponse`, `BuildingUpdate`), `backend/app/routers/buildings.py` (nowy router), `backend/app/main.py` (rejestracja routera), `backend/app/dependencies.py` (`get_current_dispatcher_or_admin`), `backend/alembic/versions/20260416_add_geom_to_buildings.py` (migracja GIST), `backend/requirements.txt` (`geoalchemy2>=0.14.0`).
+- **Pliki frontend:** `frontend/src/hooks/useBuildings.ts`, `frontend/src/components/AdminMapView.tsx`, `frontend/src/components/BuildingAddressModal.tsx`, `frontend/src/pages/AdminDashboard.tsx` (zakładka Mapa budynków), `frontend/src/components/EventMap.tsx` (`pointToLayer` dla budynków-punktów).
+- **Backend — BBOX query:** migracja `20260416_geom_buildings` dodaje kolumnę `geom geometry(Geometry,4326)` + indeks GIST wypełniony z JSONB przez `ST_GeomFromGeoJSON`. Zapytanie `GET /api/v1/buildings?min_lat=...` używa `ST_Intersects` + `ST_MakeEnvelope` — sequential scan na 51k rekordach zastąpiony index scan GIST.
+- **Frontend — mapa admina:** `AdminDashboard` ma nową zakładkę „Mapa budynków" z komponentem `AdminMapView`. Zielone poligony = mają adres, czerwone = brak adresu. Kliknięcie w czerwony poligon/punkt otwiera `BuildingAddressModal` (autocomplete ulic + numer). Po zapisie mapa odświeża się automatycznie. Budynki ładowane tylko przy zoom ≥ 15 (hard limit po stronie frontendu i backendu 500 rekordów/zapytanie).
+- **Frontend — mapa publiczna:** `EventMap.tsx` rozszerzony o `pointToLayer` — budynki-punkty (`geom_type='point'`) w FeatureCollection awarii renderowane jako kolorowy `CircleMarker` zamiast domyślnego markera Leaflet.
+- **PATCH /api/v1/buildings/{id}:** wymaga roli `dispatcher` lub `admin` (RBAC przez `get_current_dispatcher_or_admin`).
+- **Wymagana migracja:** `cd backend && alembic upgrade head` (uzupełnia kolumnę `geom` + tworzy indeks GIST na ~51k rekordach).
+
 ## 0. Poprawa jakości danych GIS - obsługa budynków narożnych i buforowanie
 
 ### ~~[0.3]~~ ✅ NAPRAWIONO — Scenariusz 4: uzupełnienie braków PZGIK węzłami OSM PBF (2026-04-15)
@@ -624,4 +634,22 @@ Data audytu: 2026-04-03
   - Wynik: **+10 711 budynków uratowanych** przez KROK 2, łącznie **36 678 budynków z adresem** (wzrost z 26 tys. do prawie 37 tys. — pokrycie adresowe ponad 78% wszystkich poligonów).
 - ✅ **9 918 budynków bezadresowych** — faktycznie bezadresowe (garaże, budynki techniczne, obiekty gospodarcze) — zaimportowane z `NULL` w polach adresowych. Wszystkie posiadają geometrię i `id_budynku`.
 - ✅ Układ współrzędnych potwierdzony: EPSG:4326 (WGS84, `lon≈22, lat≈51`). Geometria MultiPolygon przechowywana w `geojson_polygon` (JSONB) — gotowa do renderowania w Leaflet bez konwersji.
+
+---
+
+## 14. POPRAWKI UX PANELU DYSPOZYTORA (16.04.2026)
+
+### ✅ Mapa interaktywna widoczna we wszystkich 3 zakładkach „Zakresu awarii" (`AdminEventForm.tsx`)
+- **Problem:** Mapa z obrysami budynków była wcześniej renderowana tylko wewnątrz zakładki „Zaznacz na mapie". Przełączenie na zakładkę „Zakres numerów" lub „Lista numerów" ukrywało mapę, uniemożliwiając wizualną weryfikację zaznaczenia.
+- **Naprawa:** Komponent `<MapContainer>` wraz ze stanem ładowania i komunikatem o braku obrysów wyciągnięty poza blok `<Tabs>` i umieszczony bezpośrednio pod nim. Zakładka 1 („Zaznacz na mapie") zawiera teraz tylko krótki hint tekstowy. Mapa jest zawsze widoczna po wybraniu ulicy, niezależnie od aktywnej zakładki.
+
+### ✅ Warstwy budynków na mapie publicznej ukryte przy małym zoomie (`EventMap.tsx`)
+- **Problem:** Poligony i kółka (`CircleMarker`) poszczególnych budynków w obrębie awarii renderowały się na każdym poziomie zoomu. Przy oddaleniu tworzyły duże, nakładające się skupisko kółek (np. kilkanaście budynków przy ul. Matejki), mimo że pinezka zdarzenia była już widoczna i wystarczająca.
+- **Naprawa:** Dodano komponent `ZoomAwareLayer` (używa `useMap` + `useMapEvents`) wewnątrz `MapContainer`. Warstwa `<GeoJSON>` z obrysami budynków owija się w `ZoomAwareLayer` — przy zoom < 15 warstwa jest całkowicie ukryta, renderuje się tylko pinezka zdarzenia. Przy zoom ≥ 15 poligony/kółka wracają i można kliknąć poszczególne budynki. Próg `BUILDINGS_ZOOM_THRESHOLD = 15` zdefiniowany jako stała.
+
+### ✅ Naprawa błędu zaznaczania budynków przez „Listę numerów" (`AdminEventForm.tsx`)
+- **Problem:** Wpisując np. `12, 23,` w polu listy, system zaznaczał 4 budynki (1, 2, 12, 23) zamiast 2 (12 i 23). Przyczyna: `handleListInputChange` wywoływał `setSelectedBuildingIds((prev) => new Set([...prev, ...newIds]))` — akumulował zaznaczenie zamiast zastępować. Każda pośrednia cyfra (np. „1" podczas pisania „12") była matchowana i trwale dodawana do setu.
+- **Naprawa (dwa elementy):**
+  1. **Zastąpienie akumulacji nadpisaniem:** `setSelectedBuildingIds(newIds)` — bieżąca lista wejściowa wyznacza zaznaczenie w całości.
+  2. **Opóźnione matchowanie niekompletnych tokenów:** parser sprawdza czy ostatni token jest zakończony separatorem (przecinek/spacja). Jeśli nie — token jest uznany za niekompletny i pomijany. Np. przy wpisie `12, 2` (bez końcowego przecinka) matchuje tylko `12`; po dopisaniu `,` matchuje `12` i kolejny wpisany numer. Hint w labelu zaktualizowany: „zatwierdź przecinkiem".
 

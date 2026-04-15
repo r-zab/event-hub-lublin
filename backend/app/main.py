@@ -15,7 +15,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.limiter import limiter
-from app.routers import admin, auth, events, streets, subscribers
+from app.routers import admin, auth, buildings, events, streets, subscribers
 from app.services.notification_service import process_morning_queue
 
 # ---------------------------------------------------------------------------
@@ -114,6 +114,7 @@ async def health_check():
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(streets.router, prefix="/api/v1/streets", tags=["Streets"])
+app.include_router(buildings.router, prefix="/api/v1/buildings", tags=["Buildings"])
 app.include_router(events.router, prefix="/api/v1/events", tags=["Events"])
 app.include_router(subscribers.router, prefix="/api/v1/subscribers", tags=["Subscribers"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])

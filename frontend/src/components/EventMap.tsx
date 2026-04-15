@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { MapContainer, TileLayer, Polyline, Popup, Marker, GeoJSON, useMap } from 'react-leaflet';
+import { useEffect, useState } from 'react';
+import { MapContainer, TileLayer, Polyline, Popup, Marker, GeoJSON, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { EventItem, GeoJsonFeatureCollection, TYPE_LABELS } from '@/data/mockData';
@@ -78,6 +78,28 @@ function getMarkerPosition(event: EventItem): [number, number] {
     return [lat, lon];
   }
   return LUBLIN_CENTER;
+}
+
+// ---------------------------------------------------------------------------
+// Próg zoomu poniżej którego chowamy warstwy budynków (zostaje tylko pinezka)
+// ---------------------------------------------------------------------------
+
+const BUILDINGS_ZOOM_THRESHOLD = 15;
+
+// ---------------------------------------------------------------------------
+// ZoomAwareLayer — renderuje dzieci tylko przy wystarczającym zoomie
+// ---------------------------------------------------------------------------
+
+function ZoomAwareLayer({ children }: { children: React.ReactNode }) {
+  const map = useMap();
+  const [zoom, setZoom] = useState(map.getZoom());
+
+  useMapEvents({
+    zoomend: () => setZoom(map.getZoom()),
+  });
+
+  if (zoom < BUILDINGS_ZOOM_THRESHOLD) return null;
+  return <>{children}</>;
 }
 
 // ---------------------------------------------------------------------------
@@ -230,15 +252,32 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
               `</div>`
             );
           };
+
+          // Budynki-punkty (geom_type='point') renderujemy jako CircleMarker
+          // z kolorem awarii zamiast domyślnego niebieskiego markera Leaflet
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const pointToLayer = (_feature: any, latlng: L.LatLng): L.Layer => {
+            return L.circleMarker(latlng, {
+              radius: 8,
+              color,
+              fillColor,
+              weight: 2,
+              fillOpacity: 0.8,
+            });
+          };
+
           return (
             <>
-              <GeoJSON
-                key={`fc-${event.id}`}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                data={fc as any}
-                style={{ color, fillColor, stroke: true, weight: 1.5, fillOpacity: 0.6 }}
-                onEachFeature={onEachFeature}
-              />
+              <ZoomAwareLayer>
+                <GeoJSON
+                  key={`fc-${event.id}`}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  data={fc as any}
+                  style={{ color, fillColor, stroke: true, weight: 1.5, fillOpacity: 0.6 }}
+                  onEachFeature={onEachFeature}
+                  pointToLayer={pointToLayer}
+                />
+              </ZoomAwareLayer>
               <Marker
                 key={`pin-${event.id}`}
                 position={markerPos}

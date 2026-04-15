@@ -19,6 +19,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +32,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { formatEventNumbers, formatDate, formatDateTime } from '@/lib/utils';
+import { AdminMapView } from '@/components/AdminMapView';
 
 const AdminDashboard = () => {
   const { toast } = useToast();
@@ -77,7 +79,7 @@ const AdminDashboard = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h1 className="font-heading text-2xl font-bold">Dashboard zdarzeń</h1>
+        <h1 className="font-heading text-2xl font-bold">Dashboard dyspozytora</h1>
         <Button asChild className="gap-1.5 font-semibold">
           <Link to="/admin/events/new">
             <Plus className="h-4 w-4" aria-hidden="true" />
@@ -116,6 +118,19 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Zakładki: Lista zdarzeń | Mapa budynków */}
+      <Tabs defaultValue="lista">
+        <TabsList>
+          <TabsTrigger value="lista">Lista zdarzeń</TabsTrigger>
+          <TabsTrigger value="mapa">Mapa budynków</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="mapa" className="mt-4">
+          <AdminMapView />
+        </TabsContent>
+
+        <TabsContent value="lista" className="mt-4 space-y-6">
 
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -268,6 +283,9 @@ const AdminDashboard = () => {
           </Button>
         </div>
       </div>
+
+        </TabsContent>
+      </Tabs>
 
       {/* Delete confirmation dialog */}
       <AlertDialog open={deleteId !== null} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
