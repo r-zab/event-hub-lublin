@@ -191,6 +191,7 @@ const AdminDashboard = () => {
               <TableHead>Numery</TableHead>
               <TableHead>Typ</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Źródło</TableHead>
               <TableHead>Powiadomienia</TableHead>
               <TableHead>Utworzono</TableHead>
               <TableHead className="w-24">Akcje</TableHead>
@@ -199,13 +200,13 @@ const AdminDashboard = () => {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-32 text-center">
+                <TableCell colSpan={10} className="h-32 text-center">
                   <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : events.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
+                <TableCell colSpan={10} className="h-32 text-center text-muted-foreground">
                   Brak zdarzeń spełniających kryteria.
                 </TableCell>
               </TableRow>
@@ -227,6 +228,7 @@ const AdminDashboard = () => {
                       <TableCell>{formatEventNumbers(event) || '–'}</TableCell>
                       <TableCell className="text-sm">{TYPE_LABELS[event.event_type]}</TableCell>
                       <TableCell><StatusBadge status={event.status} /></TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{event.source || 'mpwik'}</TableCell>
                       <TableCell>
                         <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
                           <Mail className="h-3.5 w-3.5" />
@@ -256,7 +258,7 @@ const AdminDashboard = () => {
                     </TableRow>
                     {isOpen && (
                       <TableRow className="bg-muted/20 hover:bg-muted/20">
-                        <TableCell colSpan={9} className="py-4 px-8">
+                        <TableCell colSpan={10} className="py-4 px-8">
                           <HistoryTimeline history={event.history} />
                         </TableCell>
                       </TableRow>

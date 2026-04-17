@@ -167,7 +167,7 @@ Data audytu: 2026-04-03
 ### ~~3.4~~ ✅ NAPRAWIONO - Brak walidacji pustych pol adresu przy rejestracji
 - **Plik:** `frontend/src/pages/Register.tsx`
 - **Problem:** Mozna wyslac formularz z pustym `street_name` lub `house_number` - HTML `required` jest na inputach, ale `AddressRow` ustawia `required` na input ulicy, nie na calej grupie. Jesli uzytkownik doda drugi adres i go nie wypelni, formularz moze przejsc.
-- **Naprawa:** Walidacja JS przed submitem - kazdy adres musi miec street_name i house_number.
+- **Naprawa (2026-04-15):** Walidacja JS przed submitem — `addresses.find(a => !a.street_name.trim() || !a.house_number.trim())` z toastem "Każdy adres musi mieć podaną ulicę i numer budynku."
 
 ### ~~3.5~~ ✅ NAPRAWIONO — Brak strony/widoku subskrybentow w panelu admina
 - **Plik:** `frontend/src/pages/AdminSubscribers.tsx` (nowy)
@@ -240,7 +240,7 @@ Data audytu: 2026-04-03
 
 ### ~~4.9~~ ✅ NAPRAWIONO — Brak obslugi `source` w widoku frontendu
 - **Problem:** Model `Event` ma pole `source` (multi-operator ready), ale frontend nie wyswietla zrodla zdarzenia. Gdy podlaczy sie LPEC, dyspozytor nie zobaczy kto zglosil event.
-- **Naprawa:** Dodac kolumne "Zrodlo" w tabeli AdminDashboard.
+- **Naprawa (2026-04-15):** Dodano kolumnę „Źródło" w tabeli `AdminDashboard.tsx` — wyświetla `event.source` (domyślnie `'mpwik'`). Kolumna pojawia się między „Status" a „Powiadomienia". Wszystkie `colSpan` zaktualizowane z 9 → 10.
 
 ### 4.10 Token wyrejestrowania wyswietlany tylko raz
 - **Plik:** `frontend/src/pages/Register.tsx:101-119`

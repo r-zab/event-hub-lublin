@@ -62,7 +62,7 @@ logger = logging.getLogger(__name__)
 # Konfiguracja
 # --------------------------------------------------------------------------- #
 
-DEFAULT_PBF = Path(r"C:/Users/rafal/Downloads/lubelskie-260413.osm.pbf")
+DEFAULT_PBF = Path(r"C:\Users\jakub\OneDrive\Pulpit\lubelskie-260413.osm.pbf")
 BATCH_SIZE = 500
 TARGET_CITY = "lublin"  # case-insensitive match na addr:city
 

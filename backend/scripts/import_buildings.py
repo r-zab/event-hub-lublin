@@ -8,7 +8,7 @@ Import budynków do PostGIS — programowy Spatial Join (geopandas)
   backend/data/adresy_surowe.geojson    — 28 k punktów adresowych (GUGiK)
 
 Algorytm (dwuetapowy spatial join):
-  1. KROK 1 — Rygorystyczny (intersects):
+  1. KROK 1 — Rygorystpython -m scripts.import_buildingsyczny (intersects):
      Wczytaj oba pliki przez geopandas.read_file().
      Wykonaj gpd.sjoin(budynki, adresy, how='left', predicate='intersects').
      how='left' ZACHOWUJE wszystkie budynki — garaże i obiekty bez adresu
@@ -28,7 +28,7 @@ Algorytm (dwuetapowy spatial join):
   5. Masowy INSERT batchami (BATCH_SIZE=500) z upsert po fid.
 
 Uruchomienie (z katalogu backend/):
-    python -m scripts.import_buildings
+    
     python -m scripts.import_buildings --budynki data/budynki_surowe.geojson \
                                        --adresy  data/adresy_surowe.geojson
 """

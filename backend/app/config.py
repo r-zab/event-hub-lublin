@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://eventhub:devpassword@localhost:5432/eventhub"
+    DATABASE_URL: str = "postgresql+asyncpg://eventhub:devpassword@localhost:5433/eventhub"
 
     # Security
     SECRET_KEY: str = "change-this-to-a-random-string-minimum-32-characters-long"

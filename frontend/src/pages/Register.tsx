@@ -60,6 +60,12 @@ const Register = () => {
       return;
     }
 
+    const emptyAddr = addresses.find((a) => !a.street_name.trim() || !a.house_number.trim());
+    if (emptyAddr) {
+      toast({ title: 'Niepełny adres', description: 'Każdy adres musi mieć podaną ulicę i numer budynku.', variant: 'destructive' });
+      return;
+    }
+
     setIsSubmitting(true);
 
     const payload = {
