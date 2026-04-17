@@ -1,39 +1,88 @@
-import { Trash2, Search, Loader2 } from 'lucide-react';
+import { Trash2, Search, Loader2, ChevronDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useStreets } from '@/hooks/useStreets';
 import { useState, useRef, useEffect } from 'react';
+import { apiFetch } from '@/lib/api';
+
+interface BuildingOption {
+  id: number;
+  house_number: string;
+}
 
 interface AddressRowProps {
   index: number;
+  street_id: number | null;
   street_name: string;
   house_number: string;
   apartment_number: string;
   onChange: (index: number, field: string, value: string) => void;
   onRemove: (index: number) => void;
   canRemove: boolean;
+  onHouseNumberValidChange?: (index: number, valid: boolean) => void;
 }
 
 export function AddressRow({
   index,
+  street_id,
   street_name,
   house_number,
   apartment_number,
   onChange,
   onRemove,
   canRemove,
+  onHouseNumberValidChange,
 }: AddressRowProps) {
   const [query, setQuery] = useState(street_name);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showHouseDropdown, setShowHouseDropdown] = useState(false);
+  const [houseNumberError, setHouseNumberError] = useState<string | null>(null);
+  const [buildings, setBuildings] = useState<BuildingOption[]>([]);
+  const [buildingsLoading, setBuildingsLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const houseWrapperRef = useRef<HTMLDivElement>(null);
   const { streets: suggestions, isLoading } = useStreets(query);
 
   useEffect(() => {
+    if (!street_id) {
+      setBuildings([]);
+      return;
+    }
+    let cancelled = false;
+    setBuildingsLoading(true);
+    apiFetch<{ id: number; house_number: string | null }[]>(`/streets/${street_id}/buildings`)
+      .then((data) => {
+        if (!cancelled) {
+          const options = data
+            .filter((b) => b.house_number)
+            .map((b) => ({ id: b.id, house_number: b.house_number! }));
+          setBuildings(options);
+        }
+      })
+      .catch(() => { if (!cancelled) setBuildings([]); })
+      .finally(() => { if (!cancelled) setBuildingsLoading(false); });
+    return () => { cancelled = true; };
+  }, [street_id]);
+
+  useEffect(() => {
+    if (!house_number.trim() || buildings.length === 0) {
+      setHouseNumberError(null);
+      onHouseNumberValidChange?.(index, true);
+      return;
+    }
+    const normalized = house_number.trim().toUpperCase();
+    const found = buildings.some((b) => b.house_number.toUpperCase() === normalized);
+    setHouseNumberError(found ? null : 'Ten adres nie istnieje w bazie MPWiK');
+    onHouseNumberValidChange?.(index, found);
+  }, [house_number, buildings]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node))
         setShowSuggestions(false);
-      }
+      if (houseWrapperRef.current && !houseWrapperRef.current.contains(e.target as Node))
+        setShowHouseDropdown(false);
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -42,10 +91,14 @@ export function AddressRow({
   const handleStreetChange = (value: string) => {
     setQuery(value);
     onChange(index, 'street_name', value);
-    // Wyczyść street_id gdy użytkownik ręcznie modyfikuje nazwę (brak TERYT match)
     onChange(index, 'street_id', '');
+    onChange(index, 'house_number', '');
     setShowSuggestions(value.length >= 3);
   };
+
+  const filteredBuildings = buildings.filter((b) =>
+    !house_number || b.house_number.toUpperCase().startsWith(house_number.trim().toUpperCase()),
+  );
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-3 items-end p-3 rounded-lg bg-muted/50 border border-border/50">
@@ -82,8 +135,8 @@ export function AddressRow({
                     : s.full_name;
                   setQuery(displayName);
                   onChange(index, 'street_name', displayName);
-                  // Kluczowe: przekaż street_id z bazy TERYT
                   onChange(index, 'street_id', String(s.id));
+                  onChange(index, 'house_number', '');
                   setShowSuggestions(false);
                 }}
               >
@@ -99,19 +152,53 @@ export function AddressRow({
         )}
       </div>
 
-      <div>
+      <div ref={houseWrapperRef} className="relative">
         <Label htmlFor={`house-${index}`} className="text-xs font-medium mb-1 block">
           Nr budynku *
         </Label>
-        <Input
-          id={`house-${index}`}
-          value={house_number}
-          onChange={(e) => onChange(index, 'house_number', e.target.value)}
-          placeholder="np. 10"
-          className="w-24"
-          required
-          aria-label="Numer budynku"
-        />
+        <div className="relative">
+          <Input
+            id={`house-${index}`}
+            value={house_number}
+            onChange={(e) => {
+              onChange(index, 'house_number', e.target.value);
+              setShowHouseDropdown(e.target.value.length > 0 && buildings.length > 0);
+            }}
+            onFocus={() => buildings.length > 0 && setShowHouseDropdown(true)}
+            placeholder="np. 10"
+            className={`w-24 pr-7 ${houseNumberError ? 'border-destructive' : ''}`}
+            required
+            aria-label="Numer budynku"
+            aria-invalid={!!houseNumberError}
+            autoComplete="off"
+          />
+          {buildingsLoading ? (
+            <Loader2 className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+          ) : buildings.length > 0 ? (
+            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          ) : null}
+        </div>
+        {houseNumberError && (
+          <p className="text-xs text-destructive mt-1 w-48">{houseNumberError}</p>
+        )}
+        {showHouseDropdown && filteredBuildings.length > 0 && (
+          <ul className="absolute z-20 w-32 mt-1 bg-card border border-border rounded-md shadow-lg max-h-40 overflow-y-auto" role="listbox">
+            {filteredBuildings.slice(0, 20).map((b) => (
+              <li
+                key={b.id}
+                role="option"
+                className="px-3 py-1.5 text-sm cursor-pointer hover:bg-accent transition-colors"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onChange(index, 'house_number', b.house_number);
+                  setShowHouseDropdown(false);
+                }}
+              >
+                {b.house_number}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div>

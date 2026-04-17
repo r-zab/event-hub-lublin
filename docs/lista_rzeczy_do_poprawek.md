@@ -653,3 +653,50 @@ Data audytu: 2026-04-03
   1. **Zastąpienie akumulacji nadpisaniem:** `setSelectedBuildingIds(newIds)` — bieżąca lista wejściowa wyznacza zaznaczenie w całości.
   2. **Opóźnione matchowanie niekompletnych tokenów:** parser sprawdza czy ostatni token jest zakończony separatorem (przecinek/spacja). Jeśli nie — token jest uznany za niekompletny i pomijany. Np. przy wpisie `12, 2` (bez końcowego przecinka) matchuje tylko `12`; po dopisaniu `,` matchuje `12` i kolejny wpisany numer. Hint w labelu zaktualizowany: „zatwierdź przecinkiem".
 
+
+---
+
+## ✅ ZREALIZOWANE — 2026-04-17
+
+### Combobox z walidacją numerów budynków — formularze Rejestracja i Panel Admina
+
+- **Pliki:** `frontend/src/components/AddressRow.tsx`, `frontend/src/pages/AdminEventForm.tsx`
+- Pole „Nr budynku" w `AddressRow` zamienione na dropdown z autouzupełnianiem. Po wyborze ulicy pobierane są budynki z `/streets/{street_id}/buildings`. Wpisanie numeru nieistniejącego w bazie blokuje wysyłkę formularza i wyświetla błąd „Ten adres nie istnieje w bazie MPWiK".
+- W `AdminEventForm` (zakładka „Zakres numerów"): pole „Nr posesji od" działa jako combobox filtrujący dostępne numery z pobranej listy budynków danej ulicy. Walidacja uruchamia się przy dodawaniu do kolejki i przy finalnym zapisie.
+
+### Przebudowa UX formularza rejestracji — dynamiczne pola Email/Telefon
+
+- **Plik:** `frontend/src/pages/Register.tsx`
+- Sekcja „Preferowany kanał powiadomień" przeniesiona na górę formularza. Pola „Telefon" i „E-mail" domyślnie ukryte — pojawiają się dopiero po zaznaczeniu odpowiedniego kanału (SMS / e-mail). Zgoda na powiadomienia nocne widoczna tylko gdy wybrano SMS.
+
+### Inteligentne re-notyfikacje — brak spamu przy zmianie tylko opisu
+
+- **Plik:** `backend/app/routers/events.py`
+- Ponowna wysyłka powiadomień (SMS/Email) przy edycji zdarzenia wyzwalana TYLKO gdy zmienił się `status` LUB `estimated_end`. Zmiana samego `description` nie wysyła powiadomień.
+
+---
+
+## ✅ NAPRAWIONO — 2026-04-17 Walidacja krzyżowa przy rejestracji (pusty phone/email)
+
+**Problem:** Gdy użytkownik wybrał tylko kanał SMS, pole e-mail było ukryte. Frontend wysyłał `email: ""`, co powodowało błąd 422 (Pydantic odrzucał pusty `EmailStr`) lub naruszało `UNIQUE` constraint dla kolejnych rejestracji z tym samym pustym stringiem.
+
+**Zmiany:**
+
+- **Frontend (`frontend/src/pages/Register.tsx`):** Dodano schemat Zod z `.superRefine` — walidacja krzyżowa: jeśli `notify_by_sms=true` wymagany jest `phone`; jeśli `notify_by_email=true` wymagany jest poprawny `email`. W `handleSubmit` pola niewybranych kanałów mapowane są na `null` przed wysyłką (`phone: notifyBySms ? phone : null`).
+
+- **Backend (`backend/app/schemas/subscriber.py`):** `phone` i `email` zmienione na `str | None = None`. Dodany `@model_validator(mode='after')` (`channel_fields_required`) — walidacja, że każdy wybrany kanał ma odpowiednie dane kontaktowe. Osobny `@field_validator` dla `phone` obsługuje `None` i pusty string.
+
+- **Backend (`backend/app/routers/subscribers.py`):** Sprawdzanie duplikatów pomija `None` (tylko non-NULL wartości trafiają do `or_()`).
+
+- **Migracja (`20260417_make_phone_email_nullable.py`):** `ALTER COLUMN phone/email DROP NOT NULL` + zamiana `UNIQUE` constraint na partial unique index `WHERE column IS NOT NULL` — `NULL` nie koliduje z unikatem w PostgreSQL.
+
+---
+
+## ✅ NAPRAWIONO — 2026-04-17 Błąd ładowania listy subskrybentów (null email/phone)
+
+**Problem:** Po wprowadzeniu opcjonalnych pól `email`/`phone` (NULL w bazie) panel admina zgłaszał błąd ładowania — Pydantic rzucał `ValidationError` przy serializacji rekordów z `NULL`, bo schemat `AdminSubscriberItem` deklarował `phone: str` i `email: str` (not-nullable).
+
+**Naprawa — synchronizacja opcjonalnych pól Email/Phone w schematach API:**
+
+- **`backend/app/routers/admin.py`** (`AdminSubscriberItem`): `phone: str` i `email: str` → `phone: str | None` i `email: str | None`.
+- **`frontend/src/pages/AdminSubscribers.tsx`** (`SubscriberItem`): analogiczna zmiana typów TypeScript. Wyszukiwarka: `s.email.toLowerCase()` → `s.email?.toLowerCase()` (optional chaining). Komórki tabeli wyświetlają `„Brak"` zamiast `null`/`undefined`.

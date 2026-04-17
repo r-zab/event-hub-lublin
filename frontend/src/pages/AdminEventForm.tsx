@@ -270,6 +270,11 @@ const AdminEventForm = () => {
   // Źródło ostatniej zmiany zaznaczenia — zapobiega cyklicznym aktualizacjom
   const selectionSourceRef = useRef<'map' | 'range' | 'list'>('map');
 
+  // --- Walidacja numeru budynku ---
+  const [houseFromError, setHouseFromError] = useState<string | null>(null);
+  const [showHouseFromDropdown, setShowHouseFromDropdown] = useState(false);
+  const houseFromWrapperRef = useRef<HTMLDivElement>(null);
+
   // --- Kolejka (bulk) ---
   const [eventsQueue, setEventsQueue] = useState<QueueItem[]>([]);
 
@@ -342,6 +347,8 @@ const AdminEventForm = () => {
       setBuildings([]);
       setSelectedBuildingIds(new Set());
       setListInput('');
+      setHouseFromError(null);
+      setShowHouseFromDropdown(false);
       return;
     }
     let cancelled = false;
@@ -395,6 +402,8 @@ const AdminEventForm = () => {
     function handleClick(e: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node))
         setShowSuggestions(false);
+      if (houseFromWrapperRef.current && !houseFromWrapperRef.current.contains(e.target as Node))
+        setShowHouseFromDropdown(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -441,6 +450,19 @@ const AdminEventForm = () => {
           .map((b) => b.house_number!),
       ),
     [buildings, selectedBuildingIds],
+  );
+
+  const availableHouseNumbers = useMemo(
+    () => sortHouseNumbers(buildings.filter((b) => b.house_number).map((b) => b.house_number!)),
+    [buildings],
+  );
+
+  const filteredFromNumbers = useMemo(
+    () =>
+      availableHouseNumbers.filter(
+        (n) => !houseFrom || n.toUpperCase().startsWith(houseFrom.trim().toUpperCase()),
+      ),
+    [availableHouseNumbers, houseFrom],
   );
 
   // ---------------------------------------------------------------------------
@@ -504,6 +526,15 @@ const AdminEventForm = () => {
     setListInput('');
     setHouseFrom('');
     setHouseTo('');
+    setHouseFromError(null);
+  };
+
+  const validateHouseFrom = (): boolean => {
+    if (!houseFrom.trim() || availableHouseNumbers.length === 0) return true;
+    const normalized = houseFrom.trim().toUpperCase();
+    const valid = availableHouseNumbers.some((n) => n.toUpperCase() === normalized);
+    if (!valid) setHouseFromError('Ten adres nie istnieje w bazie MPWiK');
+    return valid;
   };
 
   // ---------------------------------------------------------------------------
@@ -568,6 +599,10 @@ const AdminEventForm = () => {
       toast({ title: 'Wybierz typ zdarzenia', variant: 'destructive' });
       return;
     }
+    if (!validateHouseFrom()) {
+      toast({ title: 'Nieprawidłowy numer budynku', description: 'Wybierz numer z listy lub pozostaw puste.', variant: 'destructive' });
+      return;
+    }
     const item = buildCurrentItem();
     setEventsQueue((prev) => [...prev, item]);
     toast({ title: 'Dodano do kolejki', description: `${streetLabel(item.street_type, item.street_name)} — ${item.displayLabel}` });
@@ -600,6 +635,10 @@ const AdminEventForm = () => {
     if (selectedStreet) {
       if (!eventType) {
         toast({ title: 'Wybierz typ zdarzenia', variant: 'destructive' });
+        return;
+      }
+      if (!validateHouseFrom()) {
+        toast({ title: 'Nieprawidłowy numer budynku', description: 'Wybierz numer z listy lub pozostaw puste.', variant: 'destructive' });
         return;
       }
       allItems.push(buildCurrentItem());
@@ -816,15 +855,44 @@ const AdminEventForm = () => {
               {/* --- Zakładka 2: Zakres numerów --- */}
               <TabsContent value="range" className="space-y-4 mt-3">
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
+                  <div ref={houseFromWrapperRef} className="relative">
                     <Label htmlFor="house-from">Nr posesji od</Label>
                     <Input
                       id="house-from"
                       value={houseFrom}
-                      onChange={(e) => setHouseFrom(e.target.value)}
+                      onChange={(e) => {
+                        setHouseFrom(e.target.value);
+                        setHouseFromError(null);
+                        if (availableHouseNumbers.length > 0) setShowHouseFromDropdown(true);
+                      }}
+                      onFocus={() => availableHouseNumbers.length > 0 && setShowHouseFromDropdown(true)}
                       placeholder="np. 1"
                       aria-label="Numer posesji od"
+                      className={houseFromError ? 'border-destructive' : ''}
+                      autoComplete="off"
                     />
+                    {houseFromError && (
+                      <p className="text-xs text-destructive mt-1">{houseFromError}</p>
+                    )}
+                    {showHouseFromDropdown && filteredFromNumbers.length > 0 && (
+                      <ul className="absolute z-20 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
+                        {filteredFromNumbers.slice(0, 20).map((n) => (
+                          <li
+                            key={n}
+                            className="px-3 py-1.5 text-sm cursor-pointer hover:bg-accent transition-colors"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              selectionSourceRef.current = 'range';
+                              setHouseFrom(n);
+                              setHouseFromError(null);
+                              setShowHouseFromDropdown(false);
+                            }}
+                          >
+                            {n}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="house-to">Nr posesji do</Label>

@@ -53,8 +53,8 @@ class AdminSubscriberItem(BaseModel):
     """Uproszczony subskrybent w widoku admina."""
 
     id: int
-    phone: str
-    email: str
+    phone: str | None
+    email: str | None
     rodo_consent: bool
     night_sms_consent: bool
     notify_by_email: bool

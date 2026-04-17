@@ -30,8 +30,8 @@ interface AddressItem {
 
 interface SubscriberItem {
   id: number;
-  email: string;
-  phone: string;
+  email: string | null;
+  phone: string | null;
   rodo_consent: boolean;
   night_sms_consent: boolean;
   notify_by_email: boolean;
@@ -75,7 +75,9 @@ const AdminSubscribers = () => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       items = items.filter(
-        (s) => s.email.toLowerCase().includes(q) || s.phone.includes(q),
+        (s) =>
+          (s.email?.toLowerCase().includes(q) ?? false) ||
+          (s.phone?.includes(q) ?? false),
       );
     }
     if (streetFilter !== 'all') {
@@ -211,8 +213,8 @@ const AdminSubscribers = () => {
             )}
             {filteredItems.map((sub) => (
               <TableRow key={sub.id}>
-                <TableCell className="font-medium">{sub.email}</TableCell>
-                <TableCell>{sub.phone}</TableCell>
+                <TableCell className="font-medium">{sub.email ?? <span className="text-muted-foreground">Brak</span>}</TableCell>
+                <TableCell>{sub.phone ?? <span className="text-muted-foreground">Brak</span>}</TableCell>
                 <TableCell>
                   <div className="flex gap-1 flex-wrap">
                     {sub.notify_by_email && (

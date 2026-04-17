@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { z } from 'zod';
 import { Plus, CheckCircle2, Home, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +9,29 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { AddressRow } from '@/components/AddressRow';
 import { useToast } from '@/hooks/use-toast';
 import { apiFetch } from '@/lib/api';
+
+const registerSchema = z
+  .object({
+    notify_by_sms: z.boolean(),
+    notify_by_email: z.boolean(),
+    phone: z.string().optional().or(z.literal('')),
+    email: z.string().optional().or(z.literal('')),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.notify_by_sms && !data.notify_by_email) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Wybierz co najmniej jeden kanał powiadomień.', path: ['notify_by_sms'] });
+    }
+    if (data.notify_by_sms && !data.phone?.trim()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Numer telefonu jest wymagany dla powiadomień SMS.', path: ['phone'] });
+    }
+    if (data.notify_by_email) {
+      if (!data.email?.trim()) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Adres e-mail jest wymagany dla powiadomień e-mail.', path: ['email'] });
+      } else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email.trim())) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Nieprawidłowy format adresu e-mail.', path: ['email'] });
+      }
+    }
+  });
 
 interface Address {
   street_id: number | null;
@@ -30,8 +54,9 @@ const Register = () => {
   const [email, setEmail] = useState('');
   const [gdprConsent, setGdprConsent] = useState(false);
   const [nightNotifications, setNightNotifications] = useState(false);
-  const [notifyByEmail, setNotifyByEmail] = useState(true);
-  const [notifyBySms, setNotifyBySms] = useState(true);
+  const [notifyByEmail, setNotifyByEmail] = useState(false);
+  const [notifyBySms, setNotifyBySms] = useState(false);
+  const [houseNumberValidity, setHouseNumberValidity] = useState<boolean[]>([true]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [unsubscribeToken, setUnsubscribeToken] = useState<string | null>(null);
 
@@ -45,18 +70,42 @@ const Register = () => {
     );
   };
 
-  const addAddress = () => setAddresses((prev) => [...prev, emptyAddress()]);
-  const removeAddress = (index: number) => setAddresses((prev) => prev.filter((_, i) => i !== index));
+  const handleHouseNumberValidChange = (index: number, valid: boolean) => {
+    setHouseNumberValidity((prev) => {
+      const next = [...prev];
+      next[index] = valid;
+      return next;
+    });
+  };
+
+  const addAddress = () => {
+    setAddresses((prev) => [...prev, emptyAddress()]);
+    setHouseNumberValidity((prev) => [...prev, true]);
+  };
+
+  const removeAddress = (index: number) => {
+    setAddresses((prev) => prev.filter((_, i) => i !== index));
+    setHouseNumberValidity((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!gdprConsent) {
-      toast({ title: 'Wymagana zgoda', description: 'Zaznacz zgodę na przetwarzanie danych.', variant: 'destructive' });
+    // Walidacja Zod — kanały + pola kontaktowe
+    const channelValidation = registerSchema.safeParse({
+      notify_by_sms: notifyBySms,
+      notify_by_email: notifyByEmail,
+      phone,
+      email,
+    });
+    if (!channelValidation.success) {
+      const msg = channelValidation.error.issues[0].message;
+      toast({ title: 'Błąd walidacji', description: msg, variant: 'destructive' });
       return;
     }
-    if (!notifyByEmail && !notifyBySms) {
-      toast({ title: 'Wybierz kanał powiadomień', description: 'Zaznacz co najmniej e-mail lub SMS.', variant: 'destructive' });
+
+    if (!gdprConsent) {
+      toast({ title: 'Wymagana zgoda', description: 'Zaznacz zgodę na przetwarzanie danych.', variant: 'destructive' });
       return;
     }
 
@@ -66,11 +115,17 @@ const Register = () => {
       return;
     }
 
+    if (houseNumberValidity.some((v) => v === false)) {
+      toast({ title: 'Nieprawidłowy numer budynku', description: 'Sprawdź numer budynku — nie figuruje w bazie MPWiK.', variant: 'destructive' });
+      return;
+    }
+
     setIsSubmitting(true);
 
+    // Puste stringi dla niewybranych kanałów mapujemy na null — nie naruszają unique constraint w DB
     const payload = {
-      phone: phone.replace(/[\s-]/g, ''),
-      email,
+      phone: notifyBySms ? phone.replace(/[\s-]/g, '') : null,
+      email: notifyByEmail ? email.trim() : null,
       rodo_consent: gdprConsent,
       night_sms_consent: nightNotifications,
       notify_by_email: notifyByEmail,
@@ -110,7 +165,6 @@ const Register = () => {
     }
   };
 
-  // --- Ekran sukcesu ---
   const resetForm = () => {
     setUnsubscribeToken(null);
     setAddresses([emptyAddress()]);
@@ -118,8 +172,9 @@ const Register = () => {
     setEmail('');
     setGdprConsent(false);
     setNightNotifications(false);
-    setNotifyByEmail(true);
-    setNotifyBySms(true);
+    setNotifyByEmail(false);
+    setNotifyBySms(false);
+    setHouseNumberValidity([true]);
   };
 
   if (unsubscribeToken) {
@@ -155,7 +210,6 @@ const Register = () => {
     );
   }
 
-  // --- Formularz ---
   return (
     <div className="container max-w-2xl py-10 space-y-8">
       <div className="text-center space-y-2">
@@ -166,68 +220,10 @@ const Register = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Addresses */}
-        <fieldset className="space-y-4">
-          <legend className="font-heading text-lg font-semibold">Twoje adresy</legend>
-          <p className="text-xs text-muted-foreground">Możesz śledzić wiele adresów jednocześnie.</p>
-          <div className="space-y-3">
-            {addresses.map((addr, i) => (
-              <AddressRow
-                key={i}
-                index={i}
-                street_name={addr.street_name}
-                house_number={addr.house_number}
-                apartment_number={addr.apartment_number}
-                onChange={handleAddressChange}
-                onRemove={removeAddress}
-                canRemove={addresses.length > 1}
-              />
-            ))}
-          </div>
-          <Button type="button" variant="outline" size="sm" onClick={addAddress} className="gap-1.5">
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Dodaj kolejny adres
-          </Button>
-        </fieldset>
 
-        {/* Contact */}
-        <fieldset className="space-y-4">
-          <legend className="font-heading text-lg font-semibold">Dane kontaktowe</legend>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="phone">Telefon *</Label>
-              <Input
-                id="phone"
-                name="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+48 600 000 000"
-                required
-                pattern="^(\+48[\s-]?)?\d{3}[\s-]?\d{3}[\s-]?\d{3}$"
-                title="Format: 600 000 000, +48 600 000 000 lub 600-000-000"
-                aria-label="Numer telefonu"
-              />
-            </div>
-            <div>
-              <Label htmlFor="email">E-mail *</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="twoj@email.pl"
-                required
-                aria-label="Adres e-mail"
-              />
-            </div>
-          </div>
-        </fieldset>
-
-        {/* Notification channels */}
-        <fieldset className="space-y-4">
-          <legend className="font-heading text-lg font-semibold">Kanały powiadomień</legend>
+        {/* Kanały powiadomień — na górze formularza */}
+        <fieldset className="space-y-4 rounded-lg border border-border p-4">
+          <legend className="font-heading text-lg font-semibold px-1">Preferowany kanał powiadomień</legend>
           <p className="text-xs text-muted-foreground">Wybierz, w jaki sposób chcesz otrzymywać powiadomienia o awariach.</p>
 
           <label className="flex items-start gap-3 cursor-pointer">
@@ -253,7 +249,74 @@ const Register = () => {
           </label>
         </fieldset>
 
-        {/* Consents */}
+        {/* Adresy */}
+        <fieldset className="space-y-4">
+          <legend className="font-heading text-lg font-semibold">Twoje adresy</legend>
+          <p className="text-xs text-muted-foreground">Możesz śledzić wiele adresów jednocześnie.</p>
+          <div className="space-y-3">
+            {addresses.map((addr, i) => (
+              <AddressRow
+                key={i}
+                index={i}
+                street_id={addr.street_id}
+                street_name={addr.street_name}
+                house_number={addr.house_number}
+                apartment_number={addr.apartment_number}
+                onChange={handleAddressChange}
+                onRemove={removeAddress}
+                canRemove={addresses.length > 1}
+                onHouseNumberValidChange={handleHouseNumberValidChange}
+              />
+            ))}
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={addAddress} className="gap-1.5">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Dodaj kolejny adres
+          </Button>
+        </fieldset>
+
+        {/* Dane kontaktowe — wyświetlane zależnie od wybranego kanału */}
+        {(notifyBySms || notifyByEmail) && (
+          <fieldset className="space-y-4">
+            <legend className="font-heading text-lg font-semibold">Dane kontaktowe</legend>
+            <div className="grid sm:grid-cols-2 gap-4">
+              {notifyBySms && (
+                <div>
+                  <Label htmlFor="phone">Telefon *</Label>
+                  <Input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+48 600 000 000"
+                    required
+                    pattern="^(\+48[\s-]?)?\d{3}[\s-]?\d{3}[\s-]?\d{3}$"
+                    title="Format: 600 000 000, +48 600 000 000 lub 600-000-000"
+                    aria-label="Numer telefonu"
+                  />
+                </div>
+              )}
+              {notifyByEmail && (
+                <div>
+                  <Label htmlFor="email">E-mail *</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="twoj@email.pl"
+                    required
+                    aria-label="Adres e-mail"
+                  />
+                </div>
+              )}
+            </div>
+          </fieldset>
+        )}
+
+        {/* Zgody */}
         <fieldset className="space-y-4">
           <legend className="font-heading text-lg font-semibold">Zgody</legend>
 
@@ -271,16 +334,18 @@ const Register = () => {
             </span>
           </label>
 
-          <label className="flex items-start gap-3 cursor-pointer">
-            <Checkbox
-              checked={nightNotifications}
-              onCheckedChange={(v) => setNightNotifications(v === true)}
-              aria-label="Zgoda na powiadomienia nocne"
-            />
-            <span className="text-sm leading-snug text-muted-foreground">
-              Chcę otrzymywać powiadomienia SMS także w godzinach nocnych (22:00 – 06:00).
-            </span>
-          </label>
+          {notifyBySms && (
+            <label className="flex items-start gap-3 cursor-pointer">
+              <Checkbox
+                checked={nightNotifications}
+                onCheckedChange={(v) => setNightNotifications(v === true)}
+                aria-label="Zgoda na powiadomienia nocne"
+              />
+              <span className="text-sm leading-snug text-muted-foreground">
+                Chcę otrzymywać powiadomienia SMS także w godzinach nocnych (22:00 – 06:00).
+              </span>
+            </label>
+          )}
         </fieldset>
 
         <Button type="submit" size="lg" className="w-full text-base font-semibold" disabled={isSubmitting}>

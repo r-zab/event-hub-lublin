@@ -1,0 +1,17 @@
+Napraw krytyczny błąd ładowania listy subskrybentów w panelu dyspozytora (`frontend/src/pages/AdminSubscribers.tsx`). UI wyświetla komunikat o błędzie ładowania.
+
+Prawdopodobna przyczyna: Ostatnie zmiany wprowadziły pola NULL w bazie (email/telefon), których schematy Pydantic na backendzie lub typy na frontendzie nie obsługują (oczekują stringa, dostają null).
+
+ZADANIE:
+1. Skoryguj `backend/app/schemas/subscriber.py`:
+   - Upewnij się, że w klasie `Subscriber` (używanej do zwracania danych z API) pola `email` i `phone` są typu `Optional[str] = None`.
+   - Sprawdź, czy wszystkie nowe flagi zgód (notify_sms, notify_email, night_sms_consent itp.) są uwzględnione w schemacie.
+2. Skoryguj `backend/app/routers/subscribers.py`:
+   - Sprawdź endpoint `GET /`. Jeśli używasz `response_model=List[schemas.Subscriber]`, Pydantic wyrzuci błąd przy każdym rekordzie z nullem, jeśli schemat nie jest opcjonalny.
+3. Popraw Frontend (`frontend/src/pages/AdminSubscribers.tsx` oraz typy):
+   - Upewnij się, że komponent tabeli subskrybentów bezpiecznie wyświetla dane: zamiast `subscriber.email` użyj `subscriber.email || 'Brak'`.
+   - Jeśli używasz tam jakiegoś mapowania danych, upewnij się, że nie wywala się na pustych polach.
+4. Zaktualizuj plik `docs/lista_rzeczy_do_poprawek.md`:
+   - Dodaj pod dzisiejszą datą punkt: "Naprawa błędu ładowania listy subskrybentów poprzez synchronizację opcjonalnych pól Email/Phone w schematach API".
+
+Dostarcz poprawiony kod dla wszystkich dotkniętych plików.

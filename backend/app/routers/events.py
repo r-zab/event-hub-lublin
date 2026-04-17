@@ -159,6 +159,7 @@ async def update_event(
 
     update_data = data.model_dump(exclude_none=True)
     old_status: str = event.status
+    old_estimated_end = event.estimated_end
 
     if "status" in update_data and update_data["status"] != old_status:
         history_entry = EventHistory(
@@ -191,7 +192,12 @@ async def update_event(
     event = result.scalar_one()
     event.street_geojson = event.street.geojson if event.street else None
     event.notified_count = len(event.notifications)
-    if "status" in update_data and update_data["status"] != old_status:
+    status_changed = "status" in update_data and update_data["status"] != old_status
+    estimated_end_changed = (
+        "estimated_end" in update_data
+        and update_data["estimated_end"] != old_estimated_end
+    )
+    if status_changed or estimated_end_changed:
         task = asyncio.create_task(notify_event(event.id, old_status=old_status))
         task.add_done_callback(_log_task_exception)
     return event
