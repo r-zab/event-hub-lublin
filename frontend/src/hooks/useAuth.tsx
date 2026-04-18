@@ -1,7 +1,10 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 
+type UserRole = 'admin' | 'dispatcher' | null;
+
 interface AuthContextValue {
   isAuthenticated: boolean;
+  role: UserRole;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
 }
@@ -10,9 +13,25 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1';
 
+function parseJwtRole(token: string): UserRole {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const role = payload.role;
+    if (role === 'admin' || role === 'dispatcher') return role;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return !!localStorage.getItem('mpwik_token');
+  });
+
+  const [role, setRole] = useState<UserRole>(() => {
+    const token = localStorage.getItem('mpwik_token');
+    return token ? parseJwtRole(token) : null;
   });
 
   const login = useCallback(async (username: string, password: string) => {
@@ -34,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!token) return false;
       localStorage.setItem('mpwik_token', token);
       setIsAuthenticated(true);
+      setRole(parseJwtRole(token));
       return true;
     } catch {
       return false;
@@ -43,10 +63,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     localStorage.removeItem('mpwik_token');
     setIsAuthenticated(false);
+    setRole(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, role, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

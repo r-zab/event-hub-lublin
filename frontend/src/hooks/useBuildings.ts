@@ -84,3 +84,9 @@ export async function updateBuildingAddress(
     body: JSON.stringify(data),
   });
 }
+
+export async function deleteBuildingAddress(buildingId: number): Promise<void> {
+  return apiFetch<void>(`/buildings/${buildingId}`, {
+    method: 'DELETE',
+  });
+}

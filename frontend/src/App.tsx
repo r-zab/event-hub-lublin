@@ -1,9 +1,10 @@
+import { type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 
 import { PublicLayout } from "@/components/PublicLayout";
 import { ProtectedAdminLayout } from "@/components/ProtectedAdminLayout";
@@ -17,9 +18,18 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminEventForm from "./pages/AdminEventForm";
 import AdminSubscribers from "./pages/AdminSubscribers";
 import AdminNotifications from "./pages/AdminNotifications";
+import AdminUsers from "./pages/AdminUsers";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+function AdminOnlyRoute({ children }: { children: ReactNode }) {
+  const { role } = useAuth();
+  if (role !== 'admin') {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+  return <>{children}</>;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -45,8 +55,30 @@ const App = () => (
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/events/new" element={<AdminEventForm />} />
               <Route path="/admin/events/edit/:id" element={<AdminEventForm />} />
-              <Route path="/admin/subscribers" element={<AdminSubscribers />} />
-              <Route path="/admin/notifications" element={<AdminNotifications />} />
+              <Route
+                path="/admin/subscribers"
+                element={
+                  <AdminOnlyRoute>
+                    <AdminSubscribers />
+                  </AdminOnlyRoute>
+                }
+              />
+              <Route
+                path="/admin/notifications"
+                element={
+                  <AdminOnlyRoute>
+                    <AdminNotifications />
+                  </AdminOnlyRoute>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <AdminOnlyRoute>
+                    <AdminUsers />
+                  </AdminOnlyRoute>
+                }
+              />
             </Route>
 
             <Route path="*" element={<NotFound />} />

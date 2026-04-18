@@ -6,9 +6,10 @@ Auth:   Bearer JWT + rola 'admin' (get_current_admin)
 
 import logging
 from datetime import datetime
+from typing import Literal
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -19,6 +20,7 @@ from app.models.event import Event
 from app.models.notification import NotificationLog
 from app.models.subscriber import Subscriber
 from app.models.user import User
+from app.utils.security import hash_password
 
 logger = logging.getLogger(__name__)
 
@@ -95,8 +97,44 @@ class AdminNotificationList(BaseModel):
     total_count: int
 
 
+class UserItem(BaseModel):
+    """Dane użytkownika w widoku admina."""
+
+    id: int
+    username: str
+    full_name: str | None
+    role: str
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class UserListResponse(BaseModel):
+    """Paginowana lista użytkowników."""
+
+    items: list[UserItem]
+    total_count: int
+
+
+class CreateUserBody(BaseModel):
+    """Dane do tworzenia nowego konta użytkownika."""
+
+    username: str = Field(min_length=3, max_length=50)
+    password: str = Field(min_length=8)
+    full_name: str | None = None
+    role: Literal["admin", "dispatcher"] = "dispatcher"
+
+
+class UpdateUserBody(BaseModel):
+    """Pola do aktualizacji konta (rola lub status aktywności)."""
+
+    role: Literal["admin", "dispatcher"] | None = None
+    is_active: bool | None = None
+
+
 # ---------------------------------------------------------------------------
-# Endpointy
+# Endpointy — statystyki, subskrybenci, powiadomienia
 # ---------------------------------------------------------------------------
 
 
@@ -105,12 +143,7 @@ async def get_stats(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_admin),
 ) -> StatsResponse:
-    """Zwraca podstawowe statystyki systemu.
-
-    - total_subscribers: liczba wszystkich zarejestrowanych subskrybentów
-    - active_events: liczba zdarzeń ze statusem 'zgloszona' lub 'w_naprawie'
-    - notifications_sent: liczba wpisów w notification_log ze statusem 'sent'
-    """
+    """Zwraca podstawowe statystyki systemu."""
     total_subscribers_result = await db.execute(select(func.count()).select_from(Subscriber))
     total_subscribers: int = total_subscribers_result.scalar_one()
 
@@ -149,12 +182,7 @@ async def list_subscribers(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_admin),
 ) -> AdminSubscriberList:
-    """Zwraca paginowaną listę subskrybentów (posortowanych od najnowszych).
-
-    Query params:
-    - skip: offset (domyślnie 0)
-    - limit: maks. liczba rekordów (domyślnie 20)
-    """
+    """Zwraca paginowaną listę subskrybentów (posortowanych od najnowszych)."""
     total_result = await db.execute(select(func.count()).select_from(Subscriber))
     total_count: int = total_result.scalar_one()
 
@@ -178,12 +206,7 @@ async def list_notifications(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_admin),
 ) -> AdminNotificationList:
-    """Zwraca paginowany log powiadomień (posortowanych malejąco po sent_at).
-
-    Query params:
-    - skip: offset (domyślnie 0)
-    - limit: maks. liczba rekordów (domyślnie 20)
-    """
+    """Zwraca paginowany log powiadomień (posortowanych malejąco po sent_at)."""
     total_result = await db.execute(select(func.count()).select_from(NotificationLog))
     total_count: int = total_result.scalar_one()
 
@@ -197,3 +220,139 @@ async def list_notifications(
 
     items = [AdminNotificationItem.model_validate(n) for n in notifications]
     return AdminNotificationList(items=items, total_count=total_count)
+
+
+# ---------------------------------------------------------------------------
+# Endpointy — zarządzanie użytkownikami
+# ---------------------------------------------------------------------------
+
+
+@router.get("/users", response_model=UserListResponse)
+async def list_users(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin),
+) -> UserListResponse:
+    """Zwraca listę wszystkich kont użytkowników (login, rola, data utworzenia)."""
+    total_result = await db.execute(select(func.count()).select_from(User))
+    total_count: int = total_result.scalar_one()
+
+    users_result = await db.execute(
+        select(User).order_by(User.created_at.desc())
+    )
+    users = list(users_result.scalars().all())
+
+    items = [UserItem.model_validate(u) for u in users]
+    return UserListResponse(items=items, total_count=total_count)
+
+
+@router.post("/users", response_model=UserItem, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    body: CreateUserBody,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin),
+) -> UserItem:
+    """Tworzy nowe konto użytkownika (admin lub dyspozytor)."""
+    existing = await db.execute(select(User).where(User.username == body.username))
+    if existing.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Użytkownik o tej nazwie już istnieje",
+        )
+
+    new_user = User(
+        username=body.username,
+        password_hash=hash_password(body.password),
+        full_name=body.full_name,
+        role=body.role,
+        is_active=True,
+    )
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+
+    logger.info("Utworzono nowego użytkownika: %s (rola=%s)", new_user.username, new_user.role)
+    return UserItem.model_validate(new_user)
+
+
+@router.patch("/users/{user_id}", response_model=UserItem)
+async def update_user(
+    user_id: int,
+    body: UpdateUserBody,
+    db: AsyncSession = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+) -> UserItem:
+    """Zmienia rolę lub status aktywności konta użytkownika."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Użytkownik nie istnieje")
+
+    if body.role is not None:
+        # Chroń przed degradacją ostatniego admina
+        if user.role == "admin" and body.role != "admin":
+            admin_count_result = await db.execute(
+                select(func.count()).select_from(User).where(User.role == "admin", User.is_active == True)  # noqa: E712
+            )
+            if admin_count_result.scalar_one() <= 1:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Nie można zmienić roli ostatniego aktywnego administratora",
+                )
+        user.role = body.role
+
+    if body.is_active is not None:
+        # Chroń przed dezaktywacją ostatniego admina
+        if user.role == "admin" and not body.is_active:
+            admin_count_result = await db.execute(
+                select(func.count()).select_from(User).where(User.role == "admin", User.is_active == True)  # noqa: E712
+            )
+            if admin_count_result.scalar_one() <= 1:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Nie można dezaktywować ostatniego aktywnego administratora",
+                )
+        user.is_active = body.is_active
+
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    logger.info(
+        "Admin id=%d zaktualizował konto id=%d (username=%s): rola=%s, aktywny=%s",
+        current_admin.id, user.id, user.username, user.role, user.is_active,
+    )
+    return UserItem.model_validate(user)
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+) -> None:
+    """Usuwa konto użytkownika. Nie można usunąć własnego konta ani ostatniego admina."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Użytkownik nie istnieje")
+
+    if user.id == current_admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nie można usunąć własnego konta",
+        )
+
+    if user.role == "admin":
+        admin_count_result = await db.execute(
+            select(func.count()).select_from(User).where(User.role == "admin")
+        )
+        if admin_count_result.scalar_one() <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Nie można usunąć ostatniego konta administratora",
+            )
+
+    await db.delete(user)
+    await db.commit()
+
+    logger.info("Admin id=%d usunął konto id=%d (username=%s)", current_admin.id, user_id, user.username)

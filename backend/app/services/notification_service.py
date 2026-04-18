@@ -712,6 +712,112 @@ async def notify_new_subscriber_about_active_events(subscriber_id: int) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Wiadomość powitalna z tokenem wyrejestrowania (RODO Art. 17)
+# ---------------------------------------------------------------------------
+
+
+def _build_welcome_email_body(token: str) -> str:
+    lines = [
+        "Szanowny Mieszkańcu,",
+        "",
+        "Dziękujemy za rejestrację w systemie powiadomień MPWiK Lublin.",
+        "",
+        "Zgodnie z art. 17 RODO (prawo do bycia zapomnianym) poniżej znajdziesz",
+        "Twój osobisty kod wyrejestrowania — zachowaj go w bezpiecznym miejscu:",
+        "",
+        f"  {token}",
+        "",
+        "Skopiuj go i wklej na naszej stronie w zakladce 'Wyrejestruj sie',",
+        "aby trwale usunąć swoje dane z systemu.",
+        "",
+        "W razie problemów skontaktuj się z BOK MPWiK Lublin: tel. 81 532-42-81.",
+        "",
+        "MPWiK Lublin",
+        "tel. alarmowy: 994",
+    ]
+    return "\n".join(lines)
+
+
+def _build_welcome_sms_text(token: str) -> str:
+    return (
+        f"MPWiK Lublin: Twoj kod wyrejestrowania (RODO): {token}. "
+        "Uzyj go w zakladce 'Wyrejestruj' na naszej stronie internetowej."
+    )
+
+
+async def send_welcome_with_unsubscribe_token(subscriber_id: int, unsubscribe_token: str) -> None:
+    """
+    Wyślij powitalną wiadomość z kodem wyrejestrowania (RODO Art. 17).
+
+    Priorytet kanału: SMS (nie obciąża skrzynki MPWiK); e-mail jako fallback
+    gdy subskrybent wybrał tylko e-mail lub gdy SMS się nie powiódł.
+    Loguje do notification_log z channel='welcome'. Wywołać jako asyncio.create_task().
+    """
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(Subscriber).where(Subscriber.id == subscriber_id)
+            )
+            subscriber = result.scalar_one_or_none()
+            if subscriber is None:
+                logger.error("send_welcome: subskrybent id=%d nie istnieje w bazie", subscriber_id)
+                return
+
+            email_globally_enabled: bool = settings.ENABLE_EMAIL_NOTIFICATIONS
+            token_delivered = False
+
+            # --- SMS (priorytet — nie obciąża skrzynki MPWiK) ---
+            if subscriber.notify_by_sms and subscriber.phone:
+                sms_text = _build_welcome_sms_text(unsubscribe_token)
+                sms_gateway = get_sms_gateway()
+                ok = await sms_gateway.send(subscriber.phone, sms_text)
+                db.add(
+                    NotificationLog(
+                        event_id=None,
+                        subscriber_id=subscriber.id,
+                        channel="welcome",
+                        recipient=subscriber.phone,
+                        message_text=sms_text,
+                        status="sent" if ok else "failed",
+                        error_message=None if ok else "Błąd wysyłki powitalnego SMS",
+                    )
+                )
+                token_delivered = ok
+                logger.info(
+                    "send_welcome: SMS do sub_id=%d status=%s",
+                    subscriber_id,
+                    "sent" if ok else "failed",
+                )
+
+            # --- E-MAIL — gdy tylko e-mail lub SMS się nie powiódł ---
+            if subscriber.notify_by_email and subscriber.email and email_globally_enabled and not token_delivered:
+                email_sender = EmailSender()
+                subject = "[MPWiK Lublin] Potwierdzenie rejestracji — kod wyrejestrowania (RODO)"
+                body = _build_welcome_email_body(unsubscribe_token)
+                ok = await email_sender.send(subscriber.email, subject, body)
+                db.add(
+                    NotificationLog(
+                        event_id=None,
+                        subscriber_id=subscriber.id,
+                        channel="welcome",
+                        recipient=subscriber.email,
+                        message_text=body,
+                        status="sent" if ok else "failed",
+                        error_message=None if ok else "Błąd wysyłki powitalnego e-mail",
+                    )
+                )
+                logger.info(
+                    "send_welcome: e-mail do sub_id=%d status=%s",
+                    subscriber_id,
+                    "sent" if ok else "failed",
+                )
+
+            await db.commit()
+    except Exception:
+        logger.exception("send_welcome: nieoczekiwany błąd dla sub_id=%d", subscriber_id)
+
+
+# ---------------------------------------------------------------------------
 # Scheduler — poranna kolejka SMS (06:00)
 # ---------------------------------------------------------------------------
 

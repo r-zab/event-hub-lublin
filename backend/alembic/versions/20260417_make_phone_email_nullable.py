@@ -21,9 +21,15 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # Usuń stare unique constraints (zastąpimy partial index-ami)
-    op.drop_constraint("uq_subscribers_email", "subscribers", type_="unique")
-    op.drop_constraint("uq_subscribers_phone", "subscribers", type_="unique")
+    # Usuń stare unique constraints jeśli istnieją (nazwy mogą się różnić wg środowiska)
+    op.execute("""
+        DO $$ BEGIN
+            ALTER TABLE subscribers DROP CONSTRAINT IF EXISTS uq_subscribers_email;
+            ALTER TABLE subscribers DROP CONSTRAINT IF EXISTS uq_subscribers_phone;
+            ALTER TABLE subscribers DROP CONSTRAINT IF EXISTS subscribers_email_key;
+            ALTER TABLE subscribers DROP CONSTRAINT IF EXISTS subscribers_phone_key;
+        END $$;
+    """)
 
     # Zezwól na NULL w obu kolumnach
     op.alter_column("subscribers", "phone", nullable=True, existing_type=sa.String(20))

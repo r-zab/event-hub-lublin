@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     SMTP_FROM: str = "awarie@eventhub.lublin.pl"
     SMTP_USE_TLS: bool = True
 
+    # Frontend — używany do budowania linków (np. token wyrejestrowania w e-mailu/SMS)
+    FRONTEND_BASE_URL: str = "http://localhost:8080"
+
     # CORS
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 

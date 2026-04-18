@@ -1,4 +1,5 @@
 from app.models.api_key import ApiKey
+from app.models.audit import BuildingAuditLog
 from app.models.building import Building
 from app.models.event import Event, EventHistory
 from app.models.notification import NotificationLog
@@ -10,6 +11,7 @@ __all__ = [
     "User",
     "Street",
     "Building",
+    "BuildingAuditLog",
     "Event",
     "EventHistory",
     "Subscriber",

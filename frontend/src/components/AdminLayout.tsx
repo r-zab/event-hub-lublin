@@ -1,18 +1,21 @@
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, LogOut, Droplets, Home, Users, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, LogOut, Droplets, Home, Users, MessageSquare, UserCog } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 
-const sidebarItems = [
-  { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/admin/subscribers', label: 'Subskrybenci', icon: Users },
-  { to: '/admin/notifications', label: 'Logi powiadomień', icon: MessageSquare },
+const allSidebarItems = [
+  { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
+  { to: '/admin/subscribers', label: 'Subskrybenci', icon: Users, adminOnly: true },
+  { to: '/admin/notifications', label: 'Logi powiadomień', icon: MessageSquare, adminOnly: true },
+  { to: '/admin/users', label: 'Użytkownicy', icon: UserCog, adminOnly: true },
 ];
 
 export function AdminLayout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { logout } = useAuth();
+  const { logout, role } = useAuth();
+
+  const sidebarItems = allSidebarItems.filter(item => !item.adminOnly || role === 'admin');
 
   const handleLogout = () => {
     logout();

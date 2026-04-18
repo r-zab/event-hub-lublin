@@ -6,14 +6,26 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import { useStreets } from '@/hooks/useStreets';
 import { type Street } from '@/data/mockData';
-import { type BuildingItem, updateBuildingAddress } from '@/hooks/useBuildings';
+import { type BuildingItem, updateBuildingAddress, deleteBuildingAddress } from '@/hooks/useBuildings';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Props {
   building: BuildingItem | null;
@@ -23,15 +35,20 @@ interface Props {
 
 export function BuildingAddressModal({ building, onClose, onSaved }: Props) {
   const { toast } = useToast();
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
+
   const [streetQuery, setStreetQuery] = useState('');
   const [selectedStreet, setSelectedStreet] = useState<Street | null>(null);
   const [houseNumber, setHouseNumber] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { streets, isLoading: streetsLoading } = useStreets(streetQuery);
 
-  // Reset stanu przy każdym otwarciu nowego budynku
+  const isEditMode = isAdmin && (building?.has_address ?? false);
+
   useEffect(() => {
     if (building) {
       setStreetQuery(building.street_name ?? '');
@@ -75,19 +92,33 @@ export function BuildingAddressModal({ building, onClose, onSaved }: Props) {
         house_number: houseNumber.trim(),
       });
       toast({
-        title: 'Adres zapisany',
+        title: isEditMode ? 'Adres zaktualizowany' : 'Adres zapisany',
         description: `Budynek #${building.id} → ${selectedStreet?.full_name ?? streetQuery} ${houseNumber.trim()}`,
       });
       onSaved();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Nieznany błąd';
-      toast({
-        title: 'Błąd zapisu',
-        description: message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Błąd zapisu', description: message, variant: 'destructive' });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!building) return;
+    setIsDeleting(true);
+    try {
+      await deleteBuildingAddress(building.id);
+      toast({
+        title: 'Adres usunięty',
+        description: `Budynek #${building.id} — dane adresowe zostały wyczyszczone.`,
+      });
+      onSaved();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Nieznany błąd';
+      toast({ title: 'Błąd usunięcia', description: message, variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -98,7 +129,9 @@ export function BuildingAddressModal({ building, onClose, onSaved }: Props) {
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Uzupełnij adres</DialogTitle>
+          <DialogTitle>
+            {isEditMode ? 'Edytuj adres' : 'Uzupełnij adres'}
+          </DialogTitle>
           <p className="text-sm text-muted-foreground">
             ID budynku: <span className="font-mono">{building?.id}</span>{' '}
             ({geomTypeLabel})
@@ -157,13 +190,52 @@ export function BuildingAddressModal({ building, onClose, onSaved }: Props) {
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>
+        <DialogFooter className="gap-2 sm:gap-0">
+          {/* Przycisk usunięcia adresu — tylko admin w trybie edycji */}
+          {isEditMode && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  disabled={isSaving || isDeleting}
+                  className="mr-auto"
+                >
+                  {isDeleting ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Usuwanie…</>
+                  ) : (
+                    <><Trash2 className="mr-2 h-4 w-4" />Usuń adres</>
+                  )}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Usuń dane adresowe</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Budynek #{building?.id} zostanie oznaczony jako &quot;bez adresu&quot;. Geometria
+                    GIS pozostanie w bazie. Operacja jest rejestrowana w logu audytowym.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={handleDelete}
+                  >
+                    Usuń adres
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+
+          <Button variant="outline" onClick={onClose} disabled={isSaving || isDeleting}>
             Anuluj
           </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button onClick={handleSave} disabled={isSaving || isDeleting}>
             {isSaving ? (
               <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Zapisywanie…</>
+            ) : isEditMode ? (
+              'Zapisz zmiany'
             ) : (
               'Zapisz adres'
             )}

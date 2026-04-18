@@ -106,12 +106,7 @@ async def delete_event(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> None:
-    """Fizycznie usuń zdarzenie wraz z historią. Wymaga roli admin."""
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Wymagana rola admin",
-        )
+    """Fizycznie usuń zdarzenie wraz z historią. Wymaga roli admin lub dispatcher."""
     result = await db.execute(select(Event).where(Event.id == event_id))
     event = result.scalar_one_or_none()
     if event is None:

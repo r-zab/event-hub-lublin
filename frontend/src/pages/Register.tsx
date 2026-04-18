@@ -187,10 +187,19 @@ const Register = () => {
             Będziesz otrzymywać powiadomienia o awariach i przerwach w dostawie wody pod wskazanymi adresami.
           </p>
           <div className="w-full rounded-lg border border-border bg-muted/50 p-4 text-left space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Token wyrejestrowania — zachowaj go!</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Kod wyrejestrowania — zachowaj go!</p>
             <p className="font-mono text-sm break-all select-all">{unsubscribeToken}</p>
             <p className="text-xs text-muted-foreground">
-              Możesz go użyć w dowolnym momencie, aby usunąć swoje dane z systemu (wymaganie RODO).
+              Skopiuj go i wklej na stronie „Wyrejestruj się", aby trwale usunąć swoje dane z systemu (wymaganie RODO).
+            </p>
+          </div>
+          <div className="w-full rounded-lg border border-blue-200 bg-blue-50 p-4 text-left text-sm text-blue-900 space-y-1">
+            <p>
+              Wysłaliśmy Ci ten kod na{' '}
+              <strong>{notifyBySms ? 'Twój numer telefonu (SMS)' : 'Twój adres e-mail'}</strong>.
+            </p>
+            <p className="text-xs text-blue-700">
+              Jeśli go zgubisz — skontaktuj się z BOK MPWiK Lublin: tel. 81 532-42-81.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-4 mt-2">

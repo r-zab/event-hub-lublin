@@ -2,8 +2,8 @@
 
 Prefix: /api/v1/buildings
 Auth:
-  GET  — publiczny (brak tokenu)
-  PATCH — Bearer JWT + rola 'dispatcher' lub 'admin'
+  GET         — publiczny (brak tokenu)
+  PATCH/DELETE — Bearer JWT + rola 'admin'
 """
 
 import logging
@@ -16,7 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from geoalchemy2.functions import ST_Intersects, ST_MakeEnvelope
 
 from app.database import get_db
-from app.dependencies import get_current_dispatcher_or_admin
+from app.dependencies import get_current_admin
+from app.models.audit import BuildingAuditLog
 from app.models.building import Building
 from app.models.user import User
 from app.schemas.building import BuildingBboxResponse, BuildingUpdate
@@ -38,7 +39,6 @@ async def get_buildings_in_bbox(
     """Zwraca budynki przecinające podany bounding box.
 
     Zapytanie korzysta z indeksu GIST na kolumnie `geom` — wydajne przy 51k+ rekordach.
-    Zwracaj maksymalnie `limit` budynków (domyślnie 500).
     Frontend powinien wywoływać ten endpoint tylko przy zoom >= 15.
     """
     if max_lat <= min_lat:
@@ -77,19 +77,15 @@ async def get_buildings_in_bbox(
 @router.patch(
     "/{building_id}",
     response_model=BuildingBboxResponse,
-    summary="Aktualizuj adres budynku (dispatcher/admin)",
+    summary="Aktualizuj adres budynku (admin)",
 )
 async def update_building_address(
     building_id: int,
     data: BuildingUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_dispatcher_or_admin),
+    current_user: User = Depends(get_current_admin),
 ) -> BuildingBboxResponse:
-    """Ręcznie przypisuje adres do budynku bez adresu.
-
-    Przeznaczone dla dyspozytora, który w panelu mapy klika na poligon
-    bez przypisanego adresu i uzupełnia brakujące dane (ulica + numer).
-    """
+    """Ręcznie przypisuje lub poprawia adres budynku. Wymaga roli admin."""
     result = await db.execute(select(Building).where(Building.id == building_id))
     building = result.scalar_one_or_none()
     if building is None:
@@ -105,18 +101,85 @@ async def update_building_address(
             detail="Brak pól do aktualizacji",
         )
 
+    old_data = {
+        "street_id": building.street_id,
+        "street_name": building.street_name,
+        "house_number": building.house_number,
+    }
+
     for field, value in update_data.items():
         setattr(building, field, value)
 
+    new_data = {
+        "street_id": building.street_id,
+        "street_name": building.street_name,
+        "house_number": building.house_number,
+    }
+
+    audit = BuildingAuditLog(
+        user_id=current_user.id,
+        building_id=building_id,
+        action="update",
+        old_data=old_data,
+        new_data=new_data,
+    )
     db.add(building)
+    db.add(audit)
     await db.commit()
     await db.refresh(building)
 
     logger.info(
-        "Zaktualizowano adres budynku id=%d przez user=%d (rola=%s): %s",
-        building_id,
-        current_user.id,
-        current_user.role,
-        update_data,
+        "Admin id=%d zaktualizował adres budynku id=%d: %s → %s",
+        current_user.id, building_id, old_data, new_data,
     )
     return BuildingBboxResponse.model_validate(building)
+
+
+@router.delete(
+    "/{building_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Usuń adres budynku (admin)",
+)
+async def delete_building_address(
+    building_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+) -> None:
+    """Usuwa dane adresowe z budynku (street_id, street_name, house_number → NULL).
+
+    Nie usuwa rekordu budynku z bazy — zachowuje geometrię GIS.
+    Operacja jest rejestrowana w tabeli audytowej.
+    """
+    result = await db.execute(select(Building).where(Building.id == building_id))
+    building = result.scalar_one_or_none()
+    if building is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Budynek nie istnieje",
+        )
+
+    old_data = {
+        "street_id": building.street_id,
+        "street_name": building.street_name,
+        "house_number": building.house_number,
+    }
+
+    building.street_id = None
+    building.street_name = None
+    building.house_number = None
+
+    audit = BuildingAuditLog(
+        user_id=current_user.id,
+        building_id=building_id,
+        action="delete",
+        old_data=old_data,
+        new_data=None,
+    )
+    db.add(building)
+    db.add(audit)
+    await db.commit()
+
+    logger.info(
+        "Admin id=%d usunął adres budynku id=%d (było: %s)",
+        current_user.id, building_id, old_data,
+    )

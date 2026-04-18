@@ -10,6 +10,7 @@ import {
   type BoundsState,
 } from '@/hooks/useBuildings';
 import { BuildingAddressModal } from './BuildingAddressModal';
+import { useAuth } from '@/hooks/useAuth';
 
 const LUBLIN_CENTER: [number, number] = [51.2465, 22.5684];
 const BUILDINGS_MIN_ZOOM = 15;
@@ -77,7 +78,6 @@ function BoundsTracker({ onBoundsChange }: BoundsTrackerProps) {
     zoomend: update,
   });
 
-  // Pobierz bounds przy pierwszym renderze
   useEffect(() => {
     update();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -93,10 +93,10 @@ function BoundsTracker({ onBoundsChange }: BoundsTrackerProps) {
 interface BuildingsLayerProps {
   buildings: BuildingItem[];
   onBuildingClick: (id: number) => void;
+  isAdmin: boolean;
 }
 
-function BuildingsLayer({ buildings, onBuildingClick }: BuildingsLayerProps) {
-  // Ref, żeby uniknąć stale closure w onEachFeature
+function BuildingsLayer({ buildings, onBuildingClick, isAdmin }: BuildingsLayerProps) {
   const clickHandlerRef = useRef(onBuildingClick);
   clickHandlerRef.current = onBuildingClick;
 
@@ -121,7 +121,6 @@ function BuildingsLayer({ buildings, onBuildingClick }: BuildingsLayerProps) {
     return { type: 'FeatureCollection' as const, features };
   }, [buildings]);
 
-  // Klucz wymusza remount GeoJSON po zmianie zbioru budynków
   const layerKey = buildings.map((b) => b.id).join(',');
 
   const getStyle = useCallback((feature: GeoJSON.Feature | undefined): L.PathOptions => {
@@ -141,25 +140,33 @@ function BuildingsLayer({ buildings, onBuildingClick }: BuildingsLayerProps) {
     if (!props) return;
 
     const hasAddress: boolean = props.has_address as boolean;
-    const addressLabel = hasAddress
-      ? `${props.street_name as string} ${props.house_number as string}`
-      : 'Brak adresu — kliknij, aby uzupełnić';
 
-    (layer as L.Path).bindTooltip(addressLabel, {
+    let tooltipLabel: string;
+    if (hasAddress) {
+      const addrText = `${props.street_name as string} ${props.house_number as string}`;
+      tooltipLabel = isAdmin ? `${addrText} (kliknij, aby edytować)` : addrText;
+    } else {
+      tooltipLabel = isAdmin
+        ? 'Brak adresu — kliknij, aby uzupełnić'
+        : 'Brak adresu';
+    }
+
+    (layer as L.Path).bindTooltip(tooltipLabel, {
       sticky: true,
       className: 'text-xs font-medium',
     });
 
-    if (!hasAddress) {
+    // Interakcja tylko dla admina
+    if (isAdmin) {
       layer.on('click', () => clickHandlerRef.current(props.id as number));
       (layer as L.Path).on('mouseover', function () {
         (this as L.Path).setStyle({ weight: 3, fillOpacity: 0.7 });
       });
       (layer as L.Path).on('mouseout', function () {
-        (this as L.Path).setStyle(STYLE_NO_ADDRESS);
+        (this as L.Path).setStyle(hasAddress ? STYLE_HAS_ADDRESS : STYLE_NO_ADDRESS);
       });
     }
-  }, []);
+  }, [isAdmin]);
 
   if (geoJson.features.length === 0) return null;
 
@@ -180,6 +187,9 @@ function BuildingsLayer({ buildings, onBuildingClick }: BuildingsLayerProps) {
 // ---------------------------------------------------------------------------
 
 export function AdminMapView() {
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
+
   const [bounds, setBounds] = useState<BoundsState | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(null);
   const [refetchTick, setRefetchTick] = useState(0);
@@ -228,6 +238,7 @@ export function AdminMapView() {
           <BuildingsLayer
             buildings={buildings}
             onBuildingClick={handleBuildingClick}
+            isAdmin={isAdmin}
           />
         )}
       </MapContainer>
@@ -239,11 +250,11 @@ export function AdminMapView() {
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-block w-3 h-3 rounded-sm bg-green-400 border border-green-600" />
-          <span>Ma adres</span>
+          <span>Ma adres{isAdmin ? ' (kliknij, aby edytować)' : ''}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-block w-3 h-3 rounded-sm bg-red-300 border border-red-600" />
-          <span>Brak adresu (kliknij)</span>
+          <span>Brak adresu{isAdmin ? ' (kliknij, aby uzupełnić)' : ''}</span>
         </div>
       </div>
 

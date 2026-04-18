@@ -50,8 +50,8 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = create_access_token(data={"sub": user.username})
-    refresh_token = create_refresh_token(data={"sub": user.username})
+    access_token = create_access_token(data={"sub": user.username, "role": user.role})
+    refresh_token = create_refresh_token(data={"sub": user.username, "role": user.role})
     logger.info("Zalogowano użytkownika: %s (role=%s)", user.username, user.role)
     return Token(access_token=access_token, refresh_token=refresh_token)
 
@@ -86,6 +86,6 @@ async def refresh_token(
     if user is None or not user.is_active:
         raise credentials_error
 
-    new_access_token = create_access_token(data={"sub": user.username})
+    new_access_token = create_access_token(data={"sub": user.username, "role": user.role})
     logger.info("Odświeżono token dla użytkownika: %s", user.username)
     return Token(access_token=new_access_token)
