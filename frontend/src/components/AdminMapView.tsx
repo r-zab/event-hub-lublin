@@ -217,7 +217,7 @@ export function AdminMapView() {
   const belowMinZoom = currentZoom < BUILDINGS_MIN_ZOOM && currentZoom > 0;
 
   return (
-    <div className="relative w-full" style={{ height: 'calc(100vh - 220px)', minHeight: '500px' }}>
+    <div className="relative w-full min-h-[500px]" style={{ height: 'calc(100vh - 220px)' }}>
       <MapContainer
         center={LUBLIN_CENTER}
         zoom={15}

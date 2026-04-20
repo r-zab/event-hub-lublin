@@ -219,9 +219,10 @@ const Index = () => {
         className="text-white py-12 px-4"
         style={{ background: 'linear-gradient(135deg, hsl(214,65%,36%) 0%, hsl(214,57%,25%) 50%, hsl(214,60%,14%) 100%)' }}
       >
-        <div className="container mx-auto max-w-2xl text-center space-y-6">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-heading leading-tight">
-            Sprawdź, czy w Twojej okolicy występują przerwy w dostawie wody
+        <div className="container mx-auto max-w-4xl text-center space-y-6">
+          <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold font-heading leading-tight whitespace-normal">
+            Sprawdź, czy w Twojej okolicy<br className="hidden sm:block" />
+            {' '}występują przerwy w dostawie wody
           </h1>
           <p className="text-white/75 text-sm sm:text-base">
             Wpisz nazwę ulicy, aby sprawdzić aktywne awarie i planowane wyłączenia.
@@ -363,7 +364,7 @@ const Index = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Mobile: Mapa na górze */}
             <div className="lg:hidden">
-              <div className="h-[400px] rounded-lg overflow-hidden border">
+              <div className="min-h-[300px] h-[400px] rounded-lg overflow-hidden border">
                 <EventMap
                   events={filteredEvents}
                   focusedEventId={focusedEventId}
@@ -396,8 +397,8 @@ const Index = () => {
             </div>
 
             {/* Prawa kolumna: mapa (desktop) */}
-            <div className="hidden lg:block lg:col-span-7">
-              <div className="sticky top-24 h-[calc(100vh-200px)] rounded-lg overflow-hidden border">
+            <div className="hidden lg:flex lg:col-span-7 flex-col">
+              <div className="sticky top-24 h-[calc(100vh-200px)] min-h-[500px] flex-grow rounded-lg overflow-hidden border">
                 <EventMap
                   events={filteredEvents}
                   focusedEventId={focusedEventId}

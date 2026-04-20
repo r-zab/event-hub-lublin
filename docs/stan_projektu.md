@@ -64,6 +64,14 @@ Chronologiczna lista zmian w kodzie od momentu audytu.
 - **UI/UX — Skracanie adresów na kartach** (`EventCard.tsx`): Max 3 budynki widoczne, nadmiar pod tagiem `+X bud.`
 - **UI/UX — Skracanie adresów w tabeli** (`AdminDashboard.tsx`): Max 10 numerów widocznych, nadmiar pod tagiem `+X`.
 
+### 2026-04-20 — Responsywność (skalowanie przeglądarki)
+
+- **RWD — Hero section** (`Index.tsx`): `max-w-2xl` → `max-w-4xl`; rozmiary czcionki h1 `text-2xl md:text-4xl lg:text-5xl`; wymuszony `<br>` przy `sm:` breakpoincie + `whitespace-normal`.
+- **RWD — Mapa strony publicznej** (`Index.tsx`): desktop — dodano `min-h-[500px]` + `flex-grow` na kontener mapy sticky; mobile — dodano `min-h-[300px]` jako dolny limit.
+- **RWD — Mapa admina** (`AdminMapView.tsx`): `minHeight: '500px'` przeniesione z inline-style do klasy Tailwind `min-h-[500px]`.
+- **RWD — AdminLayout** (`AdminLayout.tsx`): `overflow-x-auto` na `<main>`, zapobiega przysłanianiu treści przy wąskim viewporcie (200% zoom).
+- **RWD — AddressRow** (`AddressRow.tsx`): Grid `sm:grid-cols-[minmax(0,1fr)_minmax(6rem,auto)_...]` zamiast `[1fr_auto_auto_auto]`; pola numeru domu/mieszkania `w-full min-w-[5rem]` zamiast stałego `w-24`.
+
 ---
 
 ## 1. Status ogólny projektu

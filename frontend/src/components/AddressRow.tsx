@@ -101,7 +101,7 @@ export function AddressRow({
   );
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-3 items-end p-3 rounded-lg bg-muted/50 border border-border/50">
+    <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(6rem,auto)_minmax(6rem,auto)_auto] gap-3 items-end p-3 rounded-lg bg-muted/50 border border-border/50">
       <div className="relative" ref={wrapperRef}>
         <Label htmlFor={`street-${index}`} className="text-xs font-medium mb-1 block">
           Ulica * <span className="text-muted-foreground">(min. 3 znaki)</span>
@@ -166,7 +166,7 @@ export function AddressRow({
             }}
             onFocus={() => buildings.length > 0 && setShowHouseDropdown(true)}
             placeholder="np. 10"
-            className={`w-24 pr-7 ${houseNumberError ? 'border-destructive' : ''}`}
+            className={`w-full min-w-[5rem] pr-7 ${houseNumberError ? 'border-destructive' : ''}`}
             required
             aria-label="Numer budynku"
             aria-invalid={!!houseNumberError}
@@ -210,7 +210,7 @@ export function AddressRow({
           value={apartment_number}
           onChange={(e) => onChange(index, 'apartment_number', e.target.value)}
           placeholder="np. 5"
-          className="w-24"
+          className="w-full min-w-[5rem]"
           aria-label="Numer mieszkania (opcjonalne)"
         />
       </div>
