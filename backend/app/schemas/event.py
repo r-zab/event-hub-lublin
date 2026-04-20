@@ -38,6 +38,7 @@ class EventBase(BaseModel):
     start_time: datetime | None = None
     estimated_end: datetime | None = None
     geojson_segment: dict | None = None
+    custom_message: str | None = None
 
 
 class EventCreate(EventBase):
@@ -58,6 +59,7 @@ class EventUpdate(BaseModel):
     start_time: datetime | None = None
     estimated_end: datetime | None = None
     geojson_segment: dict | None = None
+    custom_message: str | None = None
 
 
 class EventHistoryResponse(BaseModel):

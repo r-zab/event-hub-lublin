@@ -540,6 +540,15 @@ async def notify_event(event_id: int, old_status: str | None = None) -> None:
                     old_status,
                     event.status,
                 )
+            elif event.custom_message:
+                # Dyspozytor nadpisał treść powiadomienia własnym komunikatem
+                sms_text = event.custom_message
+                email_subject = build_email_subject(event)
+                email_body = event.custom_message
+                logger.info(
+                    "notify_event: zdarzenie id=%d, custom_message ustawiony — używam treści dyspozytora",
+                    event_id,
+                )
             else:
                 # Nowe zdarzenie — szablon "nowe zgłoszenie"
                 sms_text = build_sms_message(event)

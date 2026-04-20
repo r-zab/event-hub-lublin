@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, GeoJSON, useMap, useMapEvents } from 'react-le
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -51,6 +52,7 @@ interface QueueItem {
   start_time: string | null;
   estimated_end: string | null;
   geojson_segment: object | null;
+  custom_message: string;
   displayLabel: string;
 }
 
@@ -97,6 +99,16 @@ function buildDisplayLabel(houseFrom: string, houseTo: string, selectedNums: str
   if (selectedNums.length > 0) return formatBuildingNumbers(selectedNums);
   if (houseFrom || houseTo) return `nr ${houseFrom || '?'}–${houseTo || '?'}`;
   return 'wszystkie budynki';
+}
+
+// Skrócony opis adresów do SMS — zapobiega "ścianie tekstu" przy setkach numerów
+function buildShortAddressLabel(houseFrom: string, houseTo: string, selectedNums: string[]): string {
+  if (selectedNums.length === 0) {
+    if (houseFrom || houseTo) return `nr ${houseFrom || '?'}-${houseTo || '?'}`;
+    return '';
+  }
+  if (selectedNums.length <= 5) return `nr ${selectedNums.join(', ')}`;
+  return `nr ${selectedNums[0]}-${selectedNums[selectedNums.length - 1]}`;
 }
 
 
@@ -275,6 +287,12 @@ const AdminEventForm = () => {
   const [houseFromError, setHouseFromError] = useState<string | null>(null);
   const [showHouseFromDropdown, setShowHouseFromDropdown] = useState(false);
   const houseFromWrapperRef = useRef<HTMLDivElement>(null);
+  const [showHouseToDropdown, setShowHouseToDropdown] = useState(false);
+  const houseToWrapperRef = useRef<HTMLDivElement>(null);
+
+  // --- Edytowalna treść powiadomienia ---
+  const [customMessage, setCustomMessage] = useState('');
+  const [isMessageEdited, setIsMessageEdited] = useState(false);
 
   // --- Kolejka (bulk) ---
   const [eventsQueue, setEventsQueue] = useState<QueueItem[]>([]);
@@ -405,6 +423,8 @@ const AdminEventForm = () => {
         setShowSuggestions(false);
       if (houseFromWrapperRef.current && !houseFromWrapperRef.current.contains(e.target as Node))
         setShowHouseFromDropdown(false);
+      if (houseToWrapperRef.current && !houseToWrapperRef.current.contains(e.target as Node))
+        setShowHouseToDropdown(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -465,6 +485,37 @@ const AdminEventForm = () => {
       ),
     [availableHouseNumbers, houseFrom],
   );
+
+  const filteredToNumbers = useMemo(
+    () =>
+      availableHouseNumbers.filter(
+        (n) => !houseTo || n.toUpperCase().startsWith(houseTo.trim().toUpperCase()),
+      ),
+    [availableHouseNumbers, houseTo],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Auto-generowanie treści powiadomienia (tylko gdy dyspozytor nie edytował ręcznie)
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (isMessageEdited) return;
+    if (!eventType || !selectedStreet) {
+      setCustomMessage('');
+      return;
+    }
+    const typeLabel = TYPE_LABELS[eventType] ?? eventType;
+    const streetName = selectedStreet.full_name || selectedStreet.name || streetQuery;
+    const addrPart = buildShortAddressLabel(houseFrom, houseTo, selectedNums);
+    const addrStr = addrPart ? ` ${addrPart}` : '';
+    const endPart = estimatedEnd
+      ? new Date(estimatedEnd).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' })
+      : 'nieznany';
+    const descPart = description ? ` ${description}.` : '';
+    setCustomMessage(
+      `MPWiK Lublin: ${typeLabel} na ul. ${streetName}${addrStr}.${descPart} Szacowany czas naprawy: ${endPart}. Za utrudnienia przepraszamy. tel. 994`,
+    );
+  }, [eventType, selectedStreet, houseFrom, houseTo, selectedNums, estimatedEnd, description, isMessageEdited]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------------------------------------------------------------------------
   // Handlery zaznaczania budynków
@@ -580,11 +631,12 @@ const AdminEventForm = () => {
       start_time: startTime ? toUTCISO(startTime) : null,
       estimated_end: estimatedEnd ? toUTCISO(estimatedEnd) : null,
       geojson_segment,
+      custom_message: customMessage,
       displayLabel: buildDisplayLabel(houseFrom, houseTo, selectedNums),
     };
   }, [
     eventType, selectedStreet, streetQuery, houseFrom, houseTo,
-    description, status, startTime, estimatedEnd, buildingFeatures, selectedBuildingIds, selectedNums,
+    description, status, startTime, estimatedEnd, buildingFeatures, selectedBuildingIds, selectedNums, customMessage,
   ]);
 
   // ---------------------------------------------------------------------------
@@ -618,6 +670,8 @@ const AdminEventForm = () => {
     setHouseTo('');
     setDescription('');
     setActiveTab('map');
+    setIsMessageEdited(false);
+    setCustomMessage('');
   };
 
   const removeFromQueue = (qId: string) => {
@@ -669,6 +723,7 @@ const AdminEventForm = () => {
           start_time: item.start_time,
           estimated_end: item.estimated_end,
           geojson_segment: item.geojson_segment,
+          custom_message: item.custom_message || null,
         });
         toast({ title: 'Zdarzenie zaktualizowane', description: 'Zmiany zostały zapisane.' });
       } else {
@@ -686,6 +741,7 @@ const AdminEventForm = () => {
                 status: item.status,
                 estimated_end: item.estimated_end,
                 geojson_segment: item.geojson_segment,
+                custom_message: item.custom_message || null,
               }),
             }),
           ),
@@ -895,15 +951,38 @@ const AdminEventForm = () => {
                       </ul>
                     )}
                   </div>
-                  <div>
+                  <div ref={houseToWrapperRef} className="relative">
                     <Label htmlFor="house-to">Nr posesji do</Label>
                     <Input
                       id="house-to"
                       value={houseTo}
-                      onChange={(e) => setHouseTo(e.target.value)}
+                      onChange={(e) => {
+                        setHouseTo(e.target.value);
+                        if (availableHouseNumbers.length > 0) setShowHouseToDropdown(true);
+                      }}
+                      onFocus={() => availableHouseNumbers.length > 0 && setShowHouseToDropdown(true)}
                       placeholder="np. 20"
                       aria-label="Numer posesji do"
+                      autoComplete="off"
                     />
+                    {showHouseToDropdown && filteredToNumbers.length > 0 && (
+                      <ul className="absolute z-20 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
+                        {filteredToNumbers.slice(0, 20).map((n) => (
+                          <li
+                            key={n}
+                            className="px-3 py-1.5 text-sm cursor-pointer hover:bg-accent transition-colors"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              selectionSourceRef.current = 'range';
+                              setHouseTo(n);
+                              setShowHouseToDropdown(false);
+                            }}
+                          >
+                            {n}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 </div>
                 <Button
@@ -1126,6 +1205,52 @@ const AdminEventForm = () => {
             )}
           </div>
         )}
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Kafelek podglądu / edycji treści powiadomienia                  */}
+        {/* ---------------------------------------------------------------- */}
+        <Card className="p-4 bg-muted/30 border-primary/20">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <Label htmlFor="custom-message" className="text-sm font-semibold">
+                Podgląd wiadomości dla mieszkańców (SMS/E-mail)
+              </Label>
+              {isMessageEdited && (
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground underline hover:text-foreground"
+                  onClick={() => {
+                    setIsMessageEdited(false);
+                  }}
+                >
+                  Przywróć automatyczny
+                </button>
+              )}
+            </div>
+            <Textarea
+              id="custom-message"
+              value={customMessage}
+              onChange={(e) => {
+                setCustomMessage(e.target.value);
+                setIsMessageEdited(true);
+              }}
+              rows={4}
+              placeholder="Treść wiadomości zostanie wygenerowana automatycznie po wyborze ulicy i typu zdarzenia."
+              aria-label="Treść powiadomienia SMS/E-mail"
+              className="text-sm resize-none"
+            />
+            <p className="text-xs text-muted-foreground">
+              {isMessageEdited
+                ? 'Treść zmodyfikowana ręcznie — zostanie wysłana do mieszkańców zamiast szablonu.'
+                : 'Treść generowana automatycznie. Możesz ją edytować przed zapisem.'}
+              {customMessage.length > 0 && (
+                <span className={`ml-2 ${customMessage.length > 160 ? 'text-amber-600' : ''}`}>
+                  ({customMessage.length} zn.{customMessage.length > 160 ? ' — ponad 1 SMS' : ''})
+                </span>
+              )}
+            </p>
+          </div>
+        </Card>
 
         {/* ---------------------------------------------------------------- */}
         {/* Przyciski submit / anuluj                                        */}
