@@ -71,6 +71,9 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     if (retryRes.status === 204) return undefined as T;
     return retryRes.json();
   }
+  if (res.status === 429) {
+    throw new Error("Zbyt wiele zapytań — odczekaj chwilę i spróbuj ponownie.");
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     throw new Error(body || `HTTP ${res.status}`);

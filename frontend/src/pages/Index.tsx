@@ -345,7 +345,7 @@ const Index = () => {
       </section>
 
       {/* Side-by-Side Layout */}
-      <section className="container mx-auto px-4 py-8">
+      <section className="container mx-auto px-4">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -361,50 +361,40 @@ const Index = () => {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Mobile: Mapa na górze */}
-            <div className="lg:hidden">
-              <div className="min-h-[300px] h-[400px] rounded-lg overflow-hidden border">
-                <EventMap
-                  events={filteredEvents}
-                  focusedEventId={focusedEventId}
-                  setFocusedEventId={setFocusedEventId}
-                />
-              </div>
-            </div>
+          <div className="flex flex-col lg:flex-row h-[80vh] min-h-[500px] w-full border rounded-xl overflow-hidden shadow-sm my-4 bg-background">
 
-            {/* Lewa kolumna: lista zdarzeń */}
-            <div className="lg:col-span-5">
-              <h2 className="font-heading text-xl font-bold mb-4">
-                Aktywne zdarzenia
-                {searchDescription && (
-                  <span className="text-sm font-normal text-muted-foreground ml-2">
-                    — wyniki dla {searchDescription}
-                  </span>
+            {/* Lewa kolumna: lista zdarzeń z wewnętrznym scrollem */}
+            <div className="w-full lg:w-[400px] xl:w-[450px] flex flex-col border-r h-[50%] lg:h-full flex-shrink-0">
+              <div className="p-4 space-y-4 flex-1 overflow-y-auto min-h-0">
+                <h2 className="font-heading text-xl font-bold">
+                  Aktywne zdarzenia
+                  {searchDescription && (
+                    <span className="text-sm font-normal text-muted-foreground ml-2">
+                      — wyniki dla {searchDescription}
+                    </span>
+                  )}
+                </h2>
+                {filteredEvents.length === 0 ? (
+                  <p className="text-muted-foreground text-sm py-4">
+                    Brak wyników dla podanej frazy.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredEvents.map((event) => (
+                      <EventCard key={event.id} event={event} onFocus={setFocusedEventId} />
+                    ))}
+                  </div>
                 )}
-              </h2>
-              {filteredEvents.length === 0 ? (
-                <p className="text-muted-foreground text-sm py-4">
-                  Brak wyników dla podanej frazy.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {filteredEvents.map((event) => (
-                    <EventCard key={event.id} event={event} onFocus={setFocusedEventId} />
-                  ))}
-                </div>
-              )}
+              </div>
             </div>
 
-            {/* Prawa kolumna: mapa (desktop) */}
-            <div className="hidden lg:flex lg:col-span-7 flex-col">
-              <div className="sticky top-24 h-[calc(100vh-200px)] min-h-[500px] flex-grow rounded-lg overflow-hidden border">
-                <EventMap
-                  events={filteredEvents}
-                  focusedEventId={focusedEventId}
-                  setFocusedEventId={setFocusedEventId}
-                />
-              </div>
+            {/* Prawa kolumna: mapa wypełniająca resztę miejsca */}
+            <div className="flex-1 relative min-h-0 h-[50%] lg:h-full">
+              <EventMap
+                events={filteredEvents}
+                focusedEventId={focusedEventId}
+                setFocusedEventId={setFocusedEventId}
+              />
             </div>
           </div>
         )}

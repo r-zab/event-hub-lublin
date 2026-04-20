@@ -17,7 +17,7 @@ Punkty wymagające natychmiastowej uwagi przed wdrożeniem produkcyjnym:
 | P3 | 🟡 WAŻE | **Testy penetracyjne `/auth/login` pod kątem brute-force** — rate limit 5/min jest, ale brak blokady IP po N nieudanych próbach, brak CAPTCHA, brak alertu na e-mail admina. | `backend/app/routers/auth.py` |
 | P4 | 🟡 WAŻE | **Endpoint IVR 994** (`GET /events/feed`, sekcja 3.2.5) — plain-text z aktywnymi awariami dla automatu telefonicznego. Killer-feature na Festiwal Biznesu, ~10 linii kodu. | `backend/app/routers/events.py` |
 | P5 | 🟡 WAŻE | **Ostateczny audyt WCAG axe/Lighthouse** — po wszystkich poprawkach UI/UX z ostatnich dni wymagana jest pełna weryfikacja na stronach: `/`, `/register`, `/admin/dashboard`, `/admin/events/new`. | — |
-| P6 | 🟢 NISKI | **Obsługa HTTP 429 na froncie** — `apiFetch` nie obsługuje statusu `429`. Użytkownik widzi cichy błąd zamiast komunikatu „Przekroczono limit — spróbuj za chwilę". | `frontend/src/lib/api.ts` |
+| P6 | ✅ GOTOWE | **Obsługa HTTP 429 na froncie** — `apiFetch` nie obsługuje statusu `429`. Użytkownik widzi cichy błąd zamiast komunikatu „Przekroczono limit — spróbuj za chwilę". | `frontend/src/lib/api.ts` |
 | P7 | 🟢 NISKI | **Testy jednostkowe escapowania LIKE** — `streets.py` ma logikę escapowania `%`, `_`, `\`, ale brak pokrycia testami. Regresja mogłaby przywrócić podatność DoS. | `backend/tests/test_streets.py` |
 
 ---
@@ -67,7 +67,7 @@ Chronologiczna lista zmian w kodzie od momentu audytu.
 ### 2026-04-20 — Responsywność (skalowanie przeglądarki)
 
 - **RWD — Hero section** (`Index.tsx`): `max-w-2xl` → `max-w-4xl`; rozmiary czcionki h1 `text-2xl md:text-4xl lg:text-5xl`; wymuszony `<br>` przy `sm:` breakpoincie + `whitespace-normal`.
-- **RWD — Mapa strony publicznej** (`Index.tsx`): desktop — dodano `min-h-[500px]` + `flex-grow` na kontener mapy sticky; mobile — dodano `min-h-[300px]` jako dolny limit.
+- **RWD — Niezależny scroll na stronie publicznej** (`Index.tsx`): Odseparowano scrollowanie listy awarii od kontenera mapy. Cały blok zyskał wysokość relatywną (`85vh`), lista awarii otrzymała wewnętrzny suwak (`overflow-y-auto`), a mapa płynnie dopasowuje się do reszty miejsca (`flex-1 min-h-0`). Zapobiega to wypychaniu stopki poza ekran i tworzeniu gigantycznej mapy przy kilkunastu awariach.
 - **RWD — Mapa admina** (`AdminMapView.tsx`): `minHeight: '500px'` przeniesione z inline-style do klasy Tailwind `min-h-[500px]`.
 - **RWD — AdminLayout** (`AdminLayout.tsx`): `overflow-x-auto` na `<main>`, zapobiega przysłanianiu treści przy wąskim viewporcie (200% zoom).
 - **RWD — AddressRow** (`AddressRow.tsx`): Grid `sm:grid-cols-[minmax(0,1fr)_minmax(6rem,auto)_...]` zamiast `[1fr_auto_auto_auto]`; pola numeru domu/mieszkania `w-full min-w-[5rem]` zamiast stałego `w-24`.
@@ -254,11 +254,10 @@ Projekt ma **bazowe** wsparcie a11y (`aria-label`, `aria-hidden`, `role="listbox
 
 ### 3.4. 🔵 NOWE luki odkryte podczas poprawek (nie były w pierwotnej liście)
 
-#### 3.4.1. Brak obsługi HTTP 429 na froncie
+#### ✅ NAPRAWIONO 3.4.1. Brak obsługi HTTP 429 na froncie
 
 - **Plik:** `frontend/src/lib/api.ts`
-- `apiFetch` obsługuje tylko 401 (refresh) i ogólny `!response.ok` (throw error). Odpowiedź `429 Too Many Requests` jest traktowana jak każdy inny błąd HTTP — toast z technicznym komunikatem lub cisza.
-- **Rekomendacja:** Dodać `if (response.status === 429) throw new Error("Zbyt wiele zapytań — odczekaj chwilę i spróbuj ponownie")`.
+- **Naprawiono (2026-04-20):** Przed ogólnym `if (!res.ok)` dodano `if (res.status === 429) throw new Error("Zbyt wiele zapytań — odczekaj chwilę i spróbuj ponownie.")`. Użytkownik zobaczy czytelny komunikat w toaście zamiast technicznego błędu HTTP.
 
 #### 3.4.2. Brak testów jednostkowych dla logiki escapowania LIKE
 
