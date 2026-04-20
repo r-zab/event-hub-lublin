@@ -1,4 +1,4 @@
-# Kontekst projektu - Event Hub Lublin
+# Kontekst projektu — System Powiadomień MPWiK Lublin
 
 ## 1. Czym jest ten projekt
 

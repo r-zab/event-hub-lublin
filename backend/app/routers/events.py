@@ -8,15 +8,15 @@ from asyncio import Task
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.dependencies import get_current_user, get_db
+from app.dependencies import get_current_dispatcher_or_admin, get_current_user, get_db
 from app.models.event import Event, EventHistory
 from app.models.street import Street
 from app.models.user import User
-from app.schemas.event import EventCreate, EventResponse, EventUpdate
+from app.schemas.event import EventCreate, EventResponse, EventUpdate, PaginatedEventResponse
 from app.services.notification_service import notify_event
 
 logger = logging.getLogger(__name__)
@@ -34,17 +34,34 @@ def _log_task_exception(task: Task) -> None:
         )
 
 
-@router.get("", response_model=list[EventResponse], summary="Lista aktywnych zdarzeń")
+@router.get("", response_model=PaginatedEventResponse, summary="Lista aktywnych zdarzeń")
 async def list_events(
     skip: Annotated[int, Query(ge=0, description="Pominięte rekordy")] = 0,
-    limit: Annotated[int, Query(ge=1, le=100, description="Liczba wyników (max 100)")] = 20,
+    limit: Annotated[int, Query(ge=1, le=200, description="Liczba wyników (max 200)")] = 20,
+    search: str | None = Query(None, description="Szukaj po nazwie ulicy lub opisie"),
+    status_filter: str | None = Query(None, description="Filtruj po statusie"),
+    type_filter: str | None = Query(None, description="Filtruj po typie zdarzenia"),
     db: AsyncSession = Depends(get_db),
-) -> list[EventResponse]:
-    """Zwróć listę aktywnych zdarzeń (status != 'usunieta'). Endpoint publiczny."""
+) -> dict:
+    """Zwróć paginowaną listę aktywnych zdarzeń (status != 'usunieta'). Endpoint publiczny."""
+    filters = [Event.status != "usunieta"]
+    if search:
+        pattern = f"%{search}%"
+        filters.append(
+            or_(Event.street_name.ilike(pattern), Event.description.ilike(pattern))
+        )
+    if status_filter and status_filter != "all":
+        filters.append(Event.status == status_filter)
+    if type_filter and type_filter != "all":
+        filters.append(Event.event_type == type_filter)
+
+    count_result = await db.execute(select(func.count(Event.id)).where(*filters))
+    total_count: int = count_result.scalar_one()
+
     result = await db.execute(
         select(Event)
         .options(selectinload(Event.history), selectinload(Event.street), selectinload(Event.notifications))
-        .where(Event.status != "usunieta")
+        .where(*filters)
         .order_by(Event.created_at.desc())
         .offset(skip)
         .limit(limit)
@@ -53,8 +70,8 @@ async def list_events(
     for event in events:
         event.street_geojson = event.street.geojson if event.street else None
         event.notified_count = len(event.notifications)
-    logger.debug("Lista zdarzeń: skip=%d limit=%d → %d wyników", skip, limit, len(events))
-    return events
+    logger.debug("Lista zdarzeń: skip=%d limit=%d total=%d", skip, limit, total_count)
+    return {"items": events, "total_count": total_count}
 
 
 @router.get("/{event_id}", response_model=EventResponse, summary="Szczegóły zdarzenia")
@@ -80,9 +97,9 @@ async def get_event(
 async def create_event(
     data: EventCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_dispatcher_or_admin),
 ) -> EventResponse:
-    """Utwórz nowe zdarzenie. Wymaga JWT."""
+    """Utwórz nowe zdarzenie. Wymaga roli dispatcher lub admin."""
     event = Event(**data.model_dump(), created_by=current_user.id)
     db.add(event)
     await db.commit()
@@ -140,9 +157,9 @@ async def update_event(
     event_id: int,
     data: EventUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_dispatcher_or_admin),
 ) -> EventResponse:
-    """Aktualizuj zdarzenie. Przy zmianie statusu zapisuje wpis do event_history. Wymaga JWT."""
+    """Aktualizuj zdarzenie. Przy zmianie statusu zapisuje wpis do event_history. Wymaga roli dispatcher lub admin."""
     result = await db.execute(
         select(Event)
         .options(selectinload(Event.history), selectinload(Event.street))

@@ -1,4 +1,4 @@
-# Zasady pracy — Event Hub Lublin
+# Zasady pracy — System Powiadomień MPWiK Lublin
 
 ## Scope
 - Pracujemy TYLKO nad backendem (backend/)

@@ -1,4 +1,4 @@
-# Progress — Event Hub Lublin
+# Progress — System Powiadomień MPWiK Lublin
 
 ## Aktualny etap: INTEGRACJA FULL-STACK
 

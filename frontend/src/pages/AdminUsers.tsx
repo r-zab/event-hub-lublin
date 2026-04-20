@@ -247,7 +247,7 @@ export default function AdminUsers() {
               <div className="space-y-1.5">
                 <Label>Rola</Label>
                 <Select value={newRole} onValueChange={(v) => setNewRole(v as 'admin' | 'dispatcher')}>
-                  <SelectTrigger>
+                  <SelectTrigger aria-label="Wybierz rolę">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -340,7 +340,7 @@ export default function AdminUsers() {
                           }
                           disabled={roleMutation.isPending}
                         >
-                          <SelectTrigger className="h-8 w-[130px] text-xs">
+                          <SelectTrigger className="h-8 w-[130px] text-xs" aria-label={`Zmień rolę użytkownika ${user.username}`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -370,8 +370,9 @@ export default function AdminUsers() {
                               size="icon"
                               className="h-8 w-8 text-destructive hover:text-destructive"
                               disabled={deleteMutation.isPending}
+                              aria-label={`Usuń konto ${user.username}`}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" aria-hidden="true" />
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>

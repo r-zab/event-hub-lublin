@@ -55,7 +55,7 @@ def fetch(query: str, label: str) -> list:
             OVERPASS_URL,
             data={"data": query},
             timeout=240,
-            headers={"User-Agent": "EventHubLublin/1.0 (MPWiK projekt PL)"},
+            headers={"User-Agent": "MPWiKLublin-Powiadomienia/1.0 (MPWiK projekt PL)"},
         )
         r.raise_for_status()
     except requests.Timeout:

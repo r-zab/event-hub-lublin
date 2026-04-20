@@ -9,6 +9,34 @@ function getAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+function clearSessionAndRedirect() {
+  localStorage.removeItem('mpwik_token');
+  localStorage.removeItem('mpwik_refresh_token');
+  window.location.href = '/admin/login';
+}
+
+async function tryRefreshToken(): Promise<string | null> {
+  const refreshToken = localStorage.getItem('mpwik_refresh_token');
+  if (!refreshToken) return null;
+  try {
+    const res = await fetch(`${BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) return null;
+    const data: { access_token?: string; refresh_token?: string } = await res.json();
+    if (!data.access_token) return null;
+    localStorage.setItem('mpwik_token', data.access_token);
+    if (data.refresh_token) {
+      localStorage.setItem('mpwik_refresh_token', data.refresh_token);
+    }
+    return data.access_token;
+  } catch {
+    return null;
+  }
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
@@ -19,10 +47,29 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     },
   });
   if (res.status === 401) {
-    localStorage.removeItem('mpwik_token');
-    localStorage.removeItem('mpwik_refresh_token');
-    window.location.href = '/admin/login';
-    return undefined as T;
+    const newToken = await tryRefreshToken();
+    if (!newToken) {
+      clearSessionAndRedirect();
+      return undefined as T;
+    }
+    const retryRes = await fetch(`${BASE_URL}${path}`, {
+      ...init,
+      headers: {
+        ...defaultHeaders,
+        Authorization: `Bearer ${newToken}`,
+        ...(init?.headers ?? {}),
+      },
+    });
+    if (retryRes.status === 401) {
+      clearSessionAndRedirect();
+      return undefined as T;
+    }
+    if (!retryRes.ok) {
+      const body = await retryRes.text().catch(() => '');
+      throw new Error(body || `HTTP ${retryRes.status}`);
+    }
+    if (retryRes.status === 204) return undefined as T;
+    return retryRes.json();
   }
   if (!res.ok) {
     const body = await res.text().catch(() => '');

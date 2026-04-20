@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { useStreets } from '@/hooks/useStreets';
 import { apiFetch } from '@/lib/api';
@@ -733,7 +734,7 @@ const AdminEventForm = () => {
     : 'Zapisz i powiadom mieszkańców';
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="w-full max-w-3xl space-y-6">
       <h1 className="font-heading text-2xl font-bold">
         {isEdit ? `Edytuj zdarzenie #${id}` : 'Nowe zdarzenie'}
       </h1>
@@ -840,9 +841,9 @@ const AdminEventForm = () => {
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid grid-cols-3 w-full">
-                <TabsTrigger value="map">Zaznacz na mapie</TabsTrigger>
-                <TabsTrigger value="range">Zakres numerów</TabsTrigger>
-                <TabsTrigger value="list">Lista numerów</TabsTrigger>
+                <TabsTrigger value="map" className="text-xs sm:text-sm">Zaznacz na mapie</TabsTrigger>
+                <TabsTrigger value="range" className="text-xs sm:text-sm">Zakres numerów</TabsTrigger>
+                <TabsTrigger value="list" className="text-xs sm:text-sm">Lista numerów</TabsTrigger>
               </TabsList>
 
               {/* --- Zakładka 1: hint --- */}
@@ -854,7 +855,7 @@ const AdminEventForm = () => {
 
               {/* --- Zakładka 2: Zakres numerów --- */}
               <TabsContent value="range" className="space-y-4 mt-3">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div ref={houseFromWrapperRef} className="relative">
                     <Label htmlFor="house-from">Nr posesji od</Label>
                     <Input
@@ -914,13 +915,20 @@ const AdminEventForm = () => {
                   Zastosuj zakres
                 </Button>
                 {selectedBuildingIds.size > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Zaznaczono {selectedBuildingIds.size} budynków:{' '}
-                    <span className="font-medium">
-                      {selectedNums.slice(0, 12).join(', ')}
-                      {selectedNums.length > 12 ? '…' : ''}
-                    </span>
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      Zaznaczono {selectedBuildingIds.size} budynków:
+                    </p>
+                    <ScrollArea className="max-h-[80px] pr-2">
+                      <div className="flex flex-wrap gap-1">
+                        {selectedNums.map((n) => (
+                          <Badge key={n} variant="secondary" className="text-xs px-2 py-0.5 font-normal">
+                            {n}
+                          </Badge>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
                 )}
                 {buildings.length === 0 && (houseFrom || houseTo) && (
                   <p className="text-xs text-amber-600">
@@ -983,7 +991,7 @@ const AdminEventForm = () => {
                     center={LUBLIN_CENTER}
                     zoom={16}
                     scrollWheelZoom
-                    className="w-full h-[380px] z-0"
+                    className="w-full h-[300px] sm:h-[380px] z-0"
                     maxBounds={LUBLIN_BOUNDS}
                     maxBoundsViscosity={1.0}
                     minZoom={MIN_ZOOM}
@@ -1032,7 +1040,7 @@ const AdminEventForm = () => {
         {/* ---------------------------------------------------------------- */}
         {/* Status + szacowany czas                                          */}
         {/* ---------------------------------------------------------------- */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label>Status *</Label>
             <Select value={status} onValueChange={setStatus}>
@@ -1122,7 +1130,7 @@ const AdminEventForm = () => {
         {/* ---------------------------------------------------------------- */}
         {/* Przyciski submit / anuluj                                        */}
         {/* ---------------------------------------------------------------- */}
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <Button
             type="button"
             size="lg"

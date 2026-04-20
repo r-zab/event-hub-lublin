@@ -4,6 +4,7 @@ import { Plus, Search, ChevronDown, ChevronRight, Mail, Loader2, AlertTriangle, 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Badge } from '@/components/ui/badge';
 import { useEvents, deleteEvent } from '@/hooks/useEvents';
 import {
   type EventStatus,
@@ -44,9 +45,14 @@ const AdminDashboard = () => {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const { events, allEvents, totalPages, currentPage, isLoading, error, refetch } = useEvents({
+  const { events, totalPages, currentPage, isLoading, error, refetch } = useEvents({
     search, statusFilter, typeFilter, page,
   });
+
+  // Statystyki — osobne zapytania bez filtrów (limit=1 wystarczy do uzyskania total_count)
+  const { totalCount: activeCount } = useEvents({ limit: 1 });
+  const { totalCount: avariaCount } = useEvents({ typeFilter: 'awaria', limit: 1 });
+  const { totalCount: planowaneCount } = useEvents({ typeFilter: 'planowane_wylaczenie', limit: 1 });
 
   const handleDeleteConfirm = async () => {
     if (deleteId === null) return;
@@ -62,10 +68,6 @@ const AdminDashboard = () => {
       setIsDeleting(false);
     }
   };
-
-  const activeCount = allEvents.filter((e) => e.status !== 'usunieta').length;
-  const awaria = allEvents.filter((e) => e.event_type === 'awaria' && e.status !== 'usunieta').length;
-  const planowane = allEvents.filter((e) => e.event_type === 'planowane_wylaczenie' && e.status !== 'usunieta').length;
 
   const toggleRow = (id: number) => {
     setExpandedRows((prev) => {
@@ -103,7 +105,7 @@ const AdminDashboard = () => {
           <CardContent className="flex items-center gap-3 pt-6">
             <Wrench className="h-8 w-8 text-status-repairing" />
             <div>
-              <p className="text-2xl font-bold">{awaria}</p>
+              <p className="text-2xl font-bold">{avariaCount}</p>
               <p className="text-sm text-muted-foreground">Awarie</p>
             </div>
           </CardContent>
@@ -112,7 +114,7 @@ const AdminDashboard = () => {
           <CardContent className="flex items-center gap-3 pt-6">
             <Calendar className="h-8 w-8 text-status-planned" />
             <div>
-              <p className="text-2xl font-bold">{planowane}</p>
+              <p className="text-2xl font-bold">{planowaneCount}</p>
               <p className="text-sm text-muted-foreground">Planowane wyłączenia</p>
             </div>
           </CardContent>
@@ -147,7 +149,7 @@ const AdminDashboard = () => {
           value={typeFilter}
           onValueChange={(v) => { setTypeFilter(v as EventType | ''); setPage(1); }}
         >
-          <SelectTrigger className="w-full sm:w-48">
+          <SelectTrigger className="w-full sm:w-48" aria-label="Wybierz typ zdarzenia">
             <SelectValue placeholder="Typ zdarzenia" />
           </SelectTrigger>
           <SelectContent>
@@ -161,7 +163,7 @@ const AdminDashboard = () => {
           value={statusFilter}
           onValueChange={(v) => { setStatusFilter(v as EventStatus | ''); setPage(1); }}
         >
-          <SelectTrigger className="w-full sm:w-48">
+          <SelectTrigger className="w-full sm:w-48" aria-label="Wybierz status zdarzenia">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -213,11 +215,26 @@ const AdminDashboard = () => {
             ) : (
               events.map((event) => {
                 const isOpen = expandedRows.has(event.id);
+                const numbersStr = formatEventNumbers(event);
+                let displayNums = numbersStr;
+                let hiddenNumsCount = 0;
+                if (numbersStr) {
+                  const numList = numbersStr.split(',').map((n) => n.trim());
+                  if (numList.length > 10) {
+                    displayNums = numList.slice(0, 10).join(', ');
+                    hiddenNumsCount = numList.length - 10;
+                  }
+                }
                 return (
                   <Fragment key={event.id}>
-                    <TableRow className="group cursor-pointer hover:bg-muted/40" onClick={() => toggleRow(event.id)}>
+                    <TableRow className="group hover:bg-muted/40" onClick={() => toggleRow(event.id)}>
                       <TableCell>
-                        <button className="p-1" aria-label="Rozwiń historię">
+                        <button
+                          className="p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                          aria-label={isOpen ? 'Zwiń szczegóły' : 'Rozwiń szczegóły'}
+                          aria-expanded={isOpen}
+                          onClick={(e) => { e.stopPropagation(); toggleRow(event.id); }}
+                        >
                           {isOpen
                             ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
                             : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
@@ -225,17 +242,26 @@ const AdminDashboard = () => {
                       </TableCell>
                       <TableCell className="font-mono text-xs">{event.id}</TableCell>
                       <TableCell className="font-medium">{event.street_name}</TableCell>
-                      <TableCell>{formatEventNumbers(event) || '–'}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="line-clamp-2 text-sm max-w-[250px]">{displayNums || '–'}</span>
+                          {hiddenNumsCount > 0 && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+                              +{hiddenNumsCount}
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-sm">{TYPE_LABELS[event.event_type]}</TableCell>
                       <TableCell><StatusBadge status={event.status} /></TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{event.source || 'mpwik'}</TableCell>
+                      <TableCell className="text-sm text-slate-600">{event.source || 'mpwik'}</TableCell>
                       <TableCell>
-                        <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <span className="inline-flex items-center gap-1.5 text-sm text-slate-600">
                           <Mail className="h-3.5 w-3.5" />
                           {event.notified_count ?? '–'}
                         </span>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className="text-sm text-slate-600">
                         {event.created_at ? formatDate(event.created_at) : '–'}
                       </TableCell>
                       <TableCell>

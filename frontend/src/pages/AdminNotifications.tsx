@@ -159,7 +159,7 @@ const AdminNotifications = () => {
           </span>
           <span className="text-muted-foreground">
             Skuteczność:{' '}
-            <span className={`font-semibold ${stats.rate >= 90 ? 'text-green-600' : stats.rate >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
+            <span className={`font-semibold ${stats.rate >= 90 ? 'text-green-700' : stats.rate >= 70 ? 'text-yellow-700' : 'text-red-700'}`}>
               {stats.rate}%
             </span>
           </span>

@@ -65,7 +65,7 @@ def fetch_osm_data() -> dict:
             OVERPASS_URL,
             data={"data": OVERPASS_QUERY},
             timeout=240,
-            headers={"User-Agent": "EventHubLublin/1.0 (MPWiK projekt PL)"},
+            headers={"User-Agent": "MPWiKLublin-Powiadomienia/1.0 (MPWiK projekt PL)"},
         )
         response.raise_for_status()
     except requests.Timeout:

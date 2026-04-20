@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     """Application settings loaded from .env file."""
 
     # App
-    APP_NAME: str = "Event Hub Lublin"
+    APP_NAME: str = "System Powiadomień MPWiK Lublin"
     APP_VERSION: str = "0.1.0"
     DEBUG: bool = True
 
@@ -45,7 +45,7 @@ class Settings(BaseSettings):
 
     # Geocoding
     NOMINATIM_URL: str = "https://nominatim.openstreetmap.org"
-    NOMINATIM_USER_AGENT: str = "EventHubLublin/1.0"
+    NOMINATIM_USER_AGENT: str = "MPWiKLublin-Powiadomienia/1.0"
 
     class Config:
         env_file = ".env"

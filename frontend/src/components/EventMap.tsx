@@ -283,6 +283,8 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
                 position={markerPos}
                 icon={makeIcon(event.event_type)}
                 eventHandlers={markerEvents}
+                title={`Zdarzenie: ${event.street_name}`}
+                alt={`Marker zdarzenia na ulicy ${event.street_name}`}
               >
                 {popup}
               </Marker>
@@ -306,6 +308,8 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
                 position={markerPos}
                 icon={makeIcon(event.event_type)}
                 eventHandlers={markerEvents}
+                title={`Zdarzenie: ${event.street_name}`}
+                alt={`Marker zdarzenia na ulicy ${event.street_name}`}
               >
                 {popup}
               </Marker>
@@ -320,6 +324,8 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
             position={markerPos}
             icon={makeIcon(event.event_type)}
             eventHandlers={markerEvents}
+            title={`Zdarzenie: ${event.street_name}`}
+            alt={`Marker zdarzenia na ulicy ${event.street_name}`}
           >
             {popup}
           </Marker>

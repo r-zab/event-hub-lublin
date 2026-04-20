@@ -1,5 +1,5 @@
 """
-Event Hub Lublin - FastAPI Application
+System Powiadomień MPWiK Lublin - FastAPI Application
 System powiadamiania mieszkancow o awariach sieci wodociagowej.
 """
 
@@ -81,7 +81,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="Event Hub Lublin - System powiadamiania mieszkancow MPWiK Lublin.",
+    description="System Powiadomień MPWiK Lublin — system powiadamiania mieszkańców o awariach sieci wodociągowej.",
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,

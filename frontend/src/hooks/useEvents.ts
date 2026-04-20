@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { type EventItem, type EventStatus, type EventType } from '@/data/mockData';
+import { useState, useEffect } from 'react';
+import { type EventItem } from '@/data/mockData';
 import { apiFetch } from '@/lib/api';
 
 export async function getEvent(id: number): Promise<EventItem> {
@@ -24,20 +24,32 @@ interface UseEventsOptions {
   statusFilter?: string;
   typeFilter?: string;
   page?: number;
+  limit?: number;
+}
+
+interface PaginatedResponse {
+  items: EventItem[];
+  total_count: number;
 }
 
 interface UseEventsReturn {
   events: EventItem[];
-  allEvents: EventItem[];
   totalPages: number;
   currentPage: number;
+  totalCount: number;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
 }
 
-export function useEvents({ search = '', statusFilter = '', typeFilter = '', page = 1 }: UseEventsOptions = {}): UseEventsReturn {
-  const [allEvents, setAllEvents] = useState<EventItem[]>([]);
+export function useEvents({
+  search = '',
+  statusFilter = '',
+  typeFilter = '',
+  page = 1,
+  limit = PAGE_SIZE,
+}: UseEventsOptions = {}): UseEventsReturn {
+  const [data, setData] = useState<PaginatedResponse>({ items: [], total_count: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
@@ -49,14 +61,21 @@ export function useEvents({ search = '', statusFilter = '', typeFilter = '', pag
     setIsLoading(true);
     setError(null);
 
-    apiFetch<EventItem[]>('/events')
-      .then((data) => {
-        if (!cancelled) setAllEvents(data);
+    const params = new URLSearchParams();
+    params.set('skip', String((page - 1) * limit));
+    params.set('limit', String(limit));
+    if (search) params.set('search', search);
+    if (statusFilter && statusFilter !== 'all') params.set('status_filter', statusFilter);
+    if (typeFilter && typeFilter !== 'all') params.set('type_filter', typeFilter);
+
+    apiFetch<PaginatedResponse>(`/events?${params.toString()}`)
+      .then((res) => {
+        if (!cancelled) setData(res ?? { items: [], total_count: 0 });
       })
-      .catch((err) => {
+      .catch(() => {
         if (!cancelled) {
           setError('Nie udało się pobrać zdarzeń z serwera.');
-          setAllEvents([]);
+          setData({ items: [], total_count: 0 });
         }
       })
       .finally(() => {
@@ -64,27 +83,17 @@ export function useEvents({ search = '', statusFilter = '', typeFilter = '', pag
       });
 
     return () => { cancelled = true; };
-  }, [tick]);
+  }, [tick, page, search, statusFilter, typeFilter, limit]);
 
-  const filtered = useMemo(() => {
-    let result = allEvents.filter((e) => e.status !== 'usunieta');
+  const totalPages = Math.max(1, Math.ceil(data.total_count / limit));
 
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter((e) => e.street_name.toLowerCase().includes(q));
-    }
-    if (statusFilter && statusFilter !== 'all') {
-      result = result.filter((e) => e.status === statusFilter);
-    }
-    if (typeFilter && typeFilter !== 'all') {
-      result = result.filter((e) => e.event_type === typeFilter);
-    }
-    return result;
-  }, [allEvents, search, statusFilter, typeFilter]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const events = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-
-  return { events, allEvents, totalPages, currentPage: safePage, isLoading, error, refetch };
+  return {
+    events: data.items,
+    totalPages,
+    currentPage: Math.min(page, totalPages),
+    totalCount: data.total_count,
+    isLoading,
+    error,
+    refetch,
+  };
 }

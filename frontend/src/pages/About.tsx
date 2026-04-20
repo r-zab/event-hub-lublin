@@ -12,7 +12,7 @@ const About = () => (
       <div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
         <Droplets className="h-7 w-7 text-primary" aria-hidden="true" />
       </div>
-      <h1 className="font-heading text-2xl sm:text-3xl font-bold">O systemie Event Hub Lublin</h1>
+      <h1 className="font-heading text-2xl sm:text-3xl font-bold">O systemie Powiadomień MPWiK Lublin</h1>
       <p className="text-muted-foreground max-w-xl mx-auto">
         System powiadamiania mieszkańców o awariach i przerwach w dostawie wody na terenie miasta Lublin.
       </p>
@@ -21,7 +21,7 @@ const About = () => (
     <section className="space-y-4">
       <h2 className="font-heading text-xl font-semibold">Cel projektu</h2>
       <p className="text-sm text-muted-foreground leading-relaxed">
-        Głównym celem systemu <strong>Event Hub Lublin</strong> jest drastyczne skrócenie czasu, w jakim mieszkańcy dowiadują się o awariach sieci wodociągowej. Dotychczasowy model informowania (ogłoszenia na stronie MPWiK, media lokalne) generował opóźnienia sięgające kilku godzin. Nasz system pozwala na natychmiastowe powiadamianie drogą SMS i e-mail wszystkich zarejestrowanych mieszkańców, których adresy znajdują się w strefie objętej zdarzeniem.
+        Głównym celem <strong>Systemu Powiadomień MPWiK Lublin</strong> jest drastyczne skrócenie czasu, w jakim mieszkańcy dowiadują się o awariach sieci wodociągowej. Dotychczasowy model informowania (ogłoszenia na stronie MPWiK, media lokalne) generował opóźnienia sięgające kilku godzin. Nasz system pozwala na natychmiastowe powiadamianie drogą SMS i e-mail wszystkich zarejestrowanych mieszkańców, których adresy znajdują się w strefie objętej zdarzeniem.
       </p>
     </section>
 

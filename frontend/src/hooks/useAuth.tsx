@@ -48,10 +48,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body,
       });
       if (!res.ok) return false;
-      const data = await res.json();
+      const data: { access_token?: string; refresh_token?: string } = await res.json();
       const token = data.access_token;
       if (!token) return false;
       localStorage.setItem('mpwik_token', token);
+      if (data.refresh_token) {
+        localStorage.setItem('mpwik_refresh_token', data.refresh_token);
+      }
       setIsAuthenticated(true);
       setRole(parseJwtRole(token));
       return true;
@@ -62,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem('mpwik_token');
+    localStorage.removeItem('mpwik_refresh_token');
     setIsAuthenticated(false);
     setRole(null);
   }, []);

@@ -97,3 +97,8 @@ class EventResponse(EventBase):
     @field_serializer("created_at", "updated_at", when_used="json")
     def serialize_timestamps(self, v: datetime) -> str | None:
         return _utc_iso(v)
+
+
+class PaginatedEventResponse(BaseModel):
+    items: list[EventResponse]
+    total_count: int

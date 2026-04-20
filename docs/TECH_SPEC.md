@@ -1,4 +1,4 @@
-# Specyfikacja techniczna - Event Hub Lublin
+# Specyfikacja techniczna — System Powiadomień MPWiK Lublin
 
 ## 1. Endpointy API
 

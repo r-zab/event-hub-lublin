@@ -16,9 +16,9 @@ export function PublicLayout() {
     <div className="min-h-screen flex flex-col">
       <header className="sticky top-0 z-50 border-b border-border/60 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
         <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-heading font-bold text-lg text-primary" aria-label="Strona główna Event Hub Lublin">
+          <Link to="/" className="flex items-center gap-2 font-heading font-bold text-lg text-primary" aria-label="Strona główna — System Powiadomień MPWiK Lublin">
             <Droplets className="h-6 w-6" aria-hidden="true" />
-            <span className="hidden sm:inline">Event Hub Lublin</span>
+            <span className="hidden sm:inline">Powiadomienia MPWiK</span>
           </Link>
 
           <nav className="flex items-center gap-1" aria-label="Nawigacja główna">
@@ -50,7 +50,7 @@ export function PublicLayout() {
           <span>Projekt studencki — Politechnika Lubelska (Sztuczna Inteligencja w Biznesie)</span>
           <Link
             to="/admin/login"
-            className="inline-flex items-center gap-1 text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+            className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
             aria-label="Panel dyspozytora"
           >
             <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />

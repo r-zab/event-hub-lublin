@@ -1,4 +1,4 @@
-# Historia i stan projektu — Event Hub Lublin
+# Historia i stan projektu — System Powiadomień MPWiK Lublin
 
 > Ostatnia aktualizacja: 2026-04-10 (Sesja 14: Poprawki jakości — strefy czasowe, interaktywność mapy, powiadomienia retroaktywne, eliminacja duplikatów)
 

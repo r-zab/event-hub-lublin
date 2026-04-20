@@ -66,7 +66,7 @@ function useBuildingNumbers(streetId: number | null) {
 // ---------------------------------------------------------------------------
 
 const Index = () => {
-  const { events, allEvents, isLoading } = useEvents();
+  const { events, isLoading } = useEvents({ limit: 100 });
   const [focusedEventId, setFocusedEventId] = useState<number | null>(null);
 
   // --- Wyszukiwanie ulicy ---
@@ -171,23 +171,19 @@ const Index = () => {
 
   // ---------------------------------------------------------------------------
   // Filtrowanie zdarzeń
+  // Backend wyklucza już 'usunieta'; filtr po ulicy i numerze pozostaje client-side
+  // bo isEventAffectingHouseNumber wymaga logiki spatial niedostępnej jako prosty query param.
   // ---------------------------------------------------------------------------
-
-  const activeEvents = useMemo(
-    () => allEvents.filter((e) => e.status !== 'usunieta'),
-    [allEvents],
-  );
 
   const filteredEvents = useMemo(() => {
     if (!submittedStreet) return events;
 
     const searchTerms = submittedStreet.name.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    let result = activeEvents.filter((e) => {
+    let result = events.filter((e) => {
       const text = `${e.street_name ?? ''} ${formatEventNumbers(e)}`.toLowerCase();
       return searchTerms.every((term) => text.includes(term));
     });
 
-    // Zawęź do konkretnego numeru gdy wybrany
     if (submittedHouseNumber) {
       result = result.filter((e) =>
         isEventAffectingHouseNumber(e, submittedHouseNumber),
@@ -195,7 +191,7 @@ const Index = () => {
     }
 
     return result;
-  }, [events, activeEvents, submittedStreet, submittedHouseNumber]);
+  }, [events, submittedStreet, submittedHouseNumber]);
 
   const noResultsForQuery = submittedStreet && filteredEvents.length === 0 && !isLoading;
 
@@ -246,14 +242,18 @@ const Index = () => {
                 onBlur={handleStreetBlur}
                 className="bg-white text-foreground placeholder:text-muted-foreground border-0 h-12 text-base pl-9"
                 aria-label="Szukaj ulicy"
+                role="combobox"
+                aria-haspopup="listbox"
                 aria-autocomplete="list"
                 aria-expanded={showStreetSuggestions}
+                aria-controls="street-suggestions-listbox"
               />
               {streetsLoading && (
                 <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
               )}
               {showStreetSuggestions && suggestions.length > 0 && (
                 <ul
+                  id="street-suggestions-listbox"
                   className="absolute z-50 left-0 right-0 mt-1 bg-white border border-border rounded-md shadow-lg max-h-52 overflow-y-auto text-left"
                   role="listbox"
                 >
@@ -290,14 +290,18 @@ const Index = () => {
                   onKeyDown={handleKeyDown}
                   className="bg-white text-foreground placeholder:text-muted-foreground border-0 h-12 text-base pl-9"
                   aria-label="Numer budynku"
+                  role="combobox"
+                  aria-haspopup="listbox"
                   aria-autocomplete="list"
                   aria-expanded={showHouseSuggestions}
+                  aria-controls="house-suggestions-listbox"
                 />
                 {numbersLoading && (
                   <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
                 )}
                 {showHouseSuggestions && filteredNumbers.length > 0 && (
                   <ul
+                    id="house-suggestions-listbox"
                     className="absolute z-50 left-0 right-0 mt-1 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-left"
                     role="listbox"
                   >
@@ -345,7 +349,7 @@ const Index = () => {
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-        ) : activeEvents.length === 0 ? (
+        ) : events.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
             <div className="rounded-full bg-primary/10 p-6">
               <Droplets className="h-12 w-12 text-primary" />

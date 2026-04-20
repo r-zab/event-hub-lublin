@@ -62,7 +62,7 @@
     --water-900: 214 60% 10%;
 
     /* Kolory statusów zdarzeń — semantyczne, niezależne od brandingu */
-    --status-reported: 0 84% 60%;
+    --status-reported: 0 73% 36%;
     --status-repairing: 38 92% 50%;
     --status-resolved: 160 64% 43%;
     --status-planned: 217 91% 60%;

@@ -96,8 +96,8 @@ const Unsubscribe = () => {
       </div>
 
       <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm space-y-2">
-        <p className="font-semibold text-destructive">Uwaga! Ta operacja jest nieodwracalna.</p>
-        <p className="text-muted-foreground">
+        <p className="font-semibold text-red-700">Uwaga! Ta operacja jest nieodwracalna.</p>
+        <p className="text-slate-700">
           Wszystkie Twoje dane — adresy, numer telefonu, e-mail — zostaną{' '}
           <strong>całkowicie i fizycznie usunięte</strong> z bazy danych. Nie będziesz już
           otrzymywać żadnych powiadomień.

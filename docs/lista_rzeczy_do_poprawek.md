@@ -1,4 +1,4 @@
-# Lista rzeczy do poprawek - Audyt techniczny Event Hub Lublin
+# Lista rzeczy do poprawek — Audyt techniczny System Powiadomień MPWiK Lublin
 
 Data audytu: 2026-04-03
 

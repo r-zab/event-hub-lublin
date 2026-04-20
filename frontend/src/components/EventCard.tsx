@@ -1,6 +1,7 @@
 import { Clock, MapPin, TriangleAlert, Wrench, CalendarClock } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 import { type EventItem, type EventType, TYPE_LABELS } from '@/data/mockData';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { formatEventNumbers, formatDateTime } from '@/lib/utils';
 
@@ -33,14 +34,31 @@ export function EventCard({ event, onFocus }: EventCardProps) {
   const Icon = typeIcons[event.event_type];
   const styles = typeStyles[event.event_type];
   const numbers = formatEventNumbers(event);
+  let displayNumbers = numbers;
+  let hiddenCount = 0;
+  if (numbers) {
+    const numList = numbers.split(',').map((n) => n.trim());
+    if (numList.length > 3) {
+      displayNumbers = numList.slice(0, 3).join(', ');
+      hiddenCount = numList.length - 3;
+    }
+  }
 
   const isPlanned = event.event_type === 'planowane_wylaczenie';
   const showPlannedRange = isPlanned && event.start_time && event.estimated_end;
 
   return (
     <Card
-      className="hover:shadow-md transition-shadow border-border/60 cursor-pointer hover:bg-muted/50"
+      className="hover:shadow-md transition-shadow border-border/60 cursor-pointer hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      role="button"
+      tabIndex={0}
       onClick={() => onFocus?.(event.id)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onFocus?.(event.id);
+        }
+      }}
     >
       <CardHeader className="pb-2 flex flex-row items-start justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -49,12 +67,26 @@ export function EventCard({ event, onFocus }: EventCardProps) {
             {TYPE_LABELS[event.event_type]}
           </span>
         </div>
-        <StatusBadge status={event.status} />
+        <div className="flex items-center gap-2 shrink-0">
+          {event.source && (
+            <Badge variant="outline" className="text-xs">
+              źródło: {event.source.toUpperCase()}
+            </Badge>
+          )}
+          <StatusBadge status={event.status} />
+        </div>
       </CardHeader>
       <CardContent className="space-y-2">
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
           <MapPin className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
-          <span>{event.street_name}{numbers ? ` ${numbers}` : ''}</span>
+          <span className="line-clamp-1 break-all">
+            {event.street_name}{displayNumbers ? ` ${displayNumbers}` : ''}
+          </span>
+          {hiddenCount > 0 && (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+              +{hiddenCount} bud.
+            </Badge>
+          )}
         </div>
         <p className="text-sm text-muted-foreground line-clamp-2">{event.description}</p>
         {showPlannedRange ? (

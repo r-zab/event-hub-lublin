@@ -1,4 +1,4 @@
-Event Hub Lublin
+System Powiadomień MPWiK Lublin
 
 System powiadamiania mieszkańców Lublina o awariach i przerwach w dostawie wody, tworzony we współpracy z MPWiK Lublin.
 
@@ -76,7 +76,7 @@ SMS_GATEWAY_TYPE=mock
 # SMSEAGLE_API_TOKEN=twoj-token
 
 # Geocoding (dla skryptu geocode_streets.py)
-NOMINATIM_USER_AGENT=eventhub-lublin/1.0
+NOMINATIM_USER_AGENT=MPWiKLublin-Powiadomienia/1.0
 
 # Debug
 DEBUG=true

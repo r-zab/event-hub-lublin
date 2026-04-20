@@ -6,6 +6,8 @@ import { formatDate } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -240,15 +242,19 @@ const AdminSubscribers = () => {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="text-xs space-y-0.5">
-                    {sub.addresses.length === 0 ? (
-                      <span className="text-muted-foreground">Brak</span>
-                    ) : (
-                      sub.addresses.map((addr, i) => (
-                        <div key={i}>{formatAddress(addr)}</div>
-                      ))
-                    )}
-                  </div>
+                  {sub.addresses.length === 0 ? (
+                    <span className="text-xs text-muted-foreground">Brak</span>
+                  ) : (
+                    <ScrollArea className="max-h-[80px] pr-2">
+                      <div className="flex flex-wrap gap-1 mt-0.5">
+                        {sub.addresses.map((addr, i) => (
+                          <Badge key={i} variant="secondary" className="text-xs px-2 py-0.5 font-normal">
+                            {formatAddress(addr)}
+                          </Badge>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {formatDate(sub.created_at)}
