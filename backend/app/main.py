@@ -8,15 +8,17 @@ import logging.config
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.limiter import limiter
 from app.routers import admin, auth, buildings, events, streets, subscribers
-from app.services.notification_service import process_morning_queue
+from app.services.notification_service import auto_extend_overdue_events, process_morning_queue
 
 # ---------------------------------------------------------------------------
 # Konfiguracja logowania
@@ -70,9 +72,18 @@ async def lifespan(app: FastAPI):
         id="morning_sms_queue",
         replace_existing=True,
     )
+    scheduler.add_job(
+        auto_extend_overdue_events,
+        trigger="interval",
+        minutes=30,
+        id="auto_extend_overdue_events",
+        replace_existing=True,
+    )
     scheduler.start()
     logger.info("Uruchamianie %s v%s", settings.APP_NAME, settings.APP_VERSION)
-    logger.info("APScheduler uruchomiony — poranna kolejka SMS o 06:00 Europe/Warsaw")
+    logger.info(
+        "APScheduler uruchomiony — poranna kolejka SMS o 06:00, auto-extend co 30 min (Europe/Warsaw)"
+    )
     yield
     scheduler.shutdown(wait=False)
     logger.info("Zatrzymywanie %s", settings.APP_NAME)
@@ -89,6 +100,33 @@ app = FastAPI(
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+def _sanitize_for_json(obj: object) -> object:
+    """Rekurencyjnie konwertuje nieskojarzalne z JSON obiekty (np. ValueError z ctx Pydantic v2) na string."""
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_for_json(v) for v in obj]
+    if isinstance(obj, Exception):
+        return str(obj)
+    try:
+        import json as _json
+        _json.dumps(obj)
+        return obj
+    except (TypeError, ValueError):
+        return str(obj)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Loguj błędy walidacji w czytelnym formacie zamiast surowego obiektu Pydantic."""
+    for error in exc.errors():
+        loc = " → ".join(str(p) for p in error.get("loc", []) if p != "body")
+        msg = error.get("msg", "").removeprefix("Value error, ")
+        logger.warning("BŁĄD WALIDACJI: [%s] → %s", loc or "payload", msg)
+    safe_errors = _sanitize_for_json(exc.errors())
+    return JSONResponse(status_code=422, content={"detail": safe_errors})
 
 _cors_parts = settings.CORS_ORIGINS.split(",") if settings.CORS_ORIGINS else []
 _cors_origins = [o.strip() for o in _cors_parts if o.strip()] or ["*"]

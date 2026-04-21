@@ -48,7 +48,7 @@ const App = () => (
             </Route>
 
             {/* Admin auth */}
-            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/sys-panel/login" element={<AdminLogin />} />
 
             {/* Admin panel — protected */}
             <Route element={<ProtectedAdminLayout />}>

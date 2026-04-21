@@ -13,7 +13,7 @@ UWAGA: zmiana .env wymaga restartu serwera (settings czytane raz przy starcie).
 
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
@@ -26,6 +26,7 @@ from app.models.event import Event
 from app.models.notification import NotificationLog
 from app.models.subscriber import Subscriber, SubscriberAddress
 from app.services.gateways import EmailSender, get_sms_gateway
+from app.utils.masking import mask_recipient
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +144,23 @@ _STATUS_LABELS: dict[str, str] = {
     "remont": "remont",
 }
 
+# Komunikaty zamknięcia dopasowane do rzeczywistego typu zdarzenia (SMS i e-mail)
+_REMOVAL_SMS_PHRASE: dict[str, str] = {
+    "awaria": "awaria została usunięta",
+    "planowane_wylaczenie": "planowane wyłączenie zostało odwołane",
+    "remont": "remont został zakończony",
+}
+_REMOVAL_EMAIL_PHRASE: dict[str, str] = {
+    "awaria": "awaria została usunięta",
+    "planowane_wylaczenie": "planowane wyłączenie zostało odwołane",
+    "remont": "remont został zakończony",
+}
+_REMOVAL_SUBJECT_PHRASE: dict[str, str] = {
+    "awaria": "Awaria usunięta",
+    "planowane_wylaczenie": "Planowane wyłączenie odwołane",
+    "remont": "Remont zakończony",
+}
+
 
 def _status_label(status: str) -> str:
     return _STATUS_LABELS.get(status, status)
@@ -188,7 +206,7 @@ def _get_formatted_address(event: "Event") -> str:
 
 
 def _estimated_end_str(event: Event) -> str | None:
-    """Zwróć sformatowany szacowany czas naprawy w strefie Europe/Warsaw.
+    """Zwróć sformatowany szacowany czas zakończenia/naprawy w strefie Europe/Warsaw.
 
     PostgreSQL przechowuje TIMESTAMP bez strefy jako UTC. Konwersja przez
     astimezone(Warsaw) koryguje wyświetlany czas o +1h (CET) lub +2h (CEST).
@@ -198,6 +216,15 @@ def _estimated_end_str(event: Event) -> str | None:
     warsaw = ZoneInfo("Europe/Warsaw")
     end_local = event.estimated_end.replace(tzinfo=timezone.utc).astimezone(warsaw)
     return end_local.strftime("%d.%m.%Y %H:%M")
+
+
+def _start_time_str(event: Event) -> str | None:
+    """Zwróć sformatowany czas rozpoczęcia zdarzenia w strefie Europe/Warsaw."""
+    if not event.start_time:
+        return None
+    warsaw = ZoneInfo("Europe/Warsaw")
+    start_local = event.start_time.replace(tzinfo=timezone.utc).astimezone(warsaw)
+    return start_local.strftime("%d.%m.%Y %H:%M")
 
 
 def build_sms_message(event: Event) -> str:
@@ -210,9 +237,17 @@ def build_sms_message(event: Event) -> str:
 
     parts = [f"MPWiK Lublin: {event_type_label} — {_get_formatted_address(event)}"]
 
-    end_str = _estimated_end_str(event)
-    if end_str:
-        parts.append(f"Szacowany czas naprawy: {end_str}")
+    if event.event_type == "planowane_wylaczenie":
+        start_str = _start_time_str(event)
+        end_str = _estimated_end_str(event)
+        if start_str:
+            parts.append(f"Od: {start_str}")
+        if end_str:
+            parts.append(f"Do: {end_str}")
+    else:
+        end_str = _estimated_end_str(event)
+        if end_str:
+            parts.append(f"Szacowany czas naprawy: {end_str}")
 
     parts.append("Za utrudnienia przepraszamy. MPWiK Lublin tel. 994")
     return ". ".join(parts)
@@ -223,20 +258,32 @@ def build_sms_status_change_message(event: Event, old_status: str) -> str:
     addr = _get_formatted_address(event)
 
     if event.status == "usunieta":
+        phrase = _REMOVAL_SMS_PHRASE.get(event.event_type, "zdarzenie zostało usunięte")
         return (
-            f"{addr}: awaria została usunięta."
+            f"{addr}: {phrase}."
             " Za utrudnienia przepraszamy. MPWiK Lublin tel. 994"
         )
 
-    parts = [
-        f"{addr}: status zgłoszenia zmienił się"
-        f" z \"{_status_label(old_status)}\""
-        f" na \"{_status_label(event.status)}\"",
-    ]
+    if old_status == event.status:
+        parts = [f"{addr}: Aktualizacja statusu: {_status_label(event.status)}"]
+    else:
+        parts = [
+            f"{addr}: status zgłoszenia zmienił się"
+            f" z \"{_status_label(old_status)}\""
+            f" na \"{_status_label(event.status)}\"",
+        ]
 
-    end_str = _estimated_end_str(event)
-    if end_str:
-        parts.append(f"Szacowany czas naprawy: {end_str}")
+    if event.event_type == "planowane_wylaczenie":
+        start_str = _start_time_str(event)
+        end_str = _estimated_end_str(event)
+        if start_str:
+            parts.append(f"Od: {start_str}")
+        if end_str:
+            parts.append(f"Do: {end_str}")
+    else:
+        end_str = _estimated_end_str(event)
+        if end_str:
+            parts.append(f"Szacowany czas naprawy: {end_str}")
 
     parts.append("Za utrudnienia przepraszamy. MPWiK Lublin tel. 994")
     return ". ".join(parts)
@@ -269,9 +316,19 @@ def build_email_body(event: Event) -> str:
     if event.description:
         lines += ["", f"Opis: {event.description}"]
 
-    end_str = _estimated_end_str(event)
-    if end_str:
-        lines += ["", f"Szacowany czas usunięcia awarii: {end_str}"]
+    if event.event_type == "planowane_wylaczenie":
+        start_str = _start_time_str(event)
+        end_str = _estimated_end_str(event)
+        if start_str:
+            lines += ["", f"Planowane wyłączenie od: {start_str}"]
+        if end_str:
+            if not start_str:
+                lines.append("")
+            lines.append(f"Planowane przywrócenie wody do: {end_str}")
+    else:
+        end_str = _estimated_end_str(event)
+        if end_str:
+            lines += ["", f"Szacowany czas usunięcia awarii: {end_str}"]
 
     lines += [
         "",
@@ -286,8 +343,68 @@ def build_email_body(event: Event) -> str:
 def build_email_status_change_subject(event: Event) -> str:
     """Zbuduj temat emaila informującego o zmianie statusu zdarzenia."""
     if event.status == "usunieta":
-        return f"[MPWiK Lublin] Awaria usunięta — ul. {event.street_name}"
+        phrase = _REMOVAL_SUBJECT_PHRASE.get(event.event_type, "Zdarzenie usunięte")
+        return f"[MPWiK Lublin] {phrase} — ul. {event.street_name}"
     return f"[MPWiK Lublin] Zmiana statusu zgłoszenia — ul. {event.street_name}"
+
+
+def build_sms_time_update_message(event: Event) -> str:
+    """Zbuduj SMS o aktualizacji czasu zdarzenia (status bez zmian, zmienił się estimated_end)."""
+    addr = _get_formatted_address(event)
+    parts = [f"{addr}: Aktualizacja"]
+
+    if event.event_type == "planowane_wylaczenie":
+        start_str = _start_time_str(event)
+        end_str = _estimated_end_str(event)
+        if start_str:
+            parts.append(f"Od: {start_str}")
+        if end_str:
+            parts.append(f"Do: {end_str}")
+    else:
+        end_str = _estimated_end_str(event)
+        if end_str:
+            parts.append(f"Nowy szacowany czas przywrócenia wody: {end_str}")
+
+    parts.append("Przepraszamy za utrudnienia. MPWiK Lublin tel. 994")
+    return ". ".join(parts)
+
+
+def build_email_time_update_subject(event: Event) -> str:
+    """Zbuduj temat emaila o aktualizacji czasu zdarzenia."""
+    return f"[MPWiK Lublin] Aktualizacja czasu — ul. {event.street_name}"
+
+
+def build_email_time_update_body(event: Event) -> str:
+    """Zbuduj treść emaila o aktualizacji czasu zdarzenia."""
+    addr = _get_formatted_address(event)
+    lines = [
+        "Szanowny Mieszkańcu,",
+        "",
+        f"Informujemy o aktualizacji czasu dla zdarzenia przy {addr}.",
+    ]
+
+    if event.event_type == "planowane_wylaczenie":
+        start_str = _start_time_str(event)
+        end_str = _estimated_end_str(event)
+        if start_str:
+            lines += ["", f"Planowane wyłączenie od: {start_str}"]
+        if end_str:
+            if not start_str:
+                lines.append("")
+            lines.append(f"Planowane przywrócenie wody do: {end_str}")
+    else:
+        end_str = _estimated_end_str(event)
+        if end_str:
+            lines += ["", f"Nowy szacowany czas przywrócenia wody: {end_str}"]
+
+    lines += [
+        "",
+        "Przepraszamy za utrudnienia.",
+        "",
+        "MPWiK Lublin",
+        "tel. alarmowy: 994",
+    ]
+    return "\n".join(lines)
 
 
 def build_sms_retroactive_message(event: Event) -> str:
@@ -302,9 +419,17 @@ def build_sms_retroactive_message(event: Event) -> str:
 
     parts.append(f"Aktualny status: {_status_label(event.status)}")
 
-    end_str = _estimated_end_str(event)
-    if end_str:
-        parts.append(f"Szacowany czas naprawy: {end_str}")
+    if event.event_type == "planowane_wylaczenie":
+        start_str = _start_time_str(event)
+        end_str = _estimated_end_str(event)
+        if start_str:
+            parts.append(f"Od: {start_str}")
+        if end_str:
+            parts.append(f"Do: {end_str}")
+    else:
+        end_str = _estimated_end_str(event)
+        if end_str:
+            parts.append(f"Szacowany czas naprawy: {end_str}")
 
     parts.append("Za utrudnienia przepraszamy. MPWiK Lublin tel. 994")
     return ". ".join(parts)
@@ -329,9 +454,19 @@ def build_email_retroactive_body(event: Event) -> str:
     if event.description:
         lines += ["", f"Opis: {event.description}"]
 
-    end_str = _estimated_end_str(event)
-    if end_str:
-        lines += ["", f"Szacowany czas usunięcia awarii: {end_str}"]
+    if event.event_type == "planowane_wylaczenie":
+        start_str = _start_time_str(event)
+        end_str = _estimated_end_str(event)
+        if start_str:
+            lines += ["", f"Planowane wyłączenie od: {start_str}"]
+        if end_str:
+            if not start_str:
+                lines.append("")
+            lines.append(f"Planowane przywrócenie wody do: {end_str}")
+    else:
+        end_str = _estimated_end_str(event)
+        if end_str:
+            lines += ["", f"Szacowany czas usunięcia awarii: {end_str}"]
 
     lines += [
         "",
@@ -348,10 +483,11 @@ def build_email_status_change_body(event: Event, old_status: str) -> str:
     addr = _get_formatted_address(event)
 
     if event.status == "usunieta":
+        phrase = _REMOVAL_EMAIL_PHRASE.get(event.event_type, "zdarzenie zostało usunięte")
         lines = [
             "Szanowny Mieszkańcu,",
             "",
-            f"Informujemy, że awaria przy {addr} została usunięta.",
+            f"Informujemy, że {phrase} przy {addr}.",
             "",
             "Dziękujemy za cierpliwość.",
             "",
@@ -368,9 +504,19 @@ def build_email_status_change_body(event: Event, old_status: str) -> str:
         f" na \"{_status_label(event.status)}\".",
     ]
 
-    end_str = _estimated_end_str(event)
-    if end_str:
-        lines += ["", f"Szacowany czas naprawy: {end_str}"]
+    if event.event_type == "planowane_wylaczenie":
+        start_str = _start_time_str(event)
+        end_str = _estimated_end_str(event)
+        if start_str:
+            lines += ["", f"Planowane wyłączenie od: {start_str}"]
+        if end_str:
+            if not start_str:
+                lines.append("")
+            lines.append(f"Planowane przywrócenie wody do: {end_str}")
+    else:
+        end_str = _estimated_end_str(event)
+        if end_str:
+            lines += ["", f"Szacowany czas naprawy: {end_str}"]
 
     lines += [
         "",
@@ -420,7 +566,7 @@ async def _send_notifications_for_subscriber(
     elif not subscriber.notify_by_email:
         logger.info(
             "Email do %s (sub_id=%d) pominięty — subskrybent wyłączył e-mail",
-            subscriber.email,
+            mask_recipient(subscriber.email or ""),
             subscriber.id,
         )
     else:
@@ -431,7 +577,7 @@ async def _send_notifications_for_subscriber(
                 event_id=event.id,
                 subscriber_id=subscriber.id,
                 channel="email",
-                recipient=subscriber.email,
+                recipient=mask_recipient(subscriber.email or ""),
                 message_text=email_body,
                 status="sent" if email_ok else "failed",
                 error_message=None if email_ok else "Błąd wysyłki email",
@@ -442,13 +588,13 @@ async def _send_notifications_for_subscriber(
     if not subscriber.notify_by_sms:
         logger.info(
             "SMS do %s (sub_id=%d) pominięty — subskrybent wyłączył SMS",
-            subscriber.phone,
+            mask_recipient(subscriber.phone or ""),
             subscriber.id,
         )
     elif is_night and not subscriber.night_sms_consent:
         logger.info(
             "SMS do %s (sub_id=%d) odłożony na 06:00 (nocna cisza, brak zgody)",
-            subscriber.phone,
+            mask_recipient(subscriber.phone or ""),
             subscriber.id,
         )
         db.add(
@@ -456,7 +602,7 @@ async def _send_notifications_for_subscriber(
                 event_id=event.id,
                 subscriber_id=subscriber.id,
                 channel="sms",
-                recipient=subscriber.phone,
+                recipient=mask_recipient(subscriber.phone or ""),
                 message_text=sms_text,
                 status="queued_morning",
                 error_message="Nocna cisza — brak zgody na SMS nocne. Zaplanowano na 06:00.",
@@ -469,7 +615,7 @@ async def _send_notifications_for_subscriber(
                 event_id=event.id,
                 subscriber_id=subscriber.id,
                 channel="sms",
-                recipient=subscriber.phone,
+                recipient=mask_recipient(subscriber.phone or ""),
                 message_text=sms_text,
                 status="sent" if sms_ok else "failed",
                 error_message=None if sms_ok else "Błąd wysyłki SMS",
@@ -477,7 +623,12 @@ async def _send_notifications_for_subscriber(
         )
 
 
-async def notify_event(event_id: int, old_status: str | None = None) -> None:
+async def notify_event(
+    event_id: int,
+    old_status: str | None = None,
+    old_estimated_end: datetime | None = None,
+    old_description: str | None = None,
+) -> None:
     """
     Wyślij powiadomienia do subskrybentów dotkniętych zdarzeniem.
 
@@ -485,10 +636,16 @@ async def notify_event(event_id: int, old_status: str | None = None) -> None:
     asyncio.create_task() po zamknięciu sesji routera.
 
     Parametry:
-        event_id:   ID zdarzenia w bazie.
-        old_status: Poprzedni status (przekazany z update_event przy zmianie statusu).
-                    Gdy None — zdarzenie nowe, używany szablon "nowe zgłoszenie".
-                    Gdy string — zmiana statusu, używany szablon "status zmienił się z X na Y".
+        event_id:          ID zdarzenia w bazie.
+        old_status:        Poprzedni status (z update_event/delete_event).
+                           Gdy None — zdarzenie nowe, szablon "nowe zgłoszenie".
+        old_estimated_end: Poprzedni czas zakończenia (z update_event).
+                           Używany do rozróżnienia: zmiana statusu vs. tylko aktualizacja czasu.
+
+    Logika wyboru szablonu (gdy old_status != None):
+        - status faktycznie się zmienił → szablon "status zmienił się z X na Y"
+        - status ten sam, zmienił się estimated_end → szablon "aktualizacja czasu"
+        - nic się nie zmieniło → brak powiadomień
 
     - Email: zawsze (o ile ENABLE_EMAIL_NOTIFICATIONS=True i subskrybent nie wyłączył).
     - SMS: jeśli czas nocny (22-06) i brak night_sms_consent → status 'queued_morning'.
@@ -530,16 +687,45 @@ async def notify_event(event_id: int, old_status: str | None = None) -> None:
             is_night = _is_night_hours()
 
             if old_status is not None:
-                # Zmiana statusu — szablon "status zmienił się z X na Y"
-                sms_text = build_sms_status_change_message(event, old_status)
-                email_subject = build_email_status_change_subject(event)
-                email_body = build_email_status_change_body(event, old_status)
-                logger.info(
-                    "notify_event: zdarzenie id=%d, zmiana statusu %r → %r, szablon status-change",
-                    event_id,
-                    old_status,
-                    event.status,
+                # Wywołanie z update_event lub delete_event — ustal co faktycznie się zmieniło
+                status_changed = old_status != event.status
+                end_changed = (
+                    old_estimated_end is not None
+                    and old_estimated_end != event.estimated_end
                 )
+                description_changed = (
+                    old_description is not None
+                    and old_description != event.description
+                )
+
+                if status_changed:
+                    sms_text = build_sms_status_change_message(event, old_status)
+                    email_subject = build_email_status_change_subject(event)
+                    email_body = build_email_status_change_body(event, old_status)
+                    logger.info(
+                        "notify_event: zdarzenie id=%d, zmiana statusu %r → %r, szablon status-change",
+                        event_id,
+                        old_status,
+                        event.status,
+                    )
+                elif end_changed or description_changed:
+                    # Status bez zmian — zmienił się czas zakończenia lub opis
+                    sms_text = build_sms_time_update_message(event)
+                    email_subject = build_email_time_update_subject(event)
+                    email_body = build_email_time_update_body(event)
+                    logger.info(
+                        "notify_event: zdarzenie id=%d, aktualizacja (end_changed=%s, desc_changed=%s), szablon time-update",
+                        event_id,
+                        end_changed,
+                        description_changed,
+                    )
+                else:
+                    logger.info(
+                        "notify_event: zdarzenie id=%d — brak faktycznej zmiany (status=%r, estimated_end i opis bez zmian), pomijam powiadomienia",
+                        event_id,
+                        event.status,
+                    )
+                    return
             elif event.custom_message:
                 # Dyspozytor nadpisał treść powiadomienia własnym komunikatem
                 sms_text = event.custom_message
@@ -785,7 +971,7 @@ async def send_welcome_with_unsubscribe_token(subscriber_id: int, unsubscribe_to
                         event_id=None,
                         subscriber_id=subscriber.id,
                         channel="welcome",
-                        recipient=subscriber.phone,
+                        recipient=mask_recipient(subscriber.phone or ""),
                         message_text=sms_text,
                         status="sent" if ok else "failed",
                         error_message=None if ok else "Błąd wysyłki powitalnego SMS",
@@ -809,7 +995,7 @@ async def send_welcome_with_unsubscribe_token(subscriber_id: int, unsubscribe_to
                         event_id=None,
                         subscriber_id=subscriber.id,
                         channel="welcome",
-                        recipient=subscriber.email,
+                        recipient=mask_recipient(subscriber.email or ""),
                         message_text=body,
                         status="sent" if ok else "failed",
                         error_message=None if ok else "Błąd wysyłki powitalnego e-mail",
@@ -824,6 +1010,55 @@ async def send_welcome_with_unsubscribe_token(subscriber_id: int, unsubscribe_to
             await db.commit()
     except Exception:
         logger.exception("send_welcome: nieoczekiwany błąd dla sub_id=%d", subscriber_id)
+
+
+# ---------------------------------------------------------------------------
+# Scheduler — automatyczne przedłużanie przeterminowanych zdarzeń (co 30 min)
+# ---------------------------------------------------------------------------
+
+
+async def auto_extend_overdue_events() -> None:
+    """Przedłuż estimated_end o 1 godzinę dla aktywnych zdarzeń, których czas minął.
+
+    Aktywne statusy: 'zgloszona', 'w_naprawie'.
+    Wywoływane przez APScheduler co 30 minut.
+    Otwiera własną sesję DB — bezpieczne jako samodzielne zadanie schedulera.
+    """
+    try:
+        async with AsyncSessionLocal() as db:
+            # DB przechowuje TIMESTAMP naive UTC — porównujemy z utcnow() bez strefy
+            now_utc = datetime.utcnow()
+            result = await db.execute(
+                select(Event).where(
+                    Event.status.in_(["zgloszona", "w_naprawie"]),
+                    Event.estimated_end.isnot(None),
+                    Event.estimated_end < now_utc,
+                )
+            )
+            overdue: list[Event] = list(result.scalars().all())
+
+            if not overdue:
+                logger.debug("auto_extend_overdue_events: brak przeterminowanych zdarzeń")
+                return
+
+            for event in overdue:
+                old_end = event.estimated_end
+                event.estimated_end = old_end + timedelta(hours=1)
+                logger.info(
+                    "auto_extend_overdue_events: zdarzenie id=%d '%s' przedłużono o 1h (%s → %s)",
+                    event.id,
+                    event.street_name,
+                    old_end.strftime("%d.%m %H:%M") if old_end else "—",
+                    event.estimated_end.strftime("%d.%m %H:%M"),
+                )
+
+            await db.commit()
+            logger.info(
+                "auto_extend_overdue_events: zaktualizowano %d zdarzeń",
+                len(overdue),
+            )
+    except Exception:
+        logger.exception("auto_extend_overdue_events: nieoczekiwany błąd")
 
 
 # ---------------------------------------------------------------------------
@@ -844,7 +1079,9 @@ async def process_morning_queue() -> None:
     try:
         async with AsyncSessionLocal() as db:
             result = await db.execute(
-                select(NotificationLog).where(NotificationLog.status == "queued_morning")
+                select(NotificationLog)
+                .options(selectinload(NotificationLog.subscriber))
+                .where(NotificationLog.status == "queued_morning")
             )
             queued: list[NotificationLog] = list(result.scalars().all())
 
@@ -856,7 +1093,13 @@ async def process_morning_queue() -> None:
             error_count = 0
             for log_entry in queued:
                 try:
-                    ok = await sms_gateway.send(log_entry.recipient, log_entry.message_text or "")
+                    # recipient w DB jest zamaskowany — pobieramy prawdziwy numer z subskrybenta
+                    real_phone = (
+                        log_entry.subscriber.phone
+                        if log_entry.subscriber and log_entry.subscriber.phone
+                        else log_entry.recipient
+                    )
+                    ok = await sms_gateway.send(real_phone, log_entry.message_text or "")
                     log_entry.status = "sent" if ok else "failed"
                     if not ok:
                         log_entry.error_message = "Błąd wysyłki SMS (poranna kolejka)"

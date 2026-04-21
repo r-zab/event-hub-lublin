@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { useStreets } from '@/hooks/useStreets';
 import { useState, useRef, useEffect } from 'react';
 import { apiFetch } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
 interface BuildingOption {
   id: number;
@@ -34,14 +35,17 @@ export function AddressRow({
   canRemove,
   onHouseNumberValidChange,
 }: AddressRowProps) {
+  const { toast } = useToast();
   const [query, setQuery] = useState(street_name);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showHouseDropdown, setShowHouseDropdown] = useState(false);
   const [houseNumberError, setHouseNumberError] = useState<string | null>(null);
+  const [streetTouched, setStreetTouched] = useState(false);
   const [buildings, setBuildings] = useState<BuildingOption[]>([]);
   const [buildingsLoading, setBuildingsLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const houseWrapperRef = useRef<HTMLDivElement>(null);
+  const prevHouseErrorRef = useRef<string | null>(null);
   const { streets: suggestions, isLoading } = useStreets(query);
 
   useEffect(() => {
@@ -69,11 +73,21 @@ export function AddressRow({
     if (!house_number.trim() || buildings.length === 0) {
       setHouseNumberError(null);
       onHouseNumberValidChange?.(index, true);
+      prevHouseErrorRef.current = null;
       return;
     }
     const normalized = house_number.trim().toUpperCase();
     const found = buildings.some((b) => b.house_number.toUpperCase() === normalized);
-    setHouseNumberError(found ? null : 'Ten adres nie istnieje w bazie MPWiK');
+    const nextError = found ? null : 'invalid';
+    if (nextError && prevHouseErrorRef.current !== nextError) {
+      toast({
+        title: 'Błąd walidacji adresu',
+        description: 'Wybrany numer budynku nie figuruje w oficjalnej bazie MPWiK Lublin. Wybierz numer z listy podpowiedzi.',
+        variant: 'destructive',
+      });
+    }
+    prevHouseErrorRef.current = nextError;
+    setHouseNumberError(nextError);
     onHouseNumberValidChange?.(index, found);
   }, [house_number, buildings]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -94,6 +108,7 @@ export function AddressRow({
     onChange(index, 'street_id', '');
     onChange(index, 'house_number', '');
     setShowSuggestions(value.length >= 3);
+    setStreetTouched(false);
   };
 
   const filteredBuildings = buildings.filter((b) =>
@@ -101,7 +116,7 @@ export function AddressRow({
   );
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(6rem,auto)_minmax(6rem,auto)_auto] gap-3 items-end p-3 rounded-lg bg-muted/50 border border-border/50">
+    <div className="grid grid-cols-1 sm:grid-cols-[minmax(150px,3fr)_5rem_5rem_auto] gap-3 items-end p-3 rounded-lg bg-muted/50 border border-border/50">
       <div className="relative" ref={wrapperRef}>
         <Label htmlFor={`street-${index}`} className="text-xs font-medium mb-1 block">
           Ulica * <span className="text-muted-foreground">(min. 3 znaki)</span>
@@ -113,11 +128,13 @@ export function AddressRow({
             value={query}
             onChange={(e) => handleStreetChange(e.target.value)}
             onFocus={() => query.length >= 3 && suggestions.length > 0 && setShowSuggestions(true)}
+            onBlur={() => setStreetTouched(true)}
             placeholder="Wpisz nazwę ulicy..."
-            className="pl-9"
+            className={`pl-9 ${streetTouched && query.trim() && !street_id ? 'border-destructive focus-visible:ring-destructive' : ''}`}
             required
             aria-label="Nazwa ulicy"
             aria-autocomplete="list"
+            aria-invalid={streetTouched && !!query.trim() && !street_id}
           />
           {isLoading && <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
         </div>
@@ -166,7 +183,7 @@ export function AddressRow({
             }}
             onFocus={() => buildings.length > 0 && setShowHouseDropdown(true)}
             placeholder="np. 10"
-            className={`w-full min-w-[5rem] pr-7 ${houseNumberError ? 'border-destructive' : ''}`}
+            className={`w-full pr-7 ${houseNumberError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
             required
             aria-label="Numer budynku"
             aria-invalid={!!houseNumberError}
@@ -178,9 +195,6 @@ export function AddressRow({
             <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           ) : null}
         </div>
-        {houseNumberError && (
-          <p className="text-xs text-destructive mt-1 w-48">{houseNumberError}</p>
-        )}
         {showHouseDropdown && filteredBuildings.length > 0 && (
           <ul className="absolute z-20 w-32 mt-1 bg-card border border-border rounded-md shadow-lg max-h-40 overflow-y-auto" role="listbox">
             {filteredBuildings.slice(0, 20).map((b) => (
@@ -210,7 +224,7 @@ export function AddressRow({
           value={apartment_number}
           onChange={(e) => onChange(index, 'apartment_number', e.target.value)}
           placeholder="np. 5"
-          className="w-full min-w-[5rem]"
+          className="w-full"
           aria-label="Numer mieszkania (opcjonalne)"
         />
       </div>

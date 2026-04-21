@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, Search, ShieldCheck } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -8,6 +8,11 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   Select,
   SelectContent,
@@ -197,8 +202,32 @@ const AdminSubscribers = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>E-mail</TableHead>
-              <TableHead>Telefon</TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-1">
+                  E-mail
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <ShieldCheck className="h-3.5 w-3.5 text-green-600 cursor-help" aria-label="Dane osobowe — dostęp tylko dla admina" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[220px] text-xs">
+                      Dane osobowe — dostęp ograniczony zgodnie z RODO. Widoczne wyłącznie dla uprawnionych administratorów.
+                    </TooltipContent>
+                  </Tooltip>
+                </span>
+              </TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-1">
+                  Telefon
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <ShieldCheck className="h-3.5 w-3.5 text-green-600 cursor-help" aria-label="Dane osobowe — dostęp tylko dla admina" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[220px] text-xs">
+                      Dane osobowe — dostęp ograniczony zgodnie z RODO. Widoczne wyłącznie dla uprawnionych administratorów.
+                    </TooltipContent>
+                  </Tooltip>
+                </span>
+              </TableHead>
               <TableHead>Kanały</TableHead>
               <TableHead>Zgody</TableHead>
               <TableHead>Adresy</TableHead>

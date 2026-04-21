@@ -6,7 +6,7 @@ export function ProtectedAdminLayout() {
   const { isAuthenticated } = useAuth();
 
   if (!isAuthenticated) {
-    return <Navigate to="/admin/login" replace />;
+    return <Navigate to="/sys-panel/login" replace />;
   }
 
   return <AdminLayout />;

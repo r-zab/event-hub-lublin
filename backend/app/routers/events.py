@@ -121,7 +121,7 @@ async def create_event(
 async def delete_event(
     event_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_dispatcher_or_admin),
 ) -> None:
     """Fizycznie usuń zdarzenie wraz z historią. Wymaga roli admin lub dispatcher."""
     result = await db.execute(select(Event).where(Event.id == event_id))
@@ -172,6 +172,7 @@ async def update_event(
     update_data = data.model_dump(exclude_none=True)
     old_status: str = event.status
     old_estimated_end = event.estimated_end
+    old_description: str | None = event.description
 
     if "status" in update_data and update_data["status"] != old_status:
         history_entry = EventHistory(
@@ -209,7 +210,18 @@ async def update_event(
         "estimated_end" in update_data
         and update_data["estimated_end"] != old_estimated_end
     )
-    if status_changed or estimated_end_changed:
-        task = asyncio.create_task(notify_event(event.id, old_status=old_status))
+    description_changed = (
+        "description" in update_data
+        and update_data["description"] != old_description
+    )
+    if status_changed or estimated_end_changed or description_changed:
+        task = asyncio.create_task(
+            notify_event(
+                event.id,
+                old_status=old_status,
+                old_estimated_end=old_estimated_end,
+                old_description=old_description,
+            )
+        )
         task.add_done_callback(_log_task_exception)
     return event

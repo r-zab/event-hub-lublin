@@ -49,7 +49,7 @@ export function PublicLayout() {
         <div className="container flex flex-col items-center gap-2 text-xs text-muted-foreground">
           <span>Projekt studencki — Politechnika Lubelska (Sztuczna Inteligencja w Biznesie)</span>
           <Link
-            to="/admin/login"
+            to="/sys-panel/login"
             className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
             aria-label="Panel dyspozytora"
           >

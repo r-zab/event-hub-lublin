@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Loader2, Search } from 'lucide-react';
+import { useState, useMemo, useCallback } from 'react';
+import { Loader2, Search, ShieldCheck } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { formatDateTime } from '@/lib/utils';
@@ -19,6 +19,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface NotificationItem {
   id: number;
@@ -51,6 +56,11 @@ const STATUS_COLORS: Record<string, string> = {
   queued: 'bg-yellow-100 text-yellow-800',
 };
 
+const ROW_BG: Record<string, string> = {
+  sent: 'bg-green-50/50',
+  failed: 'bg-red-50/50',
+};
+
 function isToday(dateStr: string): boolean {
   const d = new Date(dateStr);
   const now = new Date();
@@ -68,6 +78,15 @@ function isLast7Days(dateStr: string): boolean {
 
 const AdminNotifications = () => {
   const [page, setPage] = useState(1);
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const toggleExpand = useCallback((id: number) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [channelFilter, setChannelFilter] = useState<'all' | 'sms' | 'email'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'failed'>('all');
@@ -229,7 +248,19 @@ const AdminNotifications = () => {
             <TableRow>
               <TableHead>Data wysyłki</TableHead>
               <TableHead>Kanał</TableHead>
-              <TableHead>Odbiorca</TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-1">
+                  Odbiorca
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <ShieldCheck className="h-3.5 w-3.5 text-green-600 cursor-help" aria-label="Dane zamaskowane zgodnie z RODO" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[220px] text-xs">
+                      Dane zamaskowane zgodnie z polityką RODO — pełne dane przechowywane są wyłącznie w systemie subskrybentów.
+                    </TooltipContent>
+                  </Tooltip>
+                </span>
+              </TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Zdarzenie</TableHead>
               <TableHead>Treść</TableHead>
@@ -244,11 +275,11 @@ const AdminNotifications = () => {
               </TableRow>
             )}
             {filteredItems.map((notif) => (
-              <TableRow key={notif.id}>
-                <TableCell className="text-sm whitespace-nowrap">
+              <TableRow key={notif.id} className={ROW_BG[notif.status] ?? ''}>
+                <TableCell className="py-3 text-sm whitespace-nowrap">
                   {formatDateTime(notif.sent_at)}
                 </TableCell>
-                <TableCell>
+                <TableCell className="py-3">
                   <span
                     className={`text-xs rounded px-1.5 py-0.5 font-medium ${
                       notif.channel === 'sms'
@@ -259,8 +290,8 @@ const AdminNotifications = () => {
                     {CHANNEL_LABELS[notif.channel] ?? notif.channel}
                   </span>
                 </TableCell>
-                <TableCell className="font-medium">{notif.recipient}</TableCell>
-                <TableCell>
+                <TableCell className="py-3 font-mono text-sm">{notif.recipient}</TableCell>
+                <TableCell className="py-3">
                   <span
                     className={`text-xs rounded px-1.5 py-0.5 font-medium ${
                       STATUS_COLORS[notif.status] ?? 'bg-gray-100 text-gray-700'
@@ -274,17 +305,24 @@ const AdminNotifications = () => {
                     </div>
                   )}
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
+                <TableCell className="py-3 text-sm text-muted-foreground">
                   {notif.event_id != null ? `#${notif.event_id}` : '—'}
                 </TableCell>
-                <TableCell>
+                <TableCell className="py-3">
                   {notif.message_text ? (
-                    <span
-                      className="text-xs text-muted-foreground max-w-[220px] block truncate"
-                      title={notif.message_text}
-                    >
-                      {notif.message_text}
-                    </span>
+                    <div className="max-w-[280px]">
+                      <p className={`text-xs text-muted-foreground break-words ${expandedIds.has(notif.id) ? '' : 'line-clamp-2'}`}>
+                        {notif.message_text}
+                      </p>
+                      {notif.message_text.length > 80 && (
+                        <button
+                          onClick={() => toggleExpand(notif.id)}
+                          className="text-xs text-blue-600 hover:underline mt-0.5 focus:outline-none"
+                        >
+                          {expandedIds.has(notif.id) ? 'Zwiń' : 'Rozwiń'}
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <span className="text-muted-foreground">—</span>
                   )}

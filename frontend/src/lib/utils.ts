@@ -20,9 +20,14 @@ export function parseUTC(utcStr: string): Date {
 /**
  * Konwertuje UTC string z API na format dla input[type=datetime-local]: YYYY-MM-DDTHH:mm
  * Przykład: "2026-04-10T12:00:00" (UTC) → "2026-04-10T14:00" (CEST Warsaw)
+ *
+ * Implementacja ręczna zamiast toLocaleString('sv') — eliminuje potencjalne
+ * rozbieżności lokalizacyjne (np. node bez pełnego ICU, środowiska CI/CD).
  */
 export function toLocalISO(utcStr: string): string {
-  return parseUTC(utcStr).toLocaleString('sv').replace(' ', 'T').slice(0, 16);
+  const d = parseUTC(utcStr);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 /**

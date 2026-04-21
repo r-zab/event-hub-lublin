@@ -23,7 +23,7 @@ export function AdminLayout() {
 
   const handleLogout = () => {
     logout();
-    navigate('/admin/login');
+    navigate('/sys-panel/login');
   };
 
   const SidebarNav = ({ onNavigate }: { onNavigate?: () => void }) => (

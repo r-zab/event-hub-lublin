@@ -15,6 +15,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 from app.config import settings
+from app.utils.masking import mask_recipient, mask_token
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +33,21 @@ class SMSGateway(ABC):
         """Wyślij SMS. Zwraca True przy sukcesie, False przy błędzie."""
 
 
+_SEP = "-" * 40
+
+
 class MockSMSGateway(SMSGateway):
     """Mock bramki SMS — loguje wysyłkę, nie wysyła niczego przez sieć."""
 
     async def send(self, phone: str, message: str) -> bool:
-        """Symuluj wysyłkę SMS — loguj do konsoli."""
-        logger.info("[MOCK SMS] -> %s: %s", phone, message)
+        """Symuluj wysyłkę SMS — loguj czytelny blok do konsoli."""
+        logger.info(
+            "\n%s\n[MOCK SMS] DO: %s\nTREŚĆ: %s\n%s",
+            _SEP,
+            mask_recipient(phone),
+            mask_token(message),
+            _SEP,
+        )
         return True
 
 
@@ -57,17 +67,17 @@ class SMSEagleGateway(SMSGateway):
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.post(url, json=payload, headers=headers)
             if response.status_code == 200:
-                logger.info("SMSEagle: wysłano SMS -> %s", phone)
+                logger.info("SMSEagle: wysłano SMS -> %s", mask_recipient(phone))
                 return True
             logger.error(
                 "SMSEagle: błąd wysyłki -> %s, status=%d, body=%s",
-                phone,
+                mask_recipient(phone),
                 response.status_code,
                 response.text[:200],
             )
             return False
         except httpx.RequestError as exc:
-            logger.error("SMSEagle: błąd połączenia -> %s: %s", phone, exc)
+            logger.error("SMSEagle: błąd połączenia -> %s: %s", mask_recipient(phone), exc)
             return False
 
 
@@ -96,7 +106,14 @@ class EmailSender:
     async def send(self, recipient: str, subject: str, body: str) -> bool:
         """Wyślij email. W trybie mock — loguje zamiast wysyłać."""
         if self._mock_mode:
-            logger.info("[MOCK EMAIL] -> %s | %s | %s", recipient, subject, body[:80])
+            logger.info(
+                "\n%s\n[MOCK EMAIL] DO: %s\nTEMAT: %s\nTREŚĆ: %s\n%s",
+                _SEP,
+                mask_recipient(recipient),
+                subject,
+                mask_token(body[:120]),
+                _SEP,
+            )
             return True
 
         msg = MIMEMultipart("alternative")
@@ -114,8 +131,8 @@ class EmailSender:
                 password=settings.SMTP_PASSWORD or None,
                 use_tls=settings.SMTP_USE_TLS,
             )
-            logger.info("Email wysłany -> %s", recipient)
+            logger.info("Email wysłany -> %s", mask_recipient(recipient))
             return True
         except Exception as exc:
-            logger.error("Błąd wysyłki email -> %s: %s", recipient, exc)
+            logger.error("Błąd wysyłki email -> %s: %s", mask_recipient(recipient), exc)
             return False

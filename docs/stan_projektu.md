@@ -13,14 +13,14 @@ Punkty wymagające natychmiastowej uwagi przed wdrożeniem produkcyjnym:
 | # | Priorytet | Opis | Plik |
 |---|-----------|------|------|
 | P1 | 🔴 KRYT. | **SECRET_KEY — dokończenie hardeningu** — walidator blokuje start na produkcji, ale klucz domyślny wciąż istnieje w repozytorium i w `.env`. | `backend/app/config.py`, `backend/.env` |
-| P2 | 🔴 KRYT. | **`DELETE /events/{id}` — brak kontroli roli** — endpoint używa `get_current_user` zamiast `get_current_dispatcher_or_admin`. Każdy zalogowany użytkownik może usunąć dowolne zdarzenie. | `backend/app/routers/events.py:124` |
-| P3 | 🔴 KRYT. | **Security by Obscurity — ukrycie panelu admina** — ścieżka `/admin/login` jawna w stopce i kodzie JS. Zmienić na `/sys-panel/login`. | `App.tsx`, `PublicLayout.tsx` |
-| P4 | 🟡 WAŻNE | **Status zdarzeń niezgodny ze specyfikacją** — kod używa `w_naprawie`, CLAUDE.md definiuje `potwierdzona → trwajaca → zakonczono`. Brakuje stanów pośrednich. | `backend/app/schemas/event.py:24`, `frontend` |
+| P2 | ✅ NAPRAWIONO | **`DELETE /events/{id}` — brak kontroli roli** — endpoint używa `get_current_user` zamiast `get_current_dispatcher_or_admin`. Każdy zalogowany użytkownik może usunąć dowolne zdarzenie. | `backend/app/routers/events.py:124` |
+| P3 | ✅ NAPRAWIONO | **Security by Obscurity — ukrycie panelu admina** — ścieżka `/admin/login` jawna w stopce i kodzie JS. Zmieniono na `/sys-panel/login`. | `App.tsx`, `PublicLayout.tsx` |
+| P4 | ✅ NAPRAWIONO | **Status zdarzeń** — zachowano model 3 statusów (`zgloszona`, `w_naprawie`, `usunieta`) zgodnie z decyzją zespołu. | `backend/app/schemas/event.py:24` |
 | P5 | 🟡 WAŻNE | **`DEBUG=true` i `--reload` w produkcji** — `.env` ma `DEBUG=true`, docker-compose uruchamia uvicorn z `--reload`. Loguje wszystkie zapytania SQL. | `backend/.env`, `docker-compose.yml:26` |
 | P6 | 🟡 WAŻNE | **Port DB 5433 wystawiony na zewnątrz** — PostgreSQL dostępny bezpośrednio z hosta. W produkcji musi być usunięty. | `docker-compose.yml:12` |
 | P7 | 🟡 WAŻNE | **Endpoint IVR 994** (`GET /events/feed`) — plain-text z aktywnymi awariami dla automatu telefonicznego. Killer-feature na Festiwal Biznesu, ~10 linii kodu. | `backend/app/routers/events.py` |
 | P8 | 🟡 WAŻNE | **Testy penetracyjne `/auth/login`** — rate limit 5/min jest, ale brak blokady IP po N próbach, brak CAPTCHA, brak alertu e-mail do admina. | `backend/app/routers/auth.py` |
-| P9 | 🟡 WAŻNE | **E-mail subskrybenta logowany plaintext** — `subscribers.py:175` loguje `email=%r`. Naruszenie RODO / zasady minimalizacji danych w logach. | `backend/app/routers/subscribers.py:175` |
+| P9 | ✅ NAPRAWIONO (pełna realizacja) | **RODO — maskowanie danych w logach** — `mask_recipient()` w `notification_service.py`, `gateways.py` (SMS + Email mock), `subscribers.py`. Dane osobowe zamaskowane w `notification_log` (DB) i wszystkich warstwach logów. Migracja retroaktywna `20260421_mask_notification_log_recipients.py`. Zweryfikowano end-to-end. | `backend/app/utils/masking.py`, `gateways.py`, `notification_service.py` |
 | P10 | 🟢 NISKI | **Ostateczny audyt WCAG axe/Lighthouse** — po wszystkich poprawkach UI/UX wymagana pełna weryfikacja na stronach `/`, `/register`, `/admin/dashboard`, `/admin/events/new`. | — |
 | P11 | 🟢 NISKI | **Testy jednostkowe escapowania LIKE** — logika w `streets.py` bez pokrycia testami; regresja przywróciłaby podatność DoS. | `backend/tests/test_streets.py` |
 | P12 | ✅ GOTOWE | **Obsługa HTTP 429 na froncie** — dodano specjalny case przed `!response.ok`. | `frontend/src/lib/api.ts` |
@@ -39,6 +39,108 @@ Chronologiczna lista zmian w kodzie od momentu audytu.
 - **BuildingAuditLog:** Nowy model + migracja `20260418_add_building_audit_log.py`; każda edycja/usunięcie adresu budynku zapisuje audyt (user_id, stary/nowy JSON).
 - **RWD panelu dyspozytora:** Sidebar → `hidden lg:flex` + hamburger z `Sheet` na mobile; formularze zdarzeń z `grid-cols-1 sm:grid-cols-2`.
 - **Paginacja server-side:** Backend — nowe parametry `search`, `status_filter`, `type_filter`, `skip`, `limit`; `PaginatedEventResponse { items, total_count }`. Frontend — `useEvents` przebudowany, `AdminDashboard` z filtrami, `Index.tsx` `limit=100`.
+
+### 2026-04-21 — Reaktywność formularza, czytelne błędy i inteligentne powiadomienia
+
+- Naprawa reaktywności formularza, wdrożenie czytelnych błędów (User-friendly) i inteligentnych powiadomień.
+- **Naprawa `toLocalISO`** (`frontend/src/lib/utils.ts`): Zastąpiono `toLocaleString('sv')` ręczną implementacją z `padStart`. Eliminuje rozbieżności w środowiskach bez pełnego ICU (np. Node.js slim, CI/CD). Pola `Czas rozpoczęcia` i `Czas zakończenia` wczytują się poprawnie przy edycji zdarzenia typu `planowane_wylaczenie`.
+- **Inline podgląd SMS** (`AdminEventForm.tsx`): Nowa sekcja „Podgląd wiadomości dla mieszkańców" umieszczona bezpośrednio pod polami daty — reaktywna, tylko do odczytu, pokazuje treść SMS w czasie rzeczywistym po zmianie dowolnego pola (typ, ulica, adresy, opis, godziny). Licznik znaków z ostrzeżeniem przy >160 (ponad 1 SMS).
+- **Mapa tłumaczeń błędów 422** (`AdminEventForm.tsx`): Rozszerzono `handle422Error` o tablicę reguł `MSG_MAP` — tłumaczy surowe komunikaty Pydantic (polskie i angielskie) na przyjazne opisy: „Błąd daty: Czas zakończenia musi być późniejszy niż czas rozpoczęcia prac." Ulepszona detekcja `affectsBoth` eliminuje fałszywe wykrycia pojedynczego pola.
+
+### 2026-04-21 — Walidacja logiczna dat i system Toast dla błędów formularza
+
+- Wdrożenie walidacji logicznej dat (End > Start) oraz przejście na system Toast dla błędów formularza.
+- **Walidacja relacji dat `end > start`** (`schemas/event.py`): Nowa funkcja `_validate_end_after_start()` + `@model_validator(mode="after")` `end_after_start` w `EventCreate` i `EventUpdate`. Jeśli oba pola są ustawione i `estimated_end <= start_time`, endpoint zwraca HTTP 422 z komunikatem `"Szacowany czas zakończenia nie może być wcześniejszy niż czas rozpoczęcia prac."` Walidator unifikuje naive/aware datetime do UTC przed porównaniem. Przeniesiono pomocniczy `_to_utc()` do funkcji modułowej (reużywane przez oba walidatory relacji dat).
+- **Czytelne logowanie błędów walidacji** (`main.py`): Nowy `@app.exception_handler(RequestValidationError)` — zamiast wyrzucać surowy obiekt Pydantic do terminala, loguje każdy błąd w formacie `BŁĄD WALIDACJI: [pole] → komunikat` (level WARNING). Handler zwraca identyczny HTTP 422 JSON jak domyślny FastAPI (bez Breaking Change dla klientów API).
+- **System Toast dla błędów 422** (`AdminEventForm.tsx`): Nowy hook `handle422Error()` — parsuje JSON body błędu 422 z FastAPI, ekstrahuje komunikaty Pydantic (strippuje prefix "Value error, "), wyświetla `toast({ variant: 'destructive' })` z konkretną przyczyną. Catch block `handleBulkSubmit` próbuje najpierw `handle422Error`, fallbackuje na generyczny toast.
+- **Wizualne oznaczenie błędnych pól dat** (`AdminEventForm.tsx`): Nowy state `dateFieldError` (`'start_time' | 'estimated_end' | 'both' | null`). `handle422Error` ustawia go na podstawie `loc[]` z Pydantic lub dopasowania tekstu błędu. Pola `start-time` i `est-end` dostają klasę `border-destructive` gdy odpowiadają błędowi. Oba pola resetują `dateFieldError` na `null` przy zmianie (`onChange`).
+
+### 2026-04-21 — Inteligentny podgląd wiadomości z wykrywaniem scenariusza
+
+- **Inteligentny, reaktywny podgląd wiadomości SMS** (`AdminEventForm.tsx`): Dodano sekcję „Podgląd wiadomości dla mieszkańców" (font-mono, bg-muted/50, bezpośrednio pod polami daty) z automatycznym wykrywaniem scenariusza na podstawie porównania z `initialData` (oryginalne wartości z DB). Trzy scenariusze: (1) **zmiana statusu** → „[Adres]: Status zgłoszenia zmienił się z X na Y. Szacowany czas naprawy: … Przepraszamy…"; (2) **aktualizacja czasu/opisu** (status bez zmian) → „[Adres]: Aktualizacja. Nowy szacowany czas przywrócenia wody: … Przepraszamy…"; (3) **nowe zdarzenie** → standardowy szablon MPWiK. Dla `planowane_wylaczenie` wszystkie scenariusze zawierają przedział „Od: … Do: …". Gdy ulica nie jest jeszcze wybrana — używany placeholder `[Adres]`. Badge w nagłówku (niebieski/pomarańczowy/szary) informuje dyspozytora o wykrytym scenariuszu.
+- **Stan `initialData`** (`AdminEventForm.tsx`): Nowa struktura `InitialEventData { status, estimatedEnd, description }` ustawiana jednorazowo przy załadowaniu danych zdarzenia do edycji — przechowuje oryginalne wartości z bazy i nie jest aktualizowana przy kolejnych renderach.
+- **Dolny Card „Edytuj treść"** (`AdminEventForm.tsx`): Przemianowano z „Podgląd wiadomości" na „Edytuj treść wiadomości (opcjonalnie)" z czcionką `font-mono` w Textarea — wyraźnie pełni rolę pola do ręcznego nadpisania szablonu, a nie duplikatu podglądu.
+
+### 2026-04-21 — Naprawa błędu serializacji 500, inteligentne aktualizacje SMS i reaktywny podgląd wiadomości
+
+- **Naprawa błędu serializacji JSON 500** (`main.py`): Dodano `_sanitize_for_json()` — rekurencyjny helper konwertujący nieskojarzalne z JSON obiekty (np. `ValueError` w kluczu `ctx` błędów Pydantic v2) na `str`. Handler `validation_exception_handler` używa go przed zwróceniem `JSONResponse`, eliminując `TypeError: Object of type ValueError is not JSON serializable` i błędy HTTP 500 przy odrzuceniu requestów przez walidatory modelu.
+- **Inteligentne powiadomienia o aktualizacji opisu** (`notification_service.py`, `events.py`): Rozszerzono `notify_event()` o parametr `old_description`. Router przechwytuje `old_description = event.description` przed aktualizacją i przekazuje go do `notify_event()`. Funkcja detektuje teraz trzy warianty: (a) zmiana statusu → szablon status-change; (b) zmiana `estimated_end` lub `description` bez zmiany statusu → szablon time-update (SMS: „[Adres]: Aktualizacja. Nowy szacowany czas przywrócenia wody: [Godzina]. Przepraszamy za utrudnienia. MPWiK Lublin tel. 994"); (c) brak faktycznej zmiany → brak powiadomienia. Dla `planowane_wylaczenie` zachowany format „Od: ... Do: ...".
+- **Guard „z X na X"** (`notification_service.py`): Dodano defensywne sprawdzenie w `build_sms_status_change_message` — jeśli `old_status == event.status`, wiadomość używa bezpiecznego formatu „Aktualizacja statusu: X" zamiast „z X na X".
+- **Naprawa znikania pola „Czas rozpoczęcia" przy edycji** (`AdminEventForm.tsx`): Usunięto `useEffect([eventType])` czyszczący `startTime` — efekt działał po każdej programowej zmianie `eventType` (także przy załadowaniu danych z API), co powodowało utratę wartości `start_time` u edytowanych zdarzeń `planowane_wylaczenie`. Logika czyszczenia przeniesiona wyłącznie do `onValueChange` selekta — uruchamia się tylko przy ręcznej zmianie przez dyspozytora.
+- **Reaktywny podgląd wiadomości (pojedynczy, edytowalny)** (`AdminEventForm.tsx`): Usunięto zduplikowany blok podglądu read-only. Pozostaje jeden edytowalny kafelek „Podgląd wiadomości dla mieszkańców (SMS/E-mail)" z Textarea — aktualizuje się reaktywnie przy każdej zmianie pól formularza (typ, ulica, adresy, daty, opis) przez istniejący `useEffect`. Dyspozytor widzi treść SMS w czasie rzeczywistym przed kliknięciem „Zapisz".
+
+### 2026-04-21 — Inteligentne powiadomienia i finalne logi bramki
+
+- Wdrożenie inteligentnej logiki powiadomień (rozróżnienie zmiany statusu od aktualizacji czasu) oraz finalny format logów bramki SMS.
+- **Inteligentna logika `notify_event`** (`notification_service.py`): Dodano parametr `old_estimated_end: datetime | None` do `notify_event()`. Funkcja rozróżnia teraz trzy scenariusze: (a) **zmiana statusu** — wysyła dotychczasowy szablon „status zmienił się z X na Y" (gwarantuje `X != Y`); (b) **tylko aktualizacja czasu** (status ten sam, zmienił się `estimated_end`) — wysyła nowy szablon „Aktualizacja. Nowy szacowany czas przywrócenia wody: ..."; (c) **brak faktycznej zmiany** — pomija powiadomienie z logiem info. Dla `planowane_wylaczenie` wszystkie szablony dołączają „Od: ... Do: ...".
+- **Nowe szablony SMS/email** (`notification_service.py`): `build_sms_time_update_message()`, `build_email_time_update_subject()`, `build_email_time_update_body()` — treść: „[Adres]: Aktualizacja. Nowy szacowany czas przywrócenia wody: [Data]. Przepraszamy za utrudnienia. MPWiK Lublin tel. 994".
+- **Router `update_event`** (`events.py`): Przekazuje teraz `old_estimated_end=old_estimated_end` do `notify_event()` — zmienna `old_estimated_end` była już przechwytywana w routerze (line 174).
+- **Finalny format logów Mock SMS** (`gateways.py`): `_SEP = "-" * 40`, etykieta `DO:`. Terminal: `{SEP}\n[MOCK SMS] DO: {numer}\nTREŚĆ: {tekst}\n{SEP}`.
+
+### 2026-04-21 — Walidacja dat i przebudowa tabeli logów
+
+- Wdrożenie blokady dat wstecznych dla start_time oraz przebudowa tabeli logów na frontendzie (poprawa czytelności i UX).
+- **Walidacja `start_time` dla planowanych wyłączeń** (`schemas/event.py`): Nowa funkcja `_validate_start_time_for_planned()` + `@model_validator(mode="after")` w `EventCreate` i `EventUpdate`. Jeśli `event_type == 'planowane_wylaczenie'` i `start_time` jest wcześniejszy niż `datetime.now(UTC)`, endpoint zwraca HTTP 422 z komunikatem `"Czas rozpoczęcia prac planowanych nie może być datą wsteczną."`. Walidator unifikuje naive/aware datetime do UTC przed porównaniem.
+- **Przebudowa tabeli logów powiadomień** (`AdminNotifications.tsx`): Zwiększono padding komórek (`py-3`); kolumna „Odbiorca" używa czcionki monospaced (`font-mono`) dla łatwiejszego skanowania wzrokiem zamaskowanych numerów/e-maili; kolumna „Treść" zastąpiona rozwijalnym blokiem z `line-clamp-2` i przyciskiem „Rozwiń/Zwiń" (wyświetla się gdy treść > 80 znaków) — zapobiega rozciąganiu tabeli przez długie SMS-y; wiersze tabeli kolorowane wg statusu (jasny zielony `bg-green-50/50` dla `sent`, jasny czerwony `bg-red-50/50` dla `failed`).
+- **Czytelność logów Mock SMS** (`gateways.py`): Separator `_SEP` rozszerzony z 40 do 50 znaków (`-` × 50); etykieta zmieniona z `DO:` na `ODBIORCA:` zgodnie z formatem `[MOCK SMS] ODBIORCA: +48 123 *** 89`.
+
+### 2026-04-21 — UI/UX
+
+- **UX — Proporcje pól AddressRow** (`AddressRow.tsx`): Zmieniono grid z `minmax(0,1fr)_minmax(6rem,auto)_minmax(6rem,auto)` na `minmax(150px,3fr)_5rem_5rem_auto`. Pole „Ulica" otrzymuje teraz 3× więcej przestrzeni, a pola „Nr budynku" i „Nr mieszkania" mają stałą szerokość `5rem` (wystarczającą dla 4–5 znaków). Usunięto redundantne klasy `min-w-[5rem]` z inputów.
+
+### 2026-04-21 — RODO: maskowanie w warstwie Gateways (P9 uzupełnienie)
+
+- **RODO — `app/utils/masking.py`** (nowy moduł): Przeniesiono `mask_recipient()` z `notification_service.py` do współdzielonego modułu `app/utils/masking.py`. Dodano `mask_token(text)` — maskuje 64-znakowe tokeny hex RODO w treści wiadomości (zastępuje `[0-9a-fA-F]{64}` przez pierwsze 6 znaków + `...`, np. `1a8e29...`). Eliminuje cykliczny import między `gateways.py` a `notification_service.py`.
+- **RODO — `MockSMSGateway.send`** (`gateways.py`): Zastosowano `mask_recipient(phone)` i `mask_token(message)` — numer telefonu i kod RODO nie pojawiają się już w logach dev.
+- **RODO — `SMSEagleGateway.send`** (`gateways.py`): Zastosowano `mask_recipient(phone)` w 3 miejscach logu (sukces, błąd HTTP, błąd połączenia).
+- **RODO — `EmailSender.send`** (`gateways.py`): Zastosowano `mask_recipient(recipient)` i `mask_token(body[:80])` w 3 miejscach logu (mock, sukces, błąd).
+- **Punkt P9** jest teraz w pełni zrealizowany: dane osobowe zamaskowane w `notification_log` (DB), logach aplikacyjnych (`notification_service.py`) oraz logach warstwy transportowej (`gateways.py`).
+
+### 2026-04-21 — RODO End-to-End: maskowanie recipientów (P9 pełna realizacja)
+
+- **RODO — `mask_recipient()` w `notification_service.py`**: Nowa funkcja maskująca dane osobowe przed zapisem do `notification_log`. E-mail: `m***k@lublin.eu`. Telefon: `+48 123 *** 89`. Aplikowana we wszystkich 6 miejscach tworzenia `NotificationLog` (e-mail sent/failed, SMS sent/failed/queued_morning, welcome SMS, welcome e-mail).
+- **RODO — Logi aplikacyjne**: Logger w `_send_notifications_for_subscriber` zastąpiony `mask_recipient()` — raw e-mail i telefon nie pojawiają się już w żadnym logu systemowym.
+- **RODO — `process_morning_queue` fix**: Kolejka poranna używa teraz `log_entry.subscriber.phone` (prawdziwy numer z tabeli `subscribers`) do wysyłki SMS zamiast zamaskowanego `recipient` z logu. Dodano `selectinload(NotificationLog.subscriber)`.
+- **RODO — Migracja retroaktywna** (`20260421_mask_notification_log_recipients.py`): Alembic migration maskuje wszystkie istniejące rekordy w `notification_log`. Operacja nieodwracalna.
+- **Frontend — Tooltip RODO** (`AdminNotifications.tsx`, `AdminSubscribers.tsx`): Ikona `ShieldCheck` (zielona) przy nagłówkach kolumn "Odbiorca", "E-mail", "Telefon" z tooltipem wyjaśniającym politykę RODO.
+
+### 2026-04-21 — UX: poprawa prezentacji błędów walidacji adresu w formularzu rejestracji
+
+- **Usunięto surowy tekst błędu** spod pola „Nr budynku" w `AddressRow.tsx` — przestał psuć układ siatki grid formularza.
+- **Czerwona ramka (`border-destructive`)** na polu „Nr budynku" gdy wpisana wartość nie pasuje do bazy MPWiK, oraz na polu „Ulica" gdy użytkownik opuści pole bez wybrania ulicy z listy podpowiedzi (detekcja `onBlur` + brak `street_id`). Resetowana gdy użytkownik zaczyna ponownie wpisywać.
+- **Toast `destructive`** zamiast inline tekstu: przy pierwszym wykryciu błędnego numeru budynku wyświetla się `useToast` z komunikatem „Wybrany numer budynku nie figuruje w oficjalnej bazie MPWiK Lublin. Wybierz numer z listy podpowiedzi." Toast nie powtarza się przy kolejnych zmianach tej samej wartości (guard `prevHouseErrorRef`).
+- Przycisk „Zarejestruj się" pozostaje zablokowany (`disabled`) dopóki adres nie zostanie poprawiony.
+
+### 2026-04-21 — Przebudowa strony About
+
+- **Pełna przebudowa strony About na instrukcję Systemu Powiadomień MPWiK Lublin** (`frontend/src/pages/About.tsx`): Zastąpiono ogólny opis projektu profesjonalną stroną informacyjną dla mieszkańców. Strona zawiera: statystyki systemu (1378 ulic TERYT, 51 000+ budynków), instrukcję krok-po-kroku w zakładkach Tabs (wyszukiwanie, rejestracja, zarządzanie danymi/RODO), opis funkcji inteligentnych w Accordion (cisza nocna 22–06, precyzja GIS), kartę bezpieczeństwa i prywatności RODO. Zbudowana wyłącznie z komponentów shadcn/ui (`Card`, `Tabs`, `Accordion`, `Badge`).
+- **Aktualizacja strony About: wdrożenie oficjalnej instrukcji MPWiK, statystyki GIS, nowa legenda kolorów i zasady ciszy nocnej** (`frontend/src/pages/About.tsx`): Kompletne przepisanie strony zgodnie ze specyfikacją — 4 sekcje: O systemie i zasięgu (statystyki z Tooltip), Legenda kolorów i oznaczeń (Czerwony = Awaria, Niebieski = Planowane wyłączenie, Żółty = Remont), Jak działają powiadomienia? (Accordion: Rejestracja, Cisza nocna 22–06, Kod wyrejestrowania RODO), Bezpieczeństwo danych i precyzja (maskowanie +48 123 *** 89, walidacja adresów). Komponenty: `Card`, `Accordion`, `Badge`, `Tooltip` (shadcn/ui).
+
+### 2026-04-21 — Walidacja adresów przy rejestracji subskrybenta
+
+- **Twarda walidacja istnienia adresu w tabeli `buildings` na poziomie backendu** (`subscribers.py`): Przed zapisem do bazy każdy adres jest weryfikowany — sprawdzane jest istnienie rekordu w `buildings` o pasującym `street_id` i `house_number` (ILIKE). Jeśli adres nie istnieje, endpoint zwraca `HTTP 400` z komunikatem `"Podany adres (ulica lub numer budynku) nie istnieje w oficjalnym spisie MPWiK."`. Walidacja wszystkich adresów odbywa się przed `db.flush()`, dzięki czemu żaden nieprawidłowy subskrybent nie trafia do bazy.
+- **Frontend — blokada przycisku i walidacja ręcznego wpisania ulicy** (`Register.tsx`): Przycisk „Zarejestruj się" jest dezaktywowany gdy jakikolwiek adres ma wpisaną ulicę bez wybrania jej z listy podpowiedzi (brak `street_id`) lub ma nieprawidłowy numer budynku. Przy próbie wysłania formularza wyświetlany jest Toast z nazwą błędnej ulicy. Błąd 400 z backendu jest przechwytywany i wyświetlany jako Toast.
+
+### 2026-04-21 — Poprawa logów, naprawienie „pamięci typu" i reaktywności formularza
+
+- **Poprawa czytelności logów bramki** (`gateways.py`): Stała `_SEP = "-" * 40` + wieloliniowy format logu MOCK SMS: `[MOCK SMS] DO: <numer>\nTREŚĆ: <tekst>` otoczony separatorami. Analogicznie dla MOCK EMAIL (temat jako osobna linia). Logi dev są teraz czytelne na pierwszy rzut oka bez parsowania.
+- **Naprawa „pamięci typu" w powiadomieniach** (`notification_service.py`): Trzy miejsca hardkodowały słowo "awaria" niezależnie od rzeczywistego typu zdarzenia: `build_sms_status_change_message`, `build_email_status_change_subject`, `build_email_status_change_body`. Dodano słowniki `_REMOVAL_SMS_PHRASE`, `_REMOVAL_EMAIL_PHRASE`, `_REMOVAL_SUBJECT_PHRASE`. Teraz gdy zdarzenie `planowane_wylaczenie` jest kasowane — SMS mówi "planowane wyłączenie zostało odwołane", a subject: "Planowane wyłączenie odwołane". Analogicznie dla remontu.
+- **Naprawa reaktywności formularza edycji** (`AdminEventForm.tsx`): (a) Ładowanie zdarzenia do edycji ustawia teraz `startTime` i `estimatedEnd` jawnie z fallbackiem `''` zamiast warunkowego `if` — eliminuje przypadek braku aktualizacji pola przy ładowaniu. (b) Nowy `useEffect([eventType])` czyści `startTime` gdy typ zmienia się na inny niż `planowane_wylaczenie` — zapobiega wysyłaniu `start_time` do API dla awarii/remontów. (c) Auto-generowany `customMessage` uwzględnia teraz `startTime` dla `planowane_wylaczenie` (format: "Od: DD.MM HH:MM. Do: DD.MM HH:MM"), używa właściwych etykiet per typ, a `startTime` dodano do tablicy zależności `useEffect`.
+
+### 2026-04-21 — Logika czasu i powiadomień
+
+- **Rozszerzone powiadomienia dla planowanych prac** (`notification_service.py`): Wszystkie funkcje budujące wiadomości (`build_sms_message`, `build_email_body`, `build_sms_status_change_message`, `build_email_status_change_body`, `build_sms_retroactive_message`, `build_email_retroactive_body`) rozpoznają typ zdarzenia `planowane_wylaczenie`. Dla tego typu SMS/e-mail zawiera teraz zarówno `start_time` ("Od: DD.MM.YYYY HH:MM"), jak i `estimated_end` ("Do: DD.MM.YYYY HH:MM") zamiast jednolinijkowego "Szacowany czas naprawy". Dodano helper `_start_time_str()` analogiczny do `_estimated_end_str()`. E-mail używa etykiet "Planowane wyłączenie od:" i "Planowane przywrócenie wody do:", awarie i remonty zachowują dotychczasowe etykiety.
+- **Walidacja czasu zakończenia (Pydantic v2)** (`schemas/event.py`): Nowa funkcja `_validate_estimated_end()` + `@field_validator("estimated_end", mode="after")` w `EventCreate` i `EventUpdate`. Jeśli `estimated_end` jest wcześniejszy niż `datetime.now(UTC)`, endpoint zwraca HTTP 422 z komunikatem `"Czas zakończenia nie może być wcześniejszy niż aktualna godzina."`. Walidator unifikuje naive/aware datetime do UTC przed porównaniem. Nie dotyczy `EventResponse` (odczyt z DB).
+- **Automatyczne przedłużanie przeterminowanych zdarzeń** (`notification_service.py`, `main.py`): Nowa funkcja `auto_extend_overdue_events()` — wyszukuje zdarzenia o statusie `zgloszona` lub `w_naprawie` z `estimated_end < now_utc` i dodaje 1 godzinę do `estimated_end`. Każda zmiana logowana (`logger.info`). Zarejestrowana w `AsyncIOScheduler` jako zadanie `interval` co **30 minut** (obok istniejącej kolejki porannej 06:00).
+
+### 2026-04-21 — RODO + Decyzja biznesowa (P4)
+
+- **P4: Decyzja biznesowa — statusy zdarzeń**: Zespół zdecydował o zachowaniu modelu 3 statusów (`zgloszona`, `w_naprawie`, `usunieta`). Punkt P4 zamknięty bez zmian w kodzie.
+
+### 2026-04-21 — Bezpieczeństwo (P2 + P3)
+
+- **BEZPIECZEŃSTWO — P2: Autoryzacja `DELETE /events/{id}`** (`events.py:124`): Zmieniono `Depends(get_current_user)` na `Depends(get_current_dispatcher_or_admin)`. Endpoint wymaga teraz roli `dispatcher` lub `admin` — zwykły użytkownik otrzyma HTTP 403.
+- **BEZPIECZEŃSTWO — P3: Ukrycie panelu admina** (`App.tsx`, `api.ts`, `ProtectedAdminLayout.tsx`, `AdminLayout.tsx`, `PublicLayout.tsx`): Ścieżka `/admin/login` zmieniona na `/sys-panel/login` we wszystkich 5 plikach frontendu (route, interceptor 401, guard redirect, logout redirect, link w stopce).
 
 ### 2026-04-20 — Bezpieczeństwo
 
@@ -102,10 +204,10 @@ Projekt **System Powiadomień MPWiK Lublin** jest w stanie **zaawansowanego prot
 
 **Co blokuje produkcyjne wdrożenie:**
 
-1. `DELETE /events` dostępny dla każdego zalogowanego użytkownika (P2 — krytyczna luka bezpieczeństwa).
-2. `SECRET_KEY` — klucz domyślny wciąż w repozytorium (P1).
-3. Panel admina pod przewidywalną ścieżką `/admin/login` (P3).
-4. Zero testów automatycznych.
+1. `SECRET_KEY` — klucz domyślny wciąż w repozytorium (P1).
+2. Zero testów automatycznych.
+3. ✅ `DELETE /events` naprawiony — wymaga teraz roli dispatcher/admin (P2).
+4. ✅ Panel admina przeniesiony na `/sys-panel/login` (P3).
 
 **Ocena ekspercka:** **7.5/10** — bardzo dobry prototyp z ambitnymi decyzjami architektonicznymi (PostGIS, multi-operator ready, spatial join w Pythonie). Gotowy do prezentacji konkursowej. Przed wdrożeniem produkcyjnym wymagane: naprawa P1-P3, hardening infrastruktury, testy pytest.
 
@@ -185,7 +287,7 @@ Projekt **System Powiadomień MPWiK Lublin** jest w stanie **zaawansowanego prot
 
 ### 3.2. 🟡 WAŻNE — poprawić przed wdrożeniem MPWiK
 
-#### 3.2.1. Status zdarzeń niezgodny ze specyfikacją ❌ DO NAPRAWY (P4)
+#### 3.2.1. Status zdarzeń niezgodny ze specyfikacją ✅ NAPRAWIONO (P4 — decyzja biznesowa)
 
 - **Plik:** `backend/app/schemas/event.py:24`
 - Kod: `EventStatus = Literal["zgloszona", "w_naprawie", "usunieta"]`
@@ -213,7 +315,7 @@ Projekt **System Powiadomień MPWiK Lublin** jest w stanie **zaawansowanego prot
 - `_cors_origins = [...] or ["*"]` — jeśli `CORS_ORIGINS` nie jest ustawiony, zezwala na dowolną domenę.
 - **Naprawa:** Wyrzucać błąd przy starcie gdy `CORS_ORIGINS` jest pusty w trybie produkcyjnym.
 
-#### 3.2.5. E-mail subskrybenta w logach (RODO) ❌ DO NAPRAWY (P9)
+#### ✅ NAPRAWIONO 3.2.5. E-mail subskrybenta w logach (RODO) (P9)
 
 - **Plik:** `backend/app/routers/subscribers.py:175`
 - `logger.info("... email=%r ...")` — e-mail logowany w plaintext do stderr/pliku.
@@ -350,15 +452,15 @@ Projekt **System Powiadomień MPWiK Lublin** jest w stanie **zaawansowanego prot
 | Obszar | Status | Komentarz |
 |--------|--------|-----------|
 | **RODO — fizyczne usunięcie** | ✅ | Backend: CASCADE. Token RODO wysyłany powitalnym SMS/e-mail. |
-| **RODO — minimalizacja danych w logach** | ⚠️ | E-mail logowany plaintext (P9). |
+| **RODO — minimalizacja danych w logach** | ✅ | E-mail zastąpiony SHA-256 hash (P9 naprawione). |
 | **Tajemnica przedsiębiorstwa** | ✅ | Admin endpointy za JWT + rolą; brak publicznego podglądu subskrybentów. |
 | **Bramka SMS (SMSEagle)** | ✅ | `services/gateways.py` — `mock` + `smseagle`, przełącznik przez `SMS_GATEWAY_TYPE`. |
 | **Nocna cisza 22–06 Europe/Warsaw** | ✅ | `notification_service.py` — `ZoneInfo("Europe/Warsaw")`. Osobna zgoda `night_sms_consent`. |
 | **Edytowalna treść SMS/e-mail** | ✅ | Dyspozytor może nadpisać szablon przez `custom_message` w formularzu zdarzenia. |
 | **Rate limiter / WAF-ready** | ✅ | slowapi: `login` (5/min), `register` (3/min), `streets?q=` (30/min), `refresh` (10/min). |
 | **Hardening SECRET_KEY** | ⚠️ | Walidator blokuje start ✅. Klucz domyślny wciąż w repo ⚠️ (P1). |
-| **Obscurity panelu admina** | ❌ | Ścieżka `/admin/login` jawna (P3). |
-| **Autoryzacja DELETE /events** | ❌ | Każdy zalogowany użytkownik może usunąć zdarzenie (P2 — KRYTYCZNE). |
+| **Obscurity panelu admina** | ✅ | Ścieżka zmieniona na `/sys-panel/login` (P3 naprawione). |
+| **Autoryzacja DELETE /events** | ✅ | Wymaga roli dispatcher/admin — `get_current_dispatcher_or_admin` (P2 naprawione). |
 | **Statusy zdarzeń zgodne ze spec** | ❌ | `w_naprawie` zamiast `trwajaca/potwierdzona/zakonczono` (P4). |
 | **Multi-operator (LPEC, ZDiM)** | ❌ | Model `api_keys` w bazie, brak routera. Pole `source` gotowe. |
 | **GIS — klikanie budynków** | ✅ | `AdminEventForm` — 3 taby, `BuildingLayer` z poligonami/punktami, tooltopy. |

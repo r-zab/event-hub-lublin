@@ -115,6 +115,12 @@ const Register = () => {
       return;
     }
 
+    const manualStreet = addresses.find((a) => a.street_name.trim() && !a.street_id);
+    if (manualStreet) {
+      toast({ title: 'Wybierz ulicę z listy', description: `Ulica "${manualStreet.street_name}" musi być wybrana z podpowiedzi — wpisz min. 3 znaki i kliknij wynik.`, variant: 'destructive' });
+      return;
+    }
+
     if (houseNumberValidity.some((v) => v === false)) {
       toast({ title: 'Nieprawidłowy numer budynku', description: 'Sprawdź numer budynku — nie figuruje w bazie MPWiK.', variant: 'destructive' });
       return;
@@ -357,7 +363,21 @@ const Register = () => {
           )}
         </fieldset>
 
-        <Button type="submit" size="lg" className="w-full text-base font-semibold" disabled={isSubmitting}>
+        {addresses.some((a) => a.street_name.trim() && !a.street_id) && (
+          <p className="text-xs text-destructive text-center -mb-2">
+            Wybierz ulicę z listy podpowiedzi, aby odblokować rejestrację.
+          </p>
+        )}
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full text-base font-semibold"
+          disabled={
+            isSubmitting ||
+            addresses.some((a) => a.street_name.trim() !== '' && a.street_id === null) ||
+            houseNumberValidity.some((v) => !v)
+          }
+        >
           {isSubmitting ? 'Rejestrowanie...' : 'Zarejestruj się'}
         </Button>
       </form>

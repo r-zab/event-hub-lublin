@@ -12,7 +12,7 @@ function getAuthHeaders(): Record<string, string> {
 function clearSessionAndRedirect() {
   localStorage.removeItem('mpwik_token');
   localStorage.removeItem('mpwik_refresh_token');
-  window.location.href = '/admin/login';
+  window.location.href = '/sys-panel/login';
 }
 
 async function tryRefreshToken(): Promise<string | null> {

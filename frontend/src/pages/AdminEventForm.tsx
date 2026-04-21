@@ -57,6 +57,22 @@ interface QueueItem {
 }
 
 // ---------------------------------------------------------------------------
+// Typy pomocnicze podglądu
+// ---------------------------------------------------------------------------
+
+interface InitialEventData {
+  status: string;
+  estimatedEnd: string;
+  description: string;
+}
+
+const STATUS_PREVIEW_LABELS: Record<string, string> = {
+  zgloszona: 'Zgłoszona',
+  w_naprawie: 'W naprawie',
+  usunieta: 'Usunięta',
+};
+
+// ---------------------------------------------------------------------------
 // Helpers — alfanumeryczne sortowanie numerów posesji
 // ---------------------------------------------------------------------------
 
@@ -290,9 +306,14 @@ const AdminEventForm = () => {
   const [showHouseToDropdown, setShowHouseToDropdown] = useState(false);
   const houseToWrapperRef = useRef<HTMLDivElement>(null);
 
+  // --- Walidacja dat ---
+  const [dateFieldError, setDateFieldError] = useState<'start_time' | 'estimated_end' | 'both' | null>(null);
+
   // --- Edytowalna treść powiadomienia ---
   const [customMessage, setCustomMessage] = useState('');
   const [isMessageEdited, setIsMessageEdited] = useState(false);
+  // Oryginalne wartości z bazy — do wykrycia scenariusza powiadomienia przy edycji
+  const [initialData, setInitialData] = useState<InitialEventData | null>(null);
 
   // --- Kolejka (bulk) ---
   const [eventsQueue, setEventsQueue] = useState<QueueItem[]>([]);
@@ -304,6 +325,64 @@ const AdminEventForm = () => {
 
   // IDs budynków do przywrócenia przy edycji (synchronizacja timingu ładowania)
   const pendingRestoreIdsRef = useRef<number[] | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // Parser błędów 422 z FastAPI / Pydantic
+  // ---------------------------------------------------------------------------
+
+  const handle422Error = useCallback((rawMessage: string) => {
+    // Mapa surowych komunikatów Pydantic → przyjazne polskie opisy
+    const MSG_MAP: Array<[RegExp, string]> = [
+      [/czas zakończenia nie może być wcześniejszy niż czas rozpoczęcia/i,
+        'Błąd daty: Czas zakończenia musi być późniejszy niż czas rozpoczęcia prac.'],
+      [/czas zakończenia nie może być wcześniejszy niż aktualna godzina/i,
+        'Błąd daty: Czas zakończenia nie może być w przeszłości.'],
+      [/czas rozpoczęcia prac planowanych nie może być datą wsteczną/i,
+        'Błąd daty: Czas rozpoczęcia prac planowanych nie może być w przeszłości.'],
+      [/estimated_end must be after start_time/i,
+        'Błąd daty: Czas zakończenia musi być późniejszy niż czas rozpoczęcia.'],
+      [/start_time.*past/i,
+        'Błąd daty: Czas rozpoczęcia nie może być w przeszłości.'],
+    ];
+
+    const translate = (msg: string): string => {
+      const clean = msg.replace(/^Value error,\s*/i, '').trim();
+      for (const [pattern, translation] of MSG_MAP) {
+        if (pattern.test(clean)) return translation;
+      }
+      return clean;
+    };
+
+    try {
+      const parsed: { detail?: Array<{ msg?: string; loc?: (string | number)[] }> } = JSON.parse(rawMessage);
+      if (!parsed.detail || !Array.isArray(parsed.detail)) return false;
+
+      const messages = parsed.detail.map((e) => translate(e.msg ?? '')).filter(Boolean);
+      if (messages.length === 0) return false;
+
+      // Wykryj których pól dotyczą błędy
+      const locs = parsed.detail.flatMap((e) => (e.loc ?? []).map(String));
+      const raw = parsed.detail.map((e) => (e.msg ?? '').toLowerCase());
+      const affectsStart = locs.includes('start_time') ||
+        raw.some((m) => m.includes('rozpoczęci') || m.includes('wsteczną') || m.includes('start_time'));
+      const affectsEnd = locs.includes('estimated_end') ||
+        raw.some((m) => m.includes('zakończeni') || m.includes('zakończenia') || m.includes('estimated_end'));
+      const affectsBoth = raw.some((m) => m.includes('rozpoczęcia') && m.includes('zakończenia'));
+
+      if (affectsBoth || (affectsStart && affectsEnd)) setDateFieldError('both');
+      else if (affectsStart) setDateFieldError('start_time');
+      else if (affectsEnd) setDateFieldError('estimated_end');
+
+      toast({
+        title: 'Błąd walidacji',
+        description: messages.join(' '),
+        variant: 'destructive',
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }, [toast]);
 
   // ---------------------------------------------------------------------------
   // Ładowanie zdarzenia przy edycji
@@ -321,8 +400,8 @@ const AdminEventForm = () => {
         setHouseTo(event.house_number_to ?? '');
         setDescription(event.description ?? '');
         setStatus(event.status);
-        if (event.start_time) setStartTime(toLocalISO(event.start_time));
-        if (event.estimated_end) setEstimatedEnd(toLocalISO(event.estimated_end));
+        setStartTime(event.start_time ? toLocalISO(event.start_time) : '');
+        setEstimatedEnd(event.estimated_end ? toLocalISO(event.estimated_end) : '');
         setStreetQuery(event.street_name);
         if (event.street_id) {
           setSelectedStreet({
@@ -334,6 +413,12 @@ const AdminEventForm = () => {
             city: 'Lublin',
           });
         }
+        // Zapamiętaj oryginalne wartości z bazy — do wykrywania scenariusza przy podglądzie
+        setInitialData({
+          status: event.status,
+          estimatedEnd: event.estimated_end ? toLocalISO(event.estimated_end) : '',
+          description: event.description ?? '',
+        });
         // Przywróć zaznaczenie budynków z geojson_segment (jeśli FeatureCollection)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const seg = event.geojson_segment as any;
@@ -430,6 +515,7 @@ const AdminEventForm = () => {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+
   // ---------------------------------------------------------------------------
   // Computed values
   // ---------------------------------------------------------------------------
@@ -495,27 +581,81 @@ const AdminEventForm = () => {
   );
 
   // ---------------------------------------------------------------------------
-  // Auto-generowanie treści powiadomienia (tylko gdy dyspozytor nie edytował ręcznie)
+  // Auto-generowanie treści powiadomienia — inteligentne scenariusze
+  // Scenariusz wykrywany na podstawie porównania z initialData (oryginalne wartości z DB).
+  // Uruchamia się tylko gdy dyspozytor nie edytował treści ręcznie.
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
     if (isMessageEdited) return;
-    if (!eventType || !selectedStreet) {
-      setCustomMessage('');
-      return;
-    }
-    const typeLabel = TYPE_LABELS[eventType] ?? eventType;
-    const streetName = selectedStreet.full_name || selectedStreet.name || streetQuery;
+    if (!eventType) { setCustomMessage(''); return; }
+
+    const fmtLocal = (localStr: string) =>
+      new Date(localStr).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' });
+
     const addrPart = buildShortAddressLabel(houseFrom, houseTo, selectedNums);
-    const addrStr = addrPart ? ` ${addrPart}` : '';
-    const endPart = estimatedEnd
-      ? new Date(estimatedEnd).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' })
-      : 'nieznany';
-    const descPart = description ? ` ${description}.` : '';
-    setCustomMessage(
-      `MPWiK Lublin: ${typeLabel} na ul. ${streetName}${addrStr}.${descPart} Szacowany czas naprawy: ${endPart}. Za utrudnienia przepraszamy. tel. 994`,
-    );
-  }, [eventType, selectedStreet, houseFrom, houseTo, selectedNums, estimatedEnd, description, isMessageEdited]); // eslint-disable-line react-hooks/exhaustive-deps
+    const streetName = selectedStreet
+      ? (selectedStreet.full_name || selectedStreet.name || streetQuery)
+      : null;
+    // Adres wyświetlany — placeholder gdy ulica jeszcze nie wybrana
+    const addrDisplay = streetName
+      ? `ul. ${streetName}${addrPart ? ` ${addrPart}` : ''}`
+      : '[Adres]';
+
+    // Wykryj scenariusz na podstawie zmian względem oryginalnych danych z bazy
+    const isStatusChange = isEdit && initialData !== null && status !== initialData.status;
+    const isTimeOrDescUpdate = isEdit && initialData !== null
+      && status === initialData.status
+      && (estimatedEnd !== initialData.estimatedEnd || description !== initialData.description);
+
+    let msg: string;
+
+    if (isStatusChange) {
+      // Zmiana statusu → informacja o nowym statusie
+      const oldLabel = STATUS_PREVIEW_LABELS[initialData!.status] ?? initialData!.status;
+      const newLabel = STATUS_PREVIEW_LABELS[status] ?? status;
+      const parts = [`${addrDisplay}: Status zgłoszenia zmienił się z "${oldLabel}" na "${newLabel}"`];
+      if (eventType === 'planowane_wylaczenie') {
+        if (startTime) parts.push(`Od: ${fmtLocal(startTime)}`);
+        if (estimatedEnd) parts.push(`Do: ${fmtLocal(estimatedEnd)}`);
+      } else {
+        if (estimatedEnd) parts.push(`Szacowany czas naprawy: ${fmtLocal(estimatedEnd)}`);
+      }
+      parts.push('Przepraszamy za utrudnienia. MPWiK Lublin tel. 994');
+      msg = parts.join('. ');
+
+    } else if (isTimeOrDescUpdate) {
+      // Bez zmiany statusu, zmienił się czas lub opis → Aktualizacja
+      const parts = [`${addrDisplay}: Aktualizacja`];
+      if (eventType === 'planowane_wylaczenie') {
+        if (startTime) parts.push(`Od: ${fmtLocal(startTime)}`);
+        if (estimatedEnd) parts.push(`Do: ${fmtLocal(estimatedEnd)}`);
+      } else {
+        if (estimatedEnd) parts.push(`Nowy szacowany czas przywrócenia wody: ${fmtLocal(estimatedEnd)}`);
+      }
+      parts.push('Przepraszamy za utrudnienia. MPWiK Lublin tel. 994');
+      msg = parts.join('. ');
+
+    } else {
+      // Domyślny: nowe zdarzenie lub edycja bez wykrytych zmian → szablon "nowe zgłoszenie"
+      const typeLabel = TYPE_LABELS[eventType] ?? eventType;
+      const descPart = description ? ` ${description}.` : '';
+      let timePart: string;
+      if (eventType === 'planowane_wylaczenie') {
+        const fromPart = startTime ? `Od: ${fmtLocal(startTime)}` : '';
+        const toPart = estimatedEnd ? `Do: ${fmtLocal(estimatedEnd)}` : '';
+        const combined = [fromPart, toPart].filter(Boolean).join('. ');
+        timePart = combined ? ` ${combined}.` : '';
+      } else {
+        const endPart = estimatedEnd ? fmtLocal(estimatedEnd) : 'nieznany';
+        timePart = ` Szacowany czas naprawy: ${endPart}.`;
+      }
+      const streetDisplay = streetName ?? '[Ulica]';
+      msg = `MPWiK Lublin: ${typeLabel} na ul. ${streetDisplay}${addrPart ? ` ${addrPart}` : ''}.${descPart}${timePart} Za utrudnienia przepraszamy. tel. 994`;
+    }
+
+    setCustomMessage(msg);
+  }, [isEdit, initialData, eventType, selectedStreet, streetQuery, houseFrom, houseTo, selectedNums, startTime, estimatedEnd, description, status, isMessageEdited]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------------------------------------------------------------------------
   // Handlery zaznaczania budynków
@@ -754,11 +894,15 @@ const AdminEventForm = () => {
       }
       navigate('/admin/dashboard');
     } catch (err: unknown) {
-      toast({
-        title: 'Błąd zapisu',
-        description: (err as Error).message || 'Nie udało się zapisać zdarzenia.',
-        variant: 'destructive',
-      });
+      const rawMsg = (err as Error).message || '';
+      const handled = handle422Error(rawMsg);
+      if (!handled) {
+        toast({
+          title: 'Błąd zapisu',
+          description: rawMsg || 'Nie udało się zapisać zdarzenia.',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -802,7 +946,7 @@ const AdminEventForm = () => {
         {/* ---------------------------------------------------------------- */}
         <div>
           <Label>Typ zdarzenia *</Label>
-          <Select value={eventType} onValueChange={setEventType} required>
+          <Select value={eventType} onValueChange={(v) => { if (v !== 'planowane_wylaczenie') setStartTime(''); setEventType(v); }} required>
             <SelectTrigger aria-label="Typ zdarzenia">
               <SelectValue placeholder="Wybierz typ" />
             </SelectTrigger>
@@ -1140,9 +1284,10 @@ const AdminEventForm = () => {
                 id="start-time"
                 type="datetime-local"
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={(e) => { setStartTime(e.target.value); setDateFieldError(null); }}
                 required
                 aria-label="Planowany czas rozpoczęcia"
+                className={dateFieldError === 'start_time' || dateFieldError === 'both' ? 'border-destructive' : ''}
               />
             </div>
           )}
@@ -1154,12 +1299,58 @@ const AdminEventForm = () => {
               id="est-end"
               type="datetime-local"
               value={estimatedEnd}
-              onChange={(e) => setEstimatedEnd(e.target.value)}
+              onChange={(e) => { setEstimatedEnd(e.target.value); setDateFieldError(null); }}
               required={eventType === 'planowane_wylaczenie'}
               aria-label="Szacowany czas zakończenia"
+              className={dateFieldError === 'estimated_end' || dateFieldError === 'both' ? 'border-destructive' : ''}
             />
           </div>
         </div>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Podgląd wiadomości dla mieszkańców — inteligentny, reaktywny    */}
+        {/* Pozycja: bezpośrednio pod polami daty                           */}
+        {/* ---------------------------------------------------------------- */}
+        {(customMessage || eventType) && (
+          <div className="rounded-md border border-border bg-muted/50 px-4 py-3 space-y-2">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Podgląd wiadomości dla mieszkańców
+              </p>
+              {isEdit && initialData && (
+                <Badge
+                  variant="outline"
+                  className={`text-xs font-normal ${
+                    status !== initialData.status
+                      ? 'border-blue-400 text-blue-600'
+                      : estimatedEnd !== initialData.estimatedEnd || description !== initialData.description
+                      ? 'border-amber-400 text-amber-600'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  {status !== initialData.status
+                    ? 'zmiana statusu'
+                    : estimatedEnd !== initialData.estimatedEnd || description !== initialData.description
+                    ? 'aktualizacja czasu / opisu'
+                    : 'brak zmian'}
+                </Badge>
+              )}
+            </div>
+            <p className="font-mono text-sm leading-relaxed text-foreground break-words whitespace-pre-wrap">
+              {customMessage || '— wybierz typ zdarzenia, aby wygenerować podgląd —'}
+            </p>
+            {customMessage.length > 0 && (
+              <p className={`font-mono text-xs ${customMessage.length > 160 ? 'text-amber-600 font-medium' : 'text-muted-foreground'}`}>
+                {customMessage.length} zn.{customMessage.length > 160 ? ' — przekracza 1 SMS (160 zn.)' : ' — mieści się w 1 SMS'}
+              </p>
+            )}
+            {isMessageEdited && (
+              <p className="text-xs text-amber-600 italic">
+                Treść zmodyfikowana ręcznie — zostanie wysłana zamiast szablonu.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* ---------------------------------------------------------------- */}
         {/* Przycisk "Dodaj do kolejki" — tylko w trybie tworzenia           */}
@@ -1207,21 +1398,19 @@ const AdminEventForm = () => {
         )}
 
         {/* ---------------------------------------------------------------- */}
-        {/* Kafelek podglądu / edycji treści powiadomienia                  */}
+        {/* Edycja treści powiadomienia — opcjonalne nadpisanie szablonu    */}
         {/* ---------------------------------------------------------------- */}
         <Card className="p-4 bg-muted/30 border-primary/20">
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <Label htmlFor="custom-message" className="text-sm font-semibold">
-                Podgląd wiadomości dla mieszkańców (SMS/E-mail)
+                Edytuj treść wiadomości (opcjonalnie)
               </Label>
               {isMessageEdited && (
                 <button
                   type="button"
                   className="text-xs text-muted-foreground underline hover:text-foreground"
-                  onClick={() => {
-                    setIsMessageEdited(false);
-                  }}
+                  onClick={() => setIsMessageEdited(false)}
                 >
                   Przywróć automatyczny
                 </button>
@@ -1230,24 +1419,16 @@ const AdminEventForm = () => {
             <Textarea
               id="custom-message"
               value={customMessage}
-              onChange={(e) => {
-                setCustomMessage(e.target.value);
-                setIsMessageEdited(true);
-              }}
-              rows={4}
-              placeholder="Treść wiadomości zostanie wygenerowana automatycznie po wyborze ulicy i typu zdarzenia."
+              onChange={(e) => { setCustomMessage(e.target.value); setIsMessageEdited(true); }}
+              rows={3}
+              placeholder="Treść wiadomości generowana automatycznie — możesz ją zmienić przed zapisem."
               aria-label="Treść powiadomienia SMS/E-mail"
-              className="text-sm resize-none"
+              className="text-sm resize-none font-mono"
             />
             <p className="text-xs text-muted-foreground">
               {isMessageEdited
-                ? 'Treść zmodyfikowana ręcznie — zostanie wysłana do mieszkańców zamiast szablonu.'
-                : 'Treść generowana automatycznie. Możesz ją edytować przed zapisem.'}
-              {customMessage.length > 0 && (
-                <span className={`ml-2 ${customMessage.length > 160 ? 'text-amber-600' : ''}`}>
-                  ({customMessage.length} zn.{customMessage.length > 160 ? ' — ponad 1 SMS' : ''})
-                </span>
-              )}
+                ? 'Treść zmodyfikowana — zostanie wysłana zamiast automatycznego szablonu.'
+                : 'Treść generowana automatycznie na podstawie danych powyżej.'}
             </p>
           </div>
         </Card>

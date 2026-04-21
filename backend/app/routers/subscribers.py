@@ -3,6 +3,7 @@ Router: Subscribers — rejestracja i wyrejestrowanie subskrybentów powiadomie�
 """
 
 import asyncio
+import hashlib
 import logging
 import re
 import secrets
@@ -14,6 +15,7 @@ from sqlalchemy.orm import selectinload
 
 from app.dependencies import get_db
 from app.limiter import limiter
+from app.models.building import Building
 from app.models.street import Street
 from app.models.subscriber import Subscriber, SubscriberAddress
 from app.schemas.subscriber import SubscriberCreate, SubscriberResponse
@@ -127,6 +129,36 @@ async def register_subscriber(
                 detail="Ten e-mail lub numer telefonu jest już zarejestrowany.",
             )
 
+    # Faza 1: walidacja wszystkich adresów przed jakimkolwiek zapisem
+    resolved: list[tuple[int, object]] = []
+    for addr in data.addresses:
+        if addr.street_id is not None:
+            resolved_sid: int | None = addr.street_id
+        else:
+            resolved_sid = await _resolve_street_id(db, addr.street_name)
+
+        if resolved_sid is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Podany adres (ulica lub numer budynku) nie istnieje w oficjalnym spisie MPWiK.",
+            )
+
+        bldg_result = await db.execute(
+            select(Building)
+            .where(
+                Building.street_id == resolved_sid,
+                Building.house_number.ilike(addr.house_number.strip()),
+            )
+            .limit(1)
+        )
+        if bldg_result.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Podany adres (ulica lub numer budynku) nie istnieje w oficjalnym spisie MPWiK.",
+            )
+
+        resolved.append((resolved_sid, addr))
+
     unsubscribe_token = secrets.token_hex(32)
 
     subscriber = Subscriber(
@@ -141,13 +173,7 @@ async def register_subscriber(
     db.add(subscriber)
     await db.flush()  # uzyskaj subscriber.id przed dodaniem adresów
 
-    for addr in data.addresses:
-        # Użyj street_id z requesta lub szukaj fallbackiem po nazwie
-        if addr.street_id is not None:
-            resolved_street_id: int | None = addr.street_id
-        else:
-            resolved_street_id = await _resolve_street_id(db, addr.street_name)
-
+    for resolved_street_id, addr in resolved:
         db.add(
             SubscriberAddress(
                 subscriber_id=subscriber.id,
@@ -171,10 +197,11 @@ async def register_subscriber(
     asyncio.create_task(send_welcome_with_unsubscribe_token(subscriber.id, unsubscribe_token))
     asyncio.create_task(notify_new_subscriber_about_active_events(subscriber.id))
 
+    email_hash = hashlib.sha256(subscriber.email.encode()).hexdigest()[:12] if subscriber.email else "brak"
     logger.info(
-        "Zarejestrowano subskrybenta id=%d email=%r adresy=%d",
+        "Zarejestrowano subskrybenta id=%d email_hash=%s adresy=%d",
         subscriber.id,
-        subscriber.email,
+        email_hash,
         len(subscriber.addresses),
     )
     return subscriber
