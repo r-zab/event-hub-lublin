@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback, Component } from 'react';
 import { EventCard } from '@/components/EventCard';
 import { EventMap } from '@/components/EventMap';
 import { useEvents } from '@/hooks/useEvents';
@@ -59,6 +59,34 @@ function useBuildingNumbers(streetId: number | null) {
   }, [streetId]);
 
   return { numbers, isLoading };
+}
+
+// ---------------------------------------------------------------------------
+// ErrorBoundary dla mapy
+// ---------------------------------------------------------------------------
+
+class MapErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center h-full bg-muted/20 p-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            Nie udało się załadować mapy, ale powiadomienia działają poprawnie.
+          </p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -390,11 +418,13 @@ const Index = () => {
 
             {/* Prawa kolumna: mapa wypełniająca resztę miejsca */}
             <div className="flex-1 relative min-h-0 h-[50%] lg:h-full">
-              <EventMap
-                events={filteredEvents}
-                focusedEventId={focusedEventId}
-                setFocusedEventId={setFocusedEventId}
-              />
+              <MapErrorBoundary>
+                <EventMap
+                  events={filteredEvents}
+                  focusedEventId={focusedEventId}
+                  setFocusedEventId={setFocusedEventId}
+                />
+              </MapErrorBoundary>
             </div>
           </div>
         )}

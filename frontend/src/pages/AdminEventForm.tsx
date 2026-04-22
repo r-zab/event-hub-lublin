@@ -828,6 +828,15 @@ const AdminEventForm = () => {
       toast({ title: 'Nieprawidłowy numer budynku', description: 'Wybierz numer z listy lub pozostaw puste.', variant: 'destructive' });
       return;
     }
+    if (startTime && estimatedEnd && new Date(estimatedEnd) <= new Date(startTime)) {
+      setDateFieldError('both');
+      toast({
+        title: 'Błąd daty',
+        description: 'Szacowany czas zakończenia nie może być wcześniejszy niż czas rozpoczęcia prac.',
+        variant: 'destructive',
+      });
+      return;
+    }
     const item = buildCurrentItem();
     setEventsQueue((prev) => [...prev, item]);
     toast({ title: 'Dodano do kolejki', description: `${streetLabel(item.street_type, item.street_name)} — ${item.displayLabel}` });
@@ -866,6 +875,15 @@ const AdminEventForm = () => {
       }
       if (!validateHouseFrom()) {
         toast({ title: 'Nieprawidłowy numer budynku', description: 'Wybierz numer z listy lub pozostaw puste.', variant: 'destructive' });
+        return;
+      }
+      if (startTime && estimatedEnd && new Date(estimatedEnd) <= new Date(startTime)) {
+        setDateFieldError('both');
+        toast({
+          title: 'Błąd daty',
+          description: 'Szacowany czas zakończenia nie może być wcześniejszy niż czas rozpoczęcia prac.',
+          variant: 'destructive',
+        });
         return;
       }
       allItems.push(buildCurrentItem());
@@ -913,6 +931,7 @@ const AdminEventForm = () => {
                 house_number_to: item.house_number_to || null,
                 description: item.description || null,
                 status: item.status,
+                start_time: item.start_time,
                 estimated_end: item.estimated_end,
                 geojson_segment: item.geojson_segment,
                 custom_message: item.custom_message || null,
@@ -1254,6 +1273,7 @@ const AdminEventForm = () => {
                     maxBounds={LUBLIN_BOUNDS}
                     maxBoundsViscosity={1.0}
                     minZoom={MIN_ZOOM}
+                    aria-label="Mapa zdarzeń"
                   >
                     <TileLayer
                       attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'

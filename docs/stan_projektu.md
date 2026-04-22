@@ -12,13 +12,13 @@ Punkty wymagające natychmiastowej uwagi przed wdrożeniem produkcyjnym:
 
 | # | Priorytet | Opis | Plik |
 |---|-----------|------|------|
-| P1 | 🔴 KRYT. | **SECRET_KEY — dokończenie hardeningu** — walidator blokuje start na produkcji, ale klucz domyślny wciąż istnieje w repozytorium i w `.env`. | `backend/app/config.py`, `backend/.env` |
+| P1 | ✅ NAPRAWIONO | **SECRET_KEY — dokończenie hardeningu** — usunięto domyślną wartość z `config.py`; aplikacja rzuca `ValidationError` przy starcie jeśli `SECRET_KEY` nie jest ustawiony w środowisku. | `backend/app/config.py` |
 | P2 | ✅ NAPRAWIONO | **`DELETE /events/{id}` — brak kontroli roli** — endpoint używa `get_current_user` zamiast `get_current_dispatcher_or_admin`. Każdy zalogowany użytkownik może usunąć dowolne zdarzenie. | `backend/app/routers/events.py:124` |
 | P3 | ✅ NAPRAWIONO | **Security by Obscurity — ukrycie panelu admina** — ścieżka `/admin/login` jawna w stopce i kodzie JS. Zmieniono na `/sys-panel/login`. | `App.tsx`, `PublicLayout.tsx` |
 | P4 | ✅ NAPRAWIONO | **Status zdarzeń** — zachowano model 3 statusów (`zgloszona`, `w_naprawie`, `usunieta`) zgodnie z decyzją zespołu. | `backend/app/schemas/event.py:24` |
-| P5 | 🟡 WAŻNE | **`DEBUG=true` i `--reload` w produkcji** — `.env` ma `DEBUG=true`, docker-compose uruchamia uvicorn z `--reload`. Loguje wszystkie zapytania SQL. | `backend/.env`, `docker-compose.yml:26` |
-| P6 | 🟡 WAŻNE | **Port DB 5433 wystawiony na zewnątrz** — PostgreSQL dostępny bezpośrednio z hosta. W produkcji musi być usunięty. | `docker-compose.yml:12` |
-| P7 | 🟡 WAŻNE | **Endpoint IVR 994** (`GET /events/feed`) — plain-text z aktywnymi awariami dla automatu telefonicznego. Killer-feature na Festiwal Biznesu, ~10 linii kodu. | `backend/app/routers/events.py` |
+| P5 | ✅ GOTOWE | **`DEBUG=true` i `--reload` w produkcji** — w `docker-compose.prod.yml` usunięto `--reload` z komendy uvicorn i dodano `DEBUG=false` w `environment`. | `docker-compose.prod.yml` |
+| P6 | ✅ GOTOWE | **Port DB 5433 wystawiony na zewnątrz** — w `docker-compose.prod.yml` usunięto sekcję `ports` dla usługi `db`; baza dostępna tylko wewnątrz sieci Docker. | `docker-compose.prod.yml` |
+| P7 | ✅ GOTOWE | **Endpoint IVR 994** (`GET /events/feed`) — wdrożony; zwraca `PlainTextResponse` z aktywnymi awariami sformatowanymi dla syntezatora mowy automatu 994. | `backend/app/routers/events.py` |
 | P8 | 🟡 WAŻNE | **Testy penetracyjne `/auth/login`** — rate limit 5/min jest, ale brak blokady IP po N próbach, brak CAPTCHA, brak alertu e-mail do admina. | `backend/app/routers/auth.py` |
 | P9 | ✅ NAPRAWIONO (pełna realizacja) | **RODO — maskowanie danych w logach** — `mask_recipient()` w `notification_service.py`, `gateways.py` (SMS + Email mock), `subscribers.py`. Dane osobowe zamaskowane w `notification_log` (DB) i wszystkich warstwach logów. Migracja retroaktywna `20260421_mask_notification_log_recipients.py`. Zweryfikowano end-to-end. | `backend/app/utils/masking.py`, `gateways.py`, `notification_service.py` |
 | P10 | 🟢 NISKI | **Ostateczny audyt WCAG axe/Lighthouse** — po wszystkich poprawkach UI/UX wymagana pełna weryfikacja na stronach `/`, `/register`, `/admin/dashboard`, `/admin/events/new`. | — |
@@ -30,6 +30,26 @@ Punkty wymagające natychmiastowej uwagi przed wdrożeniem produkcyjnym:
 ## 📝 CHANGE LOG (HISTORIA DZIAŁAŃ)
 
 Chronologiczna lista zmian w kodzie od momentu audytu.
+
+### 2026-04-22 — Dług technologiczny (audyt §3.2.7, §3.4.3, §3.5.4): indeksy DB, race condition JWT, ErrorBoundary, WCAG
+
+- **BD — Indeksy `NotificationLog`** (`backend/app/models/notification.py`, migracja `20260422b_add_indexes_and_unique_constraint.py`): Dodano `Index("idx_notification_log_sent_at", text("sent_at DESC"))` oraz `Index("idx_notification_log_status", "status")` w `__table_args__`. Poprawia wydajność stronicowania logów w panelu admina i filtrowania po statusie.
+- **BD — `UniqueConstraint` w `SubscriberAddress`** (`backend/app/models/subscriber.py`): Dodano `UniqueConstraint("subscriber_id", "street_id", "house_number", name="uix_subscriber_address")` — eliminuje zduplikowane adresy subskrybenta (ten sam budynek dwukrotnie). Obsłużone w tej samej migracji Alembic.
+- **BEZPIECZEŃSTWO — Race condition `tryRefreshToken()`** (`frontend/src/lib/api.ts`): Wprowadzono singleton promise (`refreshPromise`). Gdy odświeżanie tokenu JWT jest już w toku, kolejne równoległe żądania HTTP 401 czekają na wynik tego samego promise'a zamiast wysyłać wiele równoległych requestów do `/auth/refresh`. Promise jest zerowany w bloku `finally`.
+- **STABILNOŚĆ — `ErrorBoundary` wokół mapy** (`frontend/src/pages/Index.tsx`): Nowa klasa `MapErrorBoundary extends Component` opakowuje `<EventMap />`. Przy nieoczekiwanym błędzie Leaflet/GeoJSON komponent renderuje fallback: „Nie udało się załadować mapy, ale powiadomienia działają poprawnie." Strona publiczna pozostaje użyteczna nawet gdy mapa zawiedzie.
+- **WCAG — `aria-label` na `<MapContainer>`** (`frontend/src/pages/AdminEventForm.tsx`): Dodano `aria-label="Mapa zdarzeń"` do kontenera mapy Leaflet w formularzu admina — wymóg WCAG 2.1 kryterium 1.3.1 (sekcja §3.5.4 audytu).
+
+### 2026-04-22 — Hardening produkcyjny: P1 SECRET_KEY, P5/P6 docker-compose.prod.yml, P7 endpoint IVR 994
+
+- **BEZPIECZEŃSTWO — P1: Usunięcie domyślnego `SECRET_KEY`** (`config.py`): Pole `SECRET_KEY` nie ma już wartości domyślnej — Pydantic `BaseSettings` wyrzuca `ValidationError` przy starcie, jeśli zmienna środowiskowa nie jest ustawiona. Wdrożenie z zapomnianym kluczem jest teraz niemożliwe.
+- **INFRASTRUKTURA — P5/P6: `docker-compose.prod.yml`**: Nowy plik konfiguracji produkcyjnej (bazuje na `docker-compose.yml`). Zmiany: (1) usunięto `ports: - "5433:5432"` dla usługi `db` — baza niedostępna spoza sieci Docker; (2) usunięto flagę `--reload` z komendy `uvicorn`; (3) dodano `DEBUG=false` w sekcji `environment` backendu. Dev-compose pozostaje bez zmian.
+- **FEATURE — P7: Endpoint IVR 994** (`GET /events/feed`): Nowy publiczny endpoint zwracający `PlainTextResponse`. Pobiera wszystkie zdarzenia ze statusem `!= 'usunieta'`, formatuje je jako linie czytelne dla syntezatora mowy: `"Awaria: ulica Warszawska. Przewidywany czas naprawy: 14:30."` Gdy brak awarii: `"Aktualnie brak zgłoszonych awarii i planowanych wyłączeń w sieci MPWiK."` Endpoint zdefiniowany przed `/{event_id}` aby uniknąć konfliktu routingu.
+
+### 2026-04-22 — Wdrożenie twardej walidacji relacji dat: czas zakończenia musi być późniejszy niż rozpoczęcia
+
+- **Walidacja frontend pre-submit** (`AdminEventForm.tsx`): Dodano sprawdzenie w `addToQueue()` i `handleBulkSubmit()` — jeśli oba pola dat są wypełnione i `estimated_end <= start_time`, formularz przerywa wysyłkę, ustawia `dateFieldError('both')` (czerwona ramka `border-destructive` na obydwu polach) i wyświetla Toast `destructive` z komunikatem. Działa zarówno przy dodawaniu do kolejki, jak i bezpośrednim zapisie (tryb edycji i tworzenia).
+- **Walidacja backend** (`schemas/event.py`): `@model_validator(mode="after")` `end_after_start` w `EventCreate` i `EventUpdate` — walidacja UTC-aware po obu stronach (potwierdzona jako istniejąca).
+- **Obsługa błędów 422** (`main.py`): `validation_exception_handler` z `_sanitize_for_json` zwraca HTTP 422 z pełnymi detalami Pydantic — frontend parsuje je przez `handle422Error()` z tablicą `MSG_MAP` i wyświetla przyjazny komunikat (potwierdzona jako istniejąca).
 
 ### 2026-04-22 — Ostateczna naprawa start_time: slice-safe formatter i CSS hide
 
@@ -220,7 +240,7 @@ Projekt **System Powiadomień MPWiK Lublin** jest w stanie **zaawansowanego prot
 
 **Co blokuje produkcyjne wdrożenie:**
 
-1. `SECRET_KEY` — klucz domyślny wciąż w repozytorium (P1).
+1. ✅ `SECRET_KEY` — klucz domyślny usunięty; aplikacja nie uruchomi się bez jawnej zmiennej (P1).
 2. Zero testów automatycznych.
 3. ✅ `DELETE /events` naprawiony — wymaga teraz roli dispatcher/admin (P2).
 4. ✅ Panel admina przeniesiony na `/sys-panel/login` (P3).
@@ -474,16 +494,16 @@ Projekt **System Powiadomień MPWiK Lublin** jest w stanie **zaawansowanego prot
 | **Nocna cisza 22–06 Europe/Warsaw** | ✅ | `notification_service.py` — `ZoneInfo("Europe/Warsaw")`. Osobna zgoda `night_sms_consent`. |
 | **Edytowalna treść SMS/e-mail** | ✅ | Dyspozytor może nadpisać szablon przez `custom_message` w formularzu zdarzenia. |
 | **Rate limiter / WAF-ready** | ✅ | slowapi: `login` (5/min), `register` (3/min), `streets?q=` (30/min), `refresh` (10/min). |
-| **Hardening SECRET_KEY** | ⚠️ | Walidator blokuje start ✅. Klucz domyślny wciąż w repo ⚠️ (P1). |
+| **Hardening SECRET_KEY** | ✅ | Klucz domyślny usunięty z `config.py` — Pydantic rzuca błąd przy starcie bez zmiennej środowiskowej (P1). |
 | **Obscurity panelu admina** | ✅ | Ścieżka zmieniona na `/sys-panel/login` (P3 naprawione). |
 | **Autoryzacja DELETE /events** | ✅ | Wymaga roli dispatcher/admin — `get_current_dispatcher_or_admin` (P2 naprawione). |
 | **Statusy zdarzeń zgodne ze spec** | ❌ | `w_naprawie` zamiast `trwajaca/potwierdzona/zakonczono` (P4). |
 | **Multi-operator (LPEC, ZDiM)** | ❌ | Model `api_keys` w bazie, brak routera. Pole `source` gotowe. |
 | **GIS — klikanie budynków** | ✅ | `AdminEventForm` — 3 taby, `BuildingLayer` z poligonami/punktami, tooltopy. |
-| **IVR 994 endpoint** | ❌ | Szef IT odłożył. Killer-feature — warto dorobić przed prezentacją (P7). |
+| **IVR 994 endpoint** | ✅ | `GET /events/feed` — PlainTextResponse dla syntezatora mowy automatu 994 (P7). |
 | **Trigram index na `streets`** | ❌ | Migracja nie napisana (przy 1378 rek. brak odczuwalnego wpływu). |
 | **WCAG dostępność** | ✅ | 15 punktów naprawionych. Wymagany końcowy audyt axe/Lighthouse (P10). |
-| **Infrastruktura — bezpieczeństwo** | ⚠️ | DB wystawiona (P6), DEBUG=true (P5), CORS fallback `*`. |
+| **Infrastruktura — bezpieczeństwo** | ✅ | `docker-compose.prod.yml`: DB bez `ports`, `--reload` usunięty, `DEBUG=false` (P5/P6). CORS fallback `*` wciąż wymaga naprawy. |
 | **Wirtualka Oracle Linux** | ❌ | Docker Compose jest, ale nikt nie uruchomił stacku na Oracle Linux 9. Obowiązkowe przed SLA. |
 | **Zero kosztów licencyjnych** | ✅ | Cały stack FOSS (FastAPI, React, Leaflet, PostgreSQL/PostGIS, shadcn/ui MIT). |
 | **Testy automatyczne** | ❌ | `backend/tests/` — tylko pusty `__init__.py`. Zero pytest. Frontend — brak Vitest. |

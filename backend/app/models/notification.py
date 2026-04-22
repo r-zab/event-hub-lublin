@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String, Text, func
+from sqlalchemy import ForeignKey, Index, String, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -26,6 +26,11 @@ class NotificationLog(Base):
 
     event: Mapped["Event | None"] = relationship("Event", back_populates="notifications")
     subscriber: Mapped["Subscriber | None"] = relationship("Subscriber", back_populates="notifications")
+
+    __table_args__ = (
+        Index("idx_notification_log_sent_at", text("sent_at DESC")),
+        Index("idx_notification_log_status", "status"),
+    )
 
     def __repr__(self) -> str:
         return f"<NotificationLog id={self.id} channel={self.channel!r} recipient={self.recipient!r} status={self.status!r}>"

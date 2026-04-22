@@ -7,7 +7,10 @@ import logging
 from asyncio import Task
 from typing import Annotated
 
+from zoneinfo import ZoneInfo
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -72,6 +75,37 @@ async def list_events(
         event.notified_count = len(event.notifications)
     logger.debug("Lista zdarzeń: skip=%d limit=%d total=%d", skip, limit, total_count)
     return {"items": events, "total_count": total_count}
+
+
+_EVENT_TYPE_LABEL = {
+    "awaria": "Awaria",
+    "planowane_wylaczenie": "Planowane wyłączenie",
+    "remont": "Remont",
+}
+
+
+@router.get("/feed", response_class=PlainTextResponse, summary="Aktywne awarie dla IVR 994")
+async def events_feed(db: AsyncSession = Depends(get_db)) -> str:
+    """Zwróć aktywne zdarzenia jako czysty tekst czytelny dla syntezatora mowy (IVR 994). Endpoint publiczny."""
+    result = await db.execute(
+        select(Event)
+        .where(Event.status != "usunieta")
+        .order_by(Event.created_at.desc())
+    )
+    events = result.scalars().all()
+    if not events:
+        return "Aktualnie brak zgłoszonych awarii i planowanych wyłączeń w sieci MPWiK."
+    lines: list[str] = []
+    for event in events:
+        label = _EVENT_TYPE_LABEL.get(event.event_type, "Zdarzenie")
+        street = event.street_name or "nieznana ulica"
+        if event.estimated_end:
+            end_local = event.estimated_end.astimezone(ZoneInfo("Europe/Warsaw"))
+            end_str = end_local.strftime("%d.%m.%Y %H:%M")
+            lines.append(f"{label}: ulica {street}. Przewidywany czas naprawy: {end_str}.")
+        else:
+            lines.append(f"{label}: ulica {street}.")
+    return "\n".join(lines)
 
 
 @router.get("/{event_id}", response_model=EventResponse, summary="Szczegóły zdarzenia")

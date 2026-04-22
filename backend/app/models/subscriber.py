@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, ForeignKey, Index, String, func
+from sqlalchemy import Boolean, ForeignKey, Index, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -51,6 +51,7 @@ class SubscriberAddress(Base):
 
     __table_args__ = (
         Index("idx_subscriber_addresses_street", "street_id"),
+        UniqueConstraint("subscriber_id", "street_id", "house_number", name="uix_subscriber_address"),
     )
 
     def __repr__(self) -> str:

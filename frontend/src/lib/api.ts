@@ -15,26 +15,34 @@ function clearSessionAndRedirect() {
   window.location.href = '/sys-panel/login';
 }
 
+let refreshPromise: Promise<string | null> | null = null;
+
 async function tryRefreshToken(): Promise<string | null> {
-  const refreshToken = localStorage.getItem('mpwik_refresh_token');
-  if (!refreshToken) return null;
-  try {
-    const res = await fetch(`${BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    });
-    if (!res.ok) return null;
-    const data: { access_token?: string; refresh_token?: string } = await res.json();
-    if (!data.access_token) return null;
-    localStorage.setItem('mpwik_token', data.access_token);
-    if (data.refresh_token) {
-      localStorage.setItem('mpwik_refresh_token', data.refresh_token);
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    const refreshToken = localStorage.getItem('mpwik_refresh_token');
+    if (!refreshToken) return null;
+    try {
+      const res = await fetch(`${BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+      if (!res.ok) return null;
+      const data: { access_token?: string; refresh_token?: string } = await res.json();
+      if (!data.access_token) return null;
+      localStorage.setItem('mpwik_token', data.access_token);
+      if (data.refresh_token) {
+        localStorage.setItem('mpwik_refresh_token', data.refresh_token);
+      }
+      return data.access_token;
+    } catch {
+      return null;
+    } finally {
+      refreshPromise = null;
     }
-    return data.access_token;
-  } catch {
-    return null;
-  }
+  })();
+  return refreshPromise;
 }
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
