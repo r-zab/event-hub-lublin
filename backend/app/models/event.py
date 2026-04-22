@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -29,6 +29,8 @@ class Event(Base):
     estimated_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     geojson_segment: Mapped[dict | None] = mapped_column(JSONB)
     custom_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    auto_extend: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
+    auto_close: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

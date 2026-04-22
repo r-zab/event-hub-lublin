@@ -38,6 +38,8 @@ export interface EventItem {
   updated_at?: string;
   notified_count?: number;
   history: StatusChange[];
+  auto_extend?: boolean;
+  auto_close?: boolean;
 }
 
 export interface Street {

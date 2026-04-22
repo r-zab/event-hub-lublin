@@ -66,7 +66,7 @@ function useBuildingNumbers(streetId: number | null) {
 // ---------------------------------------------------------------------------
 
 const Index = () => {
-  const { events, isLoading } = useEvents({ limit: 100 });
+  const { events, isLoading } = useEvents({ limit: 100, refetchInterval: 60_000 });
   const [focusedEventId, setFocusedEventId] = useState<number | null>(null);
 
   // --- Wyszukiwanie ulicy ---

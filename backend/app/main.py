@@ -75,14 +75,14 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(
         auto_extend_overdue_events,
         trigger="interval",
-        minutes=30,
+        minutes=1,
         id="auto_extend_overdue_events",
         replace_existing=True,
     )
     scheduler.start()
     logger.info("Uruchamianie %s v%s", settings.APP_NAME, settings.APP_VERSION)
     logger.info(
-        "APScheduler uruchomiony — poranna kolejka SMS o 06:00, auto-extend co 30 min (Europe/Warsaw)"
+        "APScheduler uruchomiony — poranna kolejka SMS o 06:00, auto-close/extend co 1 min (Europe/Warsaw)"
     )
     yield
     scheduler.shutdown(wait=False)

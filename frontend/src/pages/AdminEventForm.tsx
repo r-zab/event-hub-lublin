@@ -11,13 +11,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { useStreets } from '@/hooks/useStreets';
 import { apiFetch } from '@/lib/api';
 import { getEvent, updateEvent } from '@/hooks/useEvents';
 import { type Street } from '@/data/mockData';
-import { toLocalISO, toUTCISO, streetLabel } from '@/lib/utils';
+import { toUTCISO, streetLabel } from '@/lib/utils';
 import { LUBLIN_BOUNDS, MIN_ZOOM } from '@/lib/mapConfig';
 import { Search, Loader2, MapPin, Plus, X, Send } from 'lucide-react';
 
@@ -53,6 +54,8 @@ interface QueueItem {
   estimated_end: string | null;
   geojson_segment: object | null;
   custom_message: string;
+  auto_extend: boolean;
+  auto_close: boolean;
   displayLabel: string;
 }
 
@@ -61,9 +64,29 @@ interface QueueItem {
 // ---------------------------------------------------------------------------
 
 interface InitialEventData {
+  eventType: string;
   status: string;
   estimatedEnd: string;
   description: string;
+}
+
+/**
+ * Konwertuje string daty z API na format DOKŁADNIE "YYYY-MM-DDTHH:mm" wymagany przez
+ * input[type=datetime-local]. Wynik bez sekund, milisekund i sufiksu 'Z'.
+ *
+ * - Zamienia spację na 'T' (ochrona przed formatem "YYYY-MM-DD HH:mm:ss" z niektórych DB).
+ * - Stringi bez wskaźnika strefy traktuje jako UTC (backend serializuje z +00:00, ale defensive).
+ * - Konwertuje UTC → czas lokalny przeglądarki przez get*() — prawidłowa strefa czasowa.
+ * - Zwraca "" dla null/undefined/nieprawidłowej daty.
+ */
+function cleanDateForInput(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  const normalized = dateStr.replace(' ', 'T');
+  const hasZone = normalized.endsWith('Z') || normalized.includes('+') || /[+-]\d{2}:\d{2}$/.test(normalized);
+  const date = new Date(hasZone ? normalized : normalized + 'Z');
+  if (isNaN(date.getTime())) return '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}T${p(date.getHours())}:${p(date.getMinutes())}`;
 }
 
 const STATUS_PREVIEW_LABELS: Record<string, string> = {
@@ -309,6 +332,10 @@ const AdminEventForm = () => {
   // --- Walidacja dat ---
   const [dateFieldError, setDateFieldError] = useState<'start_time' | 'estimated_end' | 'both' | null>(null);
 
+  // --- Automatyzacja czasu ---
+  const [autoExtend, setAutoExtend] = useState(false);
+  const [autoClose, setAutoClose] = useState(false);
+
   // --- Edytowalna treść powiadomienia ---
   const [customMessage, setCustomMessage] = useState('');
   const [isMessageEdited, setIsMessageEdited] = useState(false);
@@ -400,8 +427,10 @@ const AdminEventForm = () => {
         setHouseTo(event.house_number_to ?? '');
         setDescription(event.description ?? '');
         setStatus(event.status);
-        setStartTime(event.start_time ? toLocalISO(event.start_time) : '');
-        setEstimatedEnd(event.estimated_end ? toLocalISO(event.estimated_end) : '');
+        setStartTime(cleanDateForInput(event.start_time));
+        setEstimatedEnd(cleanDateForInput(event.estimated_end));
+        setAutoExtend(event.auto_extend ?? false);
+        setAutoClose(event.auto_close ?? false);
         setStreetQuery(event.street_name);
         if (event.street_id) {
           setSelectedStreet({
@@ -415,8 +444,9 @@ const AdminEventForm = () => {
         }
         // Zapamiętaj oryginalne wartości z bazy — do wykrywania scenariusza przy podglądzie
         setInitialData({
+          eventType: event.event_type,
           status: event.status,
-          estimatedEnd: event.estimated_end ? toLocalISO(event.estimated_end) : '',
+          estimatedEnd: cleanDateForInput(event.estimated_end),
           description: event.description ?? '',
         });
         // Przywróć zaznaczenie budynków z geojson_segment (jeśli FeatureCollection)
@@ -772,11 +802,13 @@ const AdminEventForm = () => {
       estimated_end: estimatedEnd ? toUTCISO(estimatedEnd) : null,
       geojson_segment,
       custom_message: customMessage,
+      auto_extend: autoExtend,
+      auto_close: autoClose,
       displayLabel: buildDisplayLabel(houseFrom, houseTo, selectedNums),
     };
   }, [
     eventType, selectedStreet, streetQuery, houseFrom, houseTo,
-    description, status, startTime, estimatedEnd, buildingFeatures, selectedBuildingIds, selectedNums, customMessage,
+    description, status, startTime, estimatedEnd, buildingFeatures, selectedBuildingIds, selectedNums, customMessage, autoExtend, autoClose,
   ]);
 
   // ---------------------------------------------------------------------------
@@ -864,6 +896,8 @@ const AdminEventForm = () => {
           estimated_end: item.estimated_end,
           geojson_segment: item.geojson_segment,
           custom_message: item.custom_message || null,
+          auto_extend: item.auto_extend,
+          auto_close: item.auto_close,
         });
         toast({ title: 'Zdarzenie zaktualizowane', description: 'Zmiany zostały zapisane.' });
       } else {
@@ -882,6 +916,8 @@ const AdminEventForm = () => {
                 estimated_end: item.estimated_end,
                 geojson_segment: item.geojson_segment,
                 custom_message: item.custom_message || null,
+                auto_extend: item.auto_extend,
+                auto_close: item.auto_close,
               }),
             }),
           ),
@@ -1277,20 +1313,18 @@ const AdminEventForm = () => {
               </SelectContent>
             </Select>
           </div>
-          {eventType === 'planowane_wylaczenie' && (
-            <div>
-              <Label htmlFor="start-time">Czas rozpoczęcia *</Label>
-              <Input
-                id="start-time"
-                type="datetime-local"
-                value={startTime}
-                onChange={(e) => { setStartTime(e.target.value); setDateFieldError(null); }}
-                required
-                aria-label="Planowany czas rozpoczęcia"
-                className={dateFieldError === 'start_time' || dateFieldError === 'both' ? 'border-destructive' : ''}
-              />
-            </div>
-          )}
+          <div className={eventType !== 'planowane_wylaczenie' ? 'hidden' : ''}>
+            <Label htmlFor="start-time">Czas rozpoczęcia *</Label>
+            <Input
+              id="start-time"
+              type="datetime-local"
+              value={startTime}
+              onChange={(e) => { setStartTime(e.target.value); setDateFieldError(null); }}
+              required={eventType === 'planowane_wylaczenie'}
+              aria-label="Planowany czas rozpoczęcia"
+              className={dateFieldError === 'start_time' || dateFieldError === 'both' ? 'border-destructive' : ''}
+            />
+          </div>
           <div>
             <Label htmlFor="est-end">
               {eventType === 'planowane_wylaczenie' ? 'Czas zakończenia *' : 'Szacowany czas usunięcia'}
@@ -1304,6 +1338,47 @@ const AdminEventForm = () => {
               aria-label="Szacowany czas zakończenia"
               className={dateFieldError === 'estimated_end' || dateFieldError === 'both' ? 'border-destructive' : ''}
             />
+          </div>
+          {/* Automatyzacja po upłynięciu szacowanego czasu */}
+          <div className="col-span-full space-y-2 pt-1">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Po upłynięciu szacowanego czasu
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-6">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <Checkbox
+                  id="auto-extend"
+                  checked={autoExtend}
+                  onCheckedChange={(checked) => {
+                    const val = checked === true;
+                    setAutoExtend(val);
+                    if (val) setAutoClose(false);
+                  }}
+                  aria-label="Automatycznie przedłużaj o 1h"
+                />
+                <span className="text-sm">Automatycznie przedłużaj o 1h</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <Checkbox
+                  id="auto-close"
+                  checked={autoClose}
+                  onCheckedChange={(checked) => {
+                    const val = checked === true;
+                    setAutoClose(val);
+                    if (val) setAutoExtend(false);
+                  }}
+                  aria-label="Automatycznie zamknij zdarzenie"
+                />
+                <span className="text-sm">Automatycznie zamknij zdarzenie</span>
+              </label>
+            </div>
+            {(autoExtend || autoClose) && (
+              <p className="text-xs text-muted-foreground italic">
+                {autoExtend
+                  ? 'Zdarzenie będzie przedłużane o 1h co 30 min (bez powiadomień).'
+                  : 'Zdarzenie zostanie automatycznie zamknięte (bez powiadomień).'}
+              </p>
+            )}
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search, ChevronDown, ChevronRight, Mail, Loader2, AlertTriangle, Wrench, Calendar, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, ChevronDown, ChevronRight, Mail, Loader2, AlertTriangle, Wrench, Calendar, Pencil, Trash2, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -253,7 +253,19 @@ const AdminDashboard = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-sm">{TYPE_LABELS[event.event_type]}</TableCell>
-                      <TableCell><StatusBadge status={event.status} /></TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <StatusBadge status={event.status} />
+                          {(event.auto_extend || event.auto_close) && (
+                            <span
+                              title={event.auto_extend ? 'Auto-extend: przedłużanie o 1h' : 'Auto-close: automatyczne zamknięcie'}
+                              className="text-muted-foreground"
+                            >
+                              <Timer className="h-3.5 w-3.5" aria-label={event.auto_extend ? 'Auto-extend aktywny' : 'Auto-close aktywny'} />
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-sm text-slate-600">{event.source || 'mpwik'}</TableCell>
                       <TableCell>
                         <span className="inline-flex items-center gap-1.5 text-sm text-slate-600">

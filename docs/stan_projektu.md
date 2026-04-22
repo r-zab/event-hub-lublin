@@ -31,6 +31,22 @@ Punkty wymagające natychmiastowej uwagi przed wdrożeniem produkcyjnym:
 
 Chronologiczna lista zmian w kodzie od momentu audytu.
 
+### 2026-04-22 — Ostateczna naprawa start_time: slice-safe formatter i CSS hide
+
+- **`cleanDateForInput(dateStr)` zamiast `toLocalISOString`** (`AdminEventForm.tsx`): Funkcja przyjmuje `string | null | undefined`. Zamienia spację na `'T'` (ochrona przed formatem `"YYYY-MM-DD HH:mm:ss"` z niektórych ORM). Parsuje UTC przez `hasZone` + `+Z` fallback. Jawna walidacja `isNaN(date.getTime())`. Buduje wynik DOKŁADNIE `YYYY-MM-DDTHH:mm` przez `getFullYear/Month/Date/Hours/Minutes` + `padStart(2,'0')` — żaden format z API (z `'Z'`, `+00:00`, sekundami, milisekundami) nie może spowodować pustego pola.
+- **Przejście na ukrywanie CSS** (`AdminEventForm.tsx`): Pole „Czas rozpoczęcia" renderowane zawsze w DOM; widoczność przez `className={eventType !== 'planowane_wylaczenie' ? 'hidden' : ''}`. Eliminuje potencjalne timing issues z montowaniem kontrolowanego React input — pole z `value={startTime}` istnieje w DOM przed zmianą `eventType`, więc React nie musi tworzyć elementu na nowo. Atrybut `required={eventType === 'planowane_wylaczenie'}` zapobiega blokadzie przez HTML5 walidację gdy pole jest ukryte.
+
+### 2026-04-22 — Optymalizacja Schedulera, naprawa auto-close/extend i wdrożenie cichych aktualizacji
+
+- **Scheduler (`main.py`):** interwał `auto_extend_overdue_events` skrócony z 30 min → **1 min** — zdarzenia są zamykane/przedłużane niemal natychmiast po upłynięciu `estimated_end`.
+- **Naprawa TZ (`notification_service.py`):** porównanie z `datetime.now(timezone.utc)` (aware UTC) zamiast `datetime.utcnow()` (naive) — eliminuje ryzyko błędu `TypeError: can't compare offset-naive and offset-aware datetimes` przy TIMESTAMPTZ.
+- **Silent updates potwierdzone:** `auto_close` i `auto_extend` nie wywołują `notify_event()` — są wyłącznie cichymi aktualizacjami bazy (widoczne na liście/mapie po odświeżeniu).
+- **Frontend — ikonka automatu (`AdminDashboard.tsx`):** kolumna Status wyświetla ikonę `Timer` (lucide) obok statusu dla zdarzeń z aktywnym `auto_extend` lub `auto_close`; tooltip informuje o rodzaju automatyki.
+- **Frontend — polling (`Index.tsx`):** `refetchInterval` skrócony 120 s → **60 s** — strona publiczna widzi zmiany w ciągu minuty.
+- **Wcześniej (2026-04-22):** Model DB: `auto_extend`, `auto_close` (Boolean, domyślnie `false`). Migracja: `20260422_add_auto_extend_auto_close_to_events.py`. Schematy Pydantic zaktualizowane. Checkboxy w `AdminEventForm.tsx` z wzajemnym wykluczaniem.
+
+### 2026-04-18 — Hardening GIS + RBAC
+
 ### 2026-04-18 — Hardening GIS + RBAC
 
 - **RBAC backend:** `POST /events` i `PUT /events/{id}` wymagają teraz roli `dispatcher` lub `admin` (`get_current_dispatcher_or_admin`).

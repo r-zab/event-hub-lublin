@@ -1018,16 +1018,20 @@ async def send_welcome_with_unsubscribe_token(subscriber_id: int, unsubscribe_to
 
 
 async def auto_extend_overdue_events() -> None:
-    """Przedłuż estimated_end o 1 godzinę dla aktywnych zdarzeń, których czas minął.
+    """Przetwarza przeterminowane zdarzenia zgodnie z flagami auto_extend / auto_close.
+
+    - auto_close=True  → zmienia status na 'usunieta' (silent, bez powiadomień).
+    - auto_extend=True → dodaje +1h do estimated_end (silent update, bez powiadomień).
+    - Zdarzenia bez żadnej flagi są pomijane.
 
     Aktywne statusy: 'zgloszona', 'w_naprawie'.
-    Wywoływane przez APScheduler co 30 minut.
+    Wywoływane przez APScheduler co 1 minutę.
     Otwiera własną sesję DB — bezpieczne jako samodzielne zadanie schedulera.
     """
     try:
         async with AsyncSessionLocal() as db:
-            # DB przechowuje TIMESTAMP naive UTC — porównujemy z utcnow() bez strefy
-            now_utc = datetime.utcnow()
+            # Używamy aware UTC — kolumna estimated_end to TIMESTAMPTZ, asyncpg oczekuje aware datetime
+            now_utc = datetime.now(timezone.utc)
             result = await db.execute(
                 select(Event).where(
                     Event.status.in_(["zgloszona", "w_naprawie"]),
@@ -1041,22 +1045,38 @@ async def auto_extend_overdue_events() -> None:
                 logger.debug("auto_extend_overdue_events: brak przeterminowanych zdarzeń")
                 return
 
-            for event in overdue:
-                old_end = event.estimated_end
-                event.estimated_end = old_end + timedelta(hours=1)
-                logger.info(
-                    "auto_extend_overdue_events: zdarzenie id=%d '%s' przedłużono o 1h (%s → %s)",
-                    event.id,
-                    event.street_name,
-                    old_end.strftime("%d.%m %H:%M") if old_end else "—",
-                    event.estimated_end.strftime("%d.%m %H:%M"),
-                )
+            closed_count = 0
+            extended_count = 0
 
-            await db.commit()
-            logger.info(
-                "auto_extend_overdue_events: zaktualizowano %d zdarzeń",
-                len(overdue),
-            )
+            for event in overdue:
+                if event.auto_close:
+                    event.status = "usunieta"
+                    closed_count += 1
+                    logger.info(
+                        "auto_close: zdarzenie id=%d '%s' zamknięto automatycznie",
+                        event.id,
+                        event.street_name,
+                    )
+                elif event.auto_extend:
+                    old_end = event.estimated_end
+                    event.estimated_end = old_end + timedelta(hours=1)
+                    extended_count += 1
+                    logger.info(
+                        "auto_extend: zdarzenie id=%d '%s' przedłużono o 1h (%s → %s)",
+                        event.id,
+                        event.street_name,
+                        old_end.strftime("%d.%m %H:%M") if old_end else "—",
+                        event.estimated_end.strftime("%d.%m %H:%M"),
+                    )
+                # zdarzenia bez flagi są pomijane — brak domyślnego działania
+
+            if closed_count or extended_count:
+                await db.commit()
+                logger.info(
+                    "auto_extend_overdue_events: zamknięto=%d, przedłużono=%d",
+                    closed_count,
+                    extended_count,
+                )
     except Exception:
         logger.exception("auto_extend_overdue_events: nieoczekiwany błąd")
 

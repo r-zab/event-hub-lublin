@@ -25,6 +25,7 @@ interface UseEventsOptions {
   typeFilter?: string;
   page?: number;
   limit?: number;
+  refetchInterval?: number;
 }
 
 interface PaginatedResponse {
@@ -48,6 +49,7 @@ export function useEvents({
   typeFilter = '',
   page = 1,
   limit = PAGE_SIZE,
+  refetchInterval,
 }: UseEventsOptions = {}): UseEventsReturn {
   const [data, setData] = useState<PaginatedResponse>({ items: [], total_count: 0 });
   const [isLoading, setIsLoading] = useState(true);
@@ -84,6 +86,12 @@ export function useEvents({
 
     return () => { cancelled = true; };
   }, [tick, page, search, statusFilter, typeFilter, limit]);
+
+  useEffect(() => {
+    if (!refetchInterval) return;
+    const id = setInterval(() => setTick((t) => t + 1), refetchInterval);
+    return () => clearInterval(id);
+  }, [refetchInterval]);
 
   const totalPages = Math.max(1, Math.ceil(data.total_count / limit));
 

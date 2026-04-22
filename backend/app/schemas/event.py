@@ -39,6 +39,8 @@ class EventBase(BaseModel):
     estimated_end: datetime | None = None
     geojson_segment: dict | None = None
     custom_message: str | None = None
+    auto_extend: bool = False
+    auto_close: bool = False
 
 
 def _to_utc(dt: datetime) -> datetime:
@@ -110,6 +112,8 @@ class EventUpdate(BaseModel):
     estimated_end: datetime | None = None
     geojson_segment: dict | None = None
     custom_message: str | None = None
+    auto_extend: bool | None = None
+    auto_close: bool | None = None
 
     @field_validator("estimated_end", mode="after")
     @classmethod
