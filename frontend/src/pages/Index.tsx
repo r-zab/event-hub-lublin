@@ -5,7 +5,7 @@ import { useEvents } from '@/hooks/useEvents';
 import { useStreets } from '@/hooks/useStreets';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Droplets, Search, CheckCircle2, Hash } from 'lucide-react';
+import { Loader2, Droplets, Search, CheckCircle2 } from 'lucide-react';
 import { type Street } from '@/data/mockData';
 import { apiFetch } from '@/lib/api';
 import {
@@ -308,7 +308,6 @@ const Index = () => {
             {/* Pole numeru budynku — widoczne gdy ulica jest wybrana */}
             {selectedStreet && (
               <div className="relative w-full sm:w-36">
-                <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
                 <Input
                   ref={houseInputRef}
                   placeholder="Nr domu"
@@ -317,7 +316,7 @@ const Index = () => {
                   onFocus={handleHouseFocus}
                   onBlur={handleHouseBlur}
                   onKeyDown={handleKeyDown}
-                  className="bg-white text-foreground placeholder:text-muted-foreground border-0 h-12 text-base pl-9"
+                  className="bg-white text-foreground placeholder:text-muted-foreground border-0 h-12 text-base"
                   aria-label="Numer budynku"
                   role="combobox"
                   aria-haspopup="listbox"

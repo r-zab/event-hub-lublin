@@ -60,7 +60,8 @@ export function AddressRow({
         if (!cancelled) {
           const options = data
             .filter((b) => b.house_number)
-            .map((b) => ({ id: b.id, house_number: b.house_number! }));
+            .map((b) => ({ id: b.id, house_number: b.house_number! }))
+            .sort((a, b) => a.house_number.localeCompare(b.house_number, undefined, { numeric: true, sensitivity: 'base' }));
           setBuildings(options);
         }
       })

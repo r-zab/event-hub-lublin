@@ -115,21 +115,21 @@ const About = () => (
           <CardContent className="space-y-3">
             {[
               {
-                color: 'bg-red-500',
+                color: 'bg-red-700',
                 label: 'Awaria',
-                badgeClass: 'bg-red-500 hover:bg-red-500 text-white',
+                badgeClass: 'bg-red-700 hover:bg-red-700 text-white',
                 desc: 'Nieplanowane przerwanie dostawy wody wymagające pilnej interwencji. Powiadomienia wysyłane są natychmiast po zgłoszeniu zdarzenia przez dyspozytora.',
               },
               {
-                color: 'bg-blue-500',
+                color: 'bg-blue-700',
                 label: 'Planowane wyłączenie',
-                badgeClass: 'bg-blue-500 hover:bg-blue-500 text-white',
+                badgeClass: 'bg-blue-700 hover:bg-blue-700 text-white',
                 desc: 'Zaplanowana przerwa w dostawie wody związana z pracami modernizacyjnymi lub konserwacyjnymi sieci. Mieszkańcy są informowani z wyprzedzeniem.',
               },
               {
-                color: 'bg-yellow-500',
+                color: 'bg-amber-700',
                 label: 'Remont',
-                badgeClass: 'bg-yellow-500 hover:bg-yellow-500 text-white',
+                badgeClass: 'bg-amber-700 hover:bg-amber-700 text-white',
                 desc: 'Prace odtworzeniowe i długofalowe, mogące powodować ograniczenia w dostawie wody lub utrudnienia komunikacyjne w pobliżu remontowanego odcinka sieci.',
               },
             ].map(({ label, badgeClass, desc }) => (
@@ -285,9 +285,9 @@ const About = () => (
                       automatycznie maskowane w logach systemowych i bazach danych.
                       Numery telefonów i adresy e-mail przechowywane są w postaci
                       skróconej (np.{' '}
-                      <code className="bg-muted px-1 py-0.5 rounded text-xs">+48 123 *** 89</code>
+                      <code className="bg-muted px-1 py-0.5 rounded text-xs text-slate-700">+48 123 *** 89</code>
                       {', '}
-                      <code className="bg-muted px-1 py-0.5 rounded text-xs">m***k@lublin.eu</code>
+                      <code className="bg-muted px-1 py-0.5 rounded text-xs text-slate-700">m***k@lublin.eu</code>
                       ). Żaden administrator systemu nie ma dostępu do pełnych danych
                       kontaktowych w plikach logów.
                     </>

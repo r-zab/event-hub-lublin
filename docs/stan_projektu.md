@@ -22,7 +22,7 @@ Punkty wymagające natychmiastowej uwagi przed wdrożeniem produkcyjnym:
 | P8 | 🟡 WAŻNE | **Testy penetracyjne `/auth/login`** — rate limit 5/min jest, ale brak blokady IP po N próbach, brak CAPTCHA, brak alertu e-mail do admina. | `backend/app/routers/auth.py` |
 | P9 | ✅ NAPRAWIONO (pełna realizacja) | **RODO — maskowanie danych w logach** — `mask_recipient()` w `notification_service.py`, `gateways.py` (SMS + Email mock), `subscribers.py`. Dane osobowe zamaskowane w `notification_log` (DB) i wszystkich warstwach logów. Migracja retroaktywna `20260421_mask_notification_log_recipients.py`. Zweryfikowano end-to-end. | `backend/app/utils/masking.py`, `gateways.py`, `notification_service.py` |
 | P10 | 🟢 NISKI | **Ostateczny audyt WCAG axe/Lighthouse** — po wszystkich poprawkach UI/UX wymagana pełna weryfikacja na stronach `/`, `/register`, `/admin/dashboard`, `/admin/events/new`. | — |
-| P11 | 🟢 NISKI | **Testy jednostkowe escapowania LIKE** — logika w `streets.py` bez pokrycia testami; regresja przywróciłaby podatność DoS. | `backend/tests/test_streets.py` |
+| P11 | ✅ GOTOWE / PRZETESTOWANE | **Testy jednostkowe escapowania LIKE** — `test_streets.py`: 3 testy pokrywają `%`, `_`, `\`. Wszystkie PASS. Regresja jest teraz wykrywalna przez CI. | `backend/tests/test_streets.py` |
 | P12 | ✅ GOTOWE | **Obsługa HTTP 429 na froncie** — dodano specjalny case przed `!response.ok`. | `frontend/src/lib/api.ts` |
 
 ---
@@ -30,6 +30,46 @@ Punkty wymagające natychmiastowej uwagi przed wdrożeniem produkcyjnym:
 ## 📝 CHANGE LOG (HISTORIA DZIAŁAŃ)
 
 Chronologiczna lista zmian w kodzie od momentu audytu.
+
+### 2026-04-22 — Przygotowanie strategii na spotkanie z interesariuszem (Piotr / Szef IT)
+
+- **Dokument — `docs/instrukcja_na_spotkanie.md`**: Przygotowano profesjonalny scenariusz Zoom demo MVP dla Szefa IT. Dokument zawiera: (1) The "Wow" Factor — kluczowe punkty prezentacji (UI Premium Dark Mode, wyszukiwarka z sortowaniem alfanumerycznym, stabilność mapy z ErrorBoundary); (2) Techniczny hardening — tabela zrealizowanych działań bezpieczeństwa (brute-force, CORS, SECRET_KEY, RBAC, RODO) oraz podsumowanie wszystkich napraw WCAG 2.1 AA z konkretnymi wartościami kontrastu; (3) Instrukcja pokazu krok po kroku z komendami uruchomienia stacku i sekwencją demo; (4) Cztery gotowe odpowiedzi na pytania pułapki techniczne (PostGIS 100k budynków, granice MVP vs. GIS MPWiK, cisza nocna SMS, SQL Injection LIKE).
+
+### 2026-04-22 — Security tests: SQL LIKE injection (P11) i weryfikacja RBAC DELETE zdarzeń
+
+- **QA/Security — `test_streets.py`** (`backend/tests/test_streets.py`): Trzy testy pokrywające P11 — escapowanie znaków specjalnych LIKE w endpoint `GET /api/v1/streets?q=`. (1) `%%%` — bez escapowania pasuje do WSZYSTKICH rekordów; po naprawie zwraca pustą listę. (2) `___` — bez escapowania pasuje do każdej 3-znakowej nazwy; po naprawie zwraca pustą listę. (3) `\\\` — backslash jako domyślny znak escape PostgreSQL; po naprawie zwraca 200 bez błędu SQL 500. Wszystkie 3 testy **PASS**.
+- **QA/Security — `test_events.py`** (`backend/tests/test_events.py`): Dwa testy RBAC dla `DELETE /api/v1/events/{id}`. (1) Dyspozytor (`dyspozytor1`) z tokenem dostaje 404 na nieistniejącym ID — autoryzacja `get_current_dispatcher_or_admin` przepuszcza żądanie. (2) Żądanie bez tokena dostaje 401 przed sprawdzeniem ID zdarzenia. Oba testy **PASS**.
+
+### 2026-04-22 — QA: Inicjalizacja środowiska testowego backendu
+
+- **QA — Inicjalizacja pytest** (`backend/pytest.ini`): Dodano plik `pytest.ini` z `asyncio_mode = auto` — wszystkie testy async działają bez jawnego deklarowania event_loop.
+- **QA — `conftest.py`** (`backend/tests/conftest.py`): Fixture `async_client` zwraca `httpx.AsyncClient` z `ASGITransport(app=app)` — testy uderzają bezpośrednio w ASGI bez uruchamiania serwera HTTP. Baza danych jest prawdziwą bazą dev (Docker PostGIS) — zgodnie z zasadą „nie mockować DB" z sekcji 5.4.
+- **QA — `test_auth.py`** (`backend/tests/test_auth.py`): Dwa testy integracyjne logowania: (1) `test_login_success` — status 200, obecność `access_token`, `token_type == "bearer"`; (2) `test_login_wrong_password` — status 401, `detail == "Nieprawidłowy login lub hasło"`.
+- **QA — Instrukcja dla zespołu** (`backend/tests/README.md`): Dokumentacja uruchamiania testów, zasady pisania kolejnych (brak mocków DB, użycie `async_client`, izolacja danych) oraz priorytetowa lista kolejnych plików testowych (`test_streets.py` P11, `test_subscribers.py` RODO, `test_events.py` RBAC).
+
+### 2026-04-22 — UX: Usunięcie ikony Hash i globalne wdrożenie sortowania alfanumerycznego dla budynków
+
+- **UX — Usunięcie ikony `<Hash>` z pola „Nr domu"** (`frontend/src/pages/Index.tsx`): Ikona `Hash` (lucide-react) wewnątrz pola wyszukiwania numeru budynku na stronie publicznej powodowała niepotrzebne wizualne obciążenie i niespójność z semantyką pola (to pole tekstowe, nie pole selekcji kodu). Usunięto komponent `<Hash>`, usunięto `Hash` z importów `lucide-react` oraz klasę `pl-9` z `<Input>` — tekst wraca do standardowego wcięcia.
+- **UX — Sortowanie alfanumeryczne numerów budynków w formularzu rejestracji** (`frontend/src/components/AddressRow.tsx`): Po załadowaniu listy budynków z `/streets/{id}/buildings` wyniki były układane w kolejności bazy danych (często chaotycznej: 10, 1, 2, 10A). Dodano `.sort()` z `localeCompare(…, { numeric: true, sensitivity: 'base' })` bezpośrednio na tablicy obiektów przed `setBuildings()`. Efekt: lista podpowiedzi prezentuje numery w kolejności 1, 2, 10, 10A, 11.
+- **Weryfikacja — Strona publiczna** (`Index.tsx`): Hook `useBuildingNumbers` już używał `sortHouseNumbers` z `@/lib/utils` — sortowanie było poprawne. Zmiana kosmetyczna (usunięcie ikony) nie narusza logiki.
+- **Weryfikacja — Formularz admina** (`AdminEventForm.tsx`): `availableHouseNumbers` wyliczany przez `useMemo` + lokalną `sortHouseNumbers` — dropdowny „Nr posesji od/do" były już posortowane. Brak zmian w tym pliku.
+
+### 2026-04-22 — WCAG: kompleksowa naprawa kontrastów (Remont, Awaria, Planowane, W naprawie) oraz naprawa `aria-hidden` w Accordion i komponentach bazowych
+
+- **WCAG — Kontrast badge „Remont" na stronie `/about`** (`About.tsx`): `bg-yellow-500 text-white` (#EAB308) dawał kontrast 1.91:1. Zmieniono na `bg-amber-700 hover:bg-amber-700` (#B45309); kontrast ≈5.0:1.
+- **WCAG — Kontrast badge „Awaria" na stronie `/about`** (`About.tsx`): `bg-red-500 text-white` (#EF4444) dawał kontrast 3.76:1 — poniżej 4.5:1. Zmieniono na `bg-red-700 hover:bg-red-700` (#B91C1C); kontrast ≈6.5:1. Naprawiono profilaktycznie (nie wymienione w pierwotnym raporcie).
+- **WCAG — Kontrast `StatusBadge` dla statusów „Planowane wyłączenie" i „Remont"** (`StatusBadge.tsx`): Klasy `text-status-planned` (hsl 217 91% 60%, kontrast ≈3.06:1) i `text-status-renovation` (hsl 258 90% 66%, kontrast ≈3.57:1) na jasnych, półprzezroczystych tłach 15% nie spełniały WCAG 1.4.3. Zmieniono na `text-blue-700` (#1D4ED8, kontrast ≈5.6:1) i `text-purple-800` (#6B21A8, kontrast ≈7.2:1).
+- **WCAG — Brakujące `aria-hidden` na `<ChevronDown>` w `Accordion`** (`ui/accordion.tsx`): Ikona `ChevronDown` wewnątrz `AccordionTrigger` nie miała `aria-hidden="true"` — czytniki ekranu ogłaszały nienazwany element SVG, naruszając WCAG 4.1.2. Dodano `aria-hidden="true"` do ikony; stan otwarcia/zamknięcia jest już komunikowany przez `aria-expanded` na przycisku.
+
+### 2026-04-22 — WCAG: kontrast „Planowane wyłączenie" i naprawa `aria-hidden` w komponentach paginacji/breadcrumb (audyt axe-core)
+
+- **WCAG — Kontrast badge „Planowane wyłączenie" na stronie `/about`** (`frontend/src/pages/About.tsx`): Odznaka „Planowane wyłączenie" w legendzie kolorów używała klasy `bg-blue-500 hover:bg-blue-500 text-white` — `#3B82F6` na białym tekście daje kontrast 3.67:1, poniżej wymaganego 4.5:1 (WCAG 1.4.3). Zmieniono na `bg-blue-700 hover:bg-blue-700` (`#1D4ED8`); kontrast po naprawie ≈6.7:1. Pozostałe miejsca w systemie (mapa, `EventCard.tsx`) już używały `blue-600`/`blue-700` — bez zmian.
+- **WCAG — `aria-hidden` audit** (`frontend/src/`): Pełna inspekcja wszystkich użyć `aria-hidden="true"`. Wynik: brak kontenerów z `aria-hidden="true"` zawierających focusowalne elementy (przyciski, linki, inputy, `tabIndex={0}`) — reguła `aria-hidden-focus` nie jest naruszana. Układy stron (`PublicLayout.tsx`, `AdminLayout.tsx`) są poprawne. Wykryto i naprawiono dwa przypadki semantycznego błędu: w `BreadcrumbEllipsis` (`ui/breadcrumb.tsx`) oraz `PaginationEllipsis` (`ui/pagination.tsx`) `aria-hidden="true"` był na zewnętrznym `<span>` zawierającym `<span class="sr-only">` — tekst przeznaczony dla czytników ekranu był przez to niedostępny. Naprawiono: przeniesiono `aria-hidden="true"` wyłącznie na ikonę `<MoreHorizontal>`, usuwając go z kontenera. Oba komponenty są nieużywane w obecnym kodzie produkcyjnym — naprawa profilaktyczna.
+
+### 2026-04-22 — WCAG: naprawa kontrastów badge „W naprawie" i tagów `<code>` (audyt axe-core)
+
+- **WCAG — Kontrast badge „W naprawie"** (`frontend/src/components/StatusBadge.tsx`): Tekst statusu `w_naprawie` używał klasy `text-status-repairing` (#f59f0a, hsl 38 92% 50%) na tle `bg-status-repairing/15` (#f8ecd7) — kontrast 1.82:1, poniżej wymaganego 4.5:1 (WCAG 2.1 AA). Zmieniono klasę tekstu na `text-amber-800` (#92400e); kontrast po naprawie ≈ 6.3:1. Tło i ramka pozostają bez zmian.
+- **WCAG — Kontrast tagów `<code>` na stronie `/about`** (`frontend/src/pages/About.tsx`): Dwa tagi `<code class="bg-muted px-1 py-0.5 rounded text-xs">` (przykłady maskowania: `+48 123 *** 89`, `m***k@lublin.eu`) miały kontrast 4.48:1 — o margines poniżej progu 4.5:1. Dodano `text-slate-700` (#334155); kontrast po naprawie ≈ 9.2:1.
 
 ### 2026-04-22 — Dług technologiczny (audyt §3.2.7, §3.4.3, §3.5.4): indeksy DB, race condition JWT, ErrorBoundary, WCAG
 
@@ -406,9 +446,16 @@ Projekt **System Powiadomień MPWiK Lublin** jest w stanie **zaawansowanego prot
 13. ✅ NAPRAWIONO **Lista adresów subskrybentów** (`AdminSubscribers.tsx`) — Badge + ScrollArea.
 14. ✅ NAPRAWIONO **Podgląd wybranych budynków** (`AdminEventForm.tsx`) — Badge + ScrollArea.
 15. ✅ NAPRAWIONO **Skracanie adresów** (`EventCard.tsx`, `AdminDashboard.tsx`) — max 3/10, tag `+X`.
-16. **⚠️ DO ZROBIENIA** — Mapa Leaflet (`AdminEventForm.tsx`) bez `aria-label` na kontenerze. Brak Error Boundary dla `<EventMap>`.
+16. ✅ NAPRAWIONO **Mapa Leaflet** (`AdminEventForm.tsx`) — `aria-label="Mapa zdarzeń"` na `<MapContainer>` + `ErrorBoundary` dla `<EventMap>` (WCAG 1.3.1).
 17. **Pułapki focus** — Radix Dialog/AlertDialog są OK (trap focus domyślnie).
 18. **Fieldset + legend** — `Register.tsx` używa `<fieldset><legend>` ✅.
+19. ✅ NAPRAWIONO **Kontrast badge „W naprawie"** (`StatusBadge.tsx`) — `text-status-repairing` (#f59f0a) na tle `bg-status-repairing/15` (#f8ecd7) zmieniony na `text-amber-800` (#92400e); kontrast poprawiony z 1.82:1 → ≈6.3:1 (WCAG 1.4.3 AA).
+20. ✅ NAPRAWIONO **Kontrast tagów `<code>` na stronie `/about`** (`About.tsx`) — dodano `text-slate-700` do `<code class="bg-muted ...">` z przykładami maskowania; kontrast poprawiony z 4.48:1 → ≈9.2:1 (WCAG 1.4.3 AA).
+21. ✅ NAPRAWIONO **Kontrast badge „Planowane wyłączenie" na stronie `/about`** (`About.tsx`) — `bg-blue-500 text-white` (#3B82F6) zmieniony na `bg-blue-700` (#1D4ED8); kontrast poprawiony z 3.67:1 → ≈6.7:1 (WCAG 1.4.3 AA).
+22. ✅ NAPRAWIONO **`aria-hidden` audit — brak naruszeń `aria-hidden-focus`** — przegląd wszystkich użyć w kodzie frontendu potwierdza brak kontenerów z `aria-hidden="true"` zawierających focusowalne elementy. Naprawiono semantyczny błąd w `BreadcrumbEllipsis` (`ui/breadcrumb.tsx`) i `PaginationEllipsis` (`ui/pagination.tsx`): przeniesiono `aria-hidden="true"` z zewnętrznego kontenera na dekoracyjną ikonę, dzięki czemu `sr-only` tekst jest dostępny dla czytników ekranu (WCAG 1.3.1, 4.1.2).
+23. ✅ NAPRAWIONO **Kontrast odznak „Remont" i „Awaria" w legendzie `/about`** (`About.tsx`) — `bg-yellow-500 text-white` (1.91:1) → `bg-amber-700 text-white` (≈5.0:1); `bg-red-500 text-white` (3.76:1) → `bg-red-700 text-white` (≈6.5:1) (WCAG 1.4.3 AA).
+24. ✅ NAPRAWIONO **Kontrast `StatusBadge` — „Planowane wyłączenie" i „Remont"** (`StatusBadge.tsx`) — `text-status-planned` (≈3.06:1) → `text-blue-700` (≈5.6:1); `text-status-renovation` (≈3.57:1) → `text-purple-800` (≈7.2:1) (WCAG 1.4.3 AA).
+25. ✅ NAPRAWIONO **Brakujące `aria-hidden` na `<ChevronDown>` w Accordion** (`ui/accordion.tsx`) — ikona chevron wewnątrz `AccordionTrigger` nie miała `aria-hidden="true"`; dodano atrybut, eliminując ogłaszanie nienazwanego SVG przez czytniki ekranu (WCAG 4.1.2).
 
 **Rekomendacja:** Uruchomić **Lighthouse Accessibility** i **axe DevTools** na stronach `/`, `/register`, `/admin/dashboard`, `/admin/events/new` (P10).
 
@@ -506,7 +553,7 @@ Projekt **System Powiadomień MPWiK Lublin** jest w stanie **zaawansowanego prot
 | **Infrastruktura — bezpieczeństwo** | ✅ | `docker-compose.prod.yml`: DB bez `ports`, `--reload` usunięty, `DEBUG=false` (P5/P6). CORS fallback `*` wciąż wymaga naprawy. |
 | **Wirtualka Oracle Linux** | ❌ | Docker Compose jest, ale nikt nie uruchomił stacku na Oracle Linux 9. Obowiązkowe przed SLA. |
 | **Zero kosztów licencyjnych** | ✅ | Cały stack FOSS (FastAPI, React, Leaflet, PostgreSQL/PostGIS, shadcn/ui MIT). |
-| **Testy automatyczne** | ❌ | `backend/tests/` — tylko pusty `__init__.py`. Zero pytest. Frontend — brak Vitest. |
+| **Testy automatyczne** | 🟡 W trakcie | `backend/tests/` — `conftest.py` + `test_auth.py` (pytest + httpx, 2 testy logowania, oba PASS). Frontend — brak Vitest. |
 
 ---
 
@@ -546,12 +593,17 @@ Projekt **System Powiadomień MPWiK Lublin** jest w stanie **zaawansowanego prot
 
 ### 5.4. Testy — absolutny minimum przed oddaniem MPWiK
 
-1. `test_auth.py` — login happy path, 401 na złe hasło, 5/min rate limit.
-2. `test_subscribers.py` — register → token → GET → DELETE (RODO flow).
-3. `test_events.py` — CRUD + RBAC (dispatcher próbuje DELETE → 403 po naprawieniu P2).
-4. `test_streets.py` — escapowanie LIKE: `%`, `_`, `\`, normalne zapytanie (P11).
-5. `test_notification_service.py` — night hours, queued_morning, matching po `street_id`.
-6. Integracyjne z testcontainers PostgreSQL (nie mockować DB).
+**✅ Zrobione (baza):** `pytest.ini` (`asyncio_mode=auto`, `NullPool` w conftest), `conftest.py` z `async_client`, `test_auth.py` — 2 testy logowania (happy path + 401). Uruchamianie: `cd backend && pytest -v`.
+
+**Do dopisania (priorytet):**
+
+1. ✅ `test_auth.py` — login happy path, 401 na złe hasło. **(2 testy PASS)**
+2. `test_auth.py` — 5/min rate limit (wymaga resetu licznika między testami).
+3. `test_subscribers.py` — register → token → GET → DELETE (RODO flow).
+4. `test_events.py` — CRUD + RBAC (dispatcher próbuje DELETE → 403).
+5. `test_streets.py` — escapowanie LIKE: `%`, `_`, `\`, normalne zapytanie (P11).
+6. `test_notification_service.py` — night hours, queued_morning, matching po `street_id`.
+7. Integracyjne z testcontainers PostgreSQL (nie mockować DB — zasada już wdrożona przez NullPool na dev DB).
 
 ---
 
