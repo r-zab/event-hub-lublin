@@ -241,3 +241,83 @@ System uznajemy za **gotowy do oddania 14.05** gdy:
 6. ✅ Piotr + Kacper otrzymują dostęp do staging i potwierdzają "akceptuję" przed 14.05.
 
 **Po 14.05:** soft-freeze. Dni 15-28 maja = wyłącznie polish prezentacji, drobne fixy z feedbacku Piotra, testy responsywności.
+
+---
+
+## 8. Uniwersalny prompt operacyjny (do realizacji zadań)
+
+### 8.1. Jak używać
+
+Skopiuj poniższy prompt i podmień TYLKO `<ID>` (np. `T1.1`, `T2.3`). Reszta jest stała — Claude sam odczyta kontekst z pliku roadmap, zrealizuje zadanie, zaktualizuje status i dopisze log.
+
+### 8.2. Prompt (kopiuj-wklej)
+
+```
+Zrealizuj zadanie <ID> z docs/roadmap_finalna_maj.md.
+
+ZASADY (egzekwuj sztywno, nie pytaj o potwierdzenie):
+
+1. KONTEKST — przeczytaj WYŁĄCZNIE wiersz tabeli zadania <ID> z sekcji 3
+   (Tydzień 1/2/3) w docs/roadmap_finalna_maj.md. Nie czytaj całego pliku
+   ani stan_projektu.md, chyba że zadanie tego wymaga (wtedy targeted Read
+   z offset/limit, nie cały plik).
+
+2. PLAN — w jednym zdaniu sformułuj plan implementacji. Bez TaskCreate
+   dla zadań < 4 kroków.
+
+3. IMPLEMENTACJA — wykonaj zgodnie z kolumną "Pliki / Komponenty".
+   Trzymaj się stacku z CLAUDE.md (FastAPI async, SQLAlchemy 2.0,
+   shadcn/ui, Tailwind, zero `print()`, zero `any` w TS).
+
+4. WERYFIKACJA — uruchom co minimum:
+   - Backend: `cd backend && python -m pytest tests/<plik>.py -x` (jeśli
+     dotyczy) LUB import-check `python -c "from app.main import app"`.
+   - Frontend: `cd frontend && npm run build` (tylko jeśli zmiana TS/React).
+   - Migracja: `cd backend && alembic upgrade head` jeśli dodano migrację.
+
+5. AKTUALIZACJA ROADMAP — w docs/roadmap_finalna_maj.md:
+   a) W tabeli sekcji 3 zmień ikonę priorytetu na ✅ (zachowaj literę K/W/U
+      w nawiasie, np. `✅ (K)`).
+   b) Dopisz wiersz do sekcji 9 "Log realizacji" w formacie:
+      `| <ID> | YYYY-MM-DD | <1 zdanie co zrobiono> | <pliki, comma-sep> |`
+
+6. RAPORT KOŃCOWY — max 3 zdania:
+   - co zrobione,
+   - status weryfikacji (PASS/FAIL + krótko dlaczego),
+   - jeśli FAIL: co blokuje (BEZ próby naprawy bez zgody usera).
+
+ZAKAZY:
+- NIE commituj (chyba że user wprost prosi).
+- NIE uruchamiaj `docker-compose up`, `npm run dev`, `uvicorn --reload`
+  (długo żyjące procesy — user ma już swoje uruchomione).
+- NIE modyfikuj zadań innych niż <ID>. Nie rób "przy okazji" cleanup'u.
+- NIE pisz nowych dokumentów .md poza tymi wymaganymi przez zadanie.
+- NIE aktualizuj docs/PROGRESS.md ani historia.md (zakaz z CLAUDE.md).
+
+OPTYMALIZACJA TOKENÓW:
+- Czytaj pliki targeted (offset/limit), nie w całości.
+- Używaj Edit zamiast Write dla istniejących plików.
+- Nie powtarzaj treści zadania w odpowiedzi — user ma plik otwarty.
+- Bez emoji w kodzie. Komentarze tylko gdy WHY non-trivial.
+```
+
+### 8.3. Prompt skrócony (1-linijka, gdy znasz Claude'a)
+
+```
+Zrób <ID> z roadmap_finalna_maj.md zgodnie z sekcją 8 (zasady operacyjne).
+```
+
+### 8.4. Warianty
+
+- **Tylko analiza/plan, bez kodu:** dopisz `STOP po kroku 2 (PLAN). Nie implementuj.`
+- **Wsadowo wiele zadań:** `Zrealizuj sekwencyjnie: T1.2, T1.3, T1.6. Po każdym update roadmap. Raport zbiorczy na końcu.`
+- **Tylko weryfikacja gotowego:** `Zweryfikuj że <ID> jest naprawdę zrobione (nie ufaj checkmarkowi). Jeśli braki — wymień je, nie naprawiaj.`
+
+---
+
+## 9. Log realizacji
+
+| ID | Data | Co zrobiono | Pliki |
+|---|---|---|---|
+| — | — | _(pusto — uzupełniaj wg sekcji 8.2 krok 5b)_ | — |
+
