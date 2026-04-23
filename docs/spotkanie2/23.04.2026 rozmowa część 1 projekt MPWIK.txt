@@ -1,0 +1,270 @@
+Transkrypcja rozmowy naszego zespołu Kuba Rafał Mateusz z Piotrem Szefem IT w Mpwiku oraz jego pracownikiem Kacprem, część 1 rozmowa o systemie WAF z Kacprem
+może zawierać błędy przetłumaczona automatycznie przez ai bez ponownego sprawdzenia ręcznego 
+23.04.2026 
+[Speaker 2]
+Halo. Cześć, cześć. Cześć.
+
+Cześć. Wiecie co, to w takim razie jeszcze nie ma dziesiątej, ale już jesteśmy w kompleksie. Chciałem Wam przedstawić Kaspera, jednego z administratorów u nas w systemie, wielu systemów.
+
+Kasper Woźniak jest specjalistą i on dzisiaj zaprezentuje Wam to, co może Wam pokazać WAFA. Byliście zainteresowani, jak to niestety wygląda, jak to funkcjonuje, co można z tego uzyskać. Także Kasper, proszę Cię bardzo, przyjmujesz.
+
+A później sobie przejdziemy do naszych sprawności, dobra?
+
+[Speaker 1]
+Jasne, dobra. To fajnie Was poznać. Ja jestem Kasper i...
+
+[Speaker 2]
+A ja dodam tylko Kasper, przecież Ci Kasper jest normalny. Ja myślę, że Kasper może się nie obrazić, jak powiem, że ja już chłopakami jestem na ty, bo ja nie lubię, jak mi ktoś pan mówi.
+
+[Speaker 1]
+Bo ja też nie chcę być taki stary, bez przesady.
+
+[Speaker 2]
+No, także chłopaki, jesteśmy w swoim gronie, dobra? Dobra.
+
+[Speaker 1]
+Dobra, to powiesz. Dobra, to jestem Kasper. Będę miał okazję pokazać Wam trochę z WAFA.
+
+Jak macie jakieś pytania, to po prostu walcie. W głowie mam ogólny przebieg tego, co sądzę, że jest ciekawe. Według mnie się każe naprawdę ciekawe, to już wyocenicie.
+
+Dobra.
+
+[Speaker 2]
+Pamiętajcie, że później jak będziecie robili ocenę, to może zaważyć na to, czy Kasper dostanie cokolwiek ode mnie, także wiecie.
+
+[Speaker 1]
+Nawet nie...
+
+[Speaker 2]
+Dziesięć pytań z wyjaśnieniem, uzasadnieniem Waszej odpowiedzi. Do tego jeszcze w każdym pytaniu cztery podpunkty, także spoko. Ja jestem głupkiem, także wiecie.
+
+[Speaker 1]
+Wyszlę notatkę po wszystkim, żeby każdy miał łatwiej. Dobra, pytanie czy widzicie, czy wszystko widać? Wszystko widać.
+
+Dobra, mega.
+
+[Speaker 2]
+Wszystko widać.
+
+[Speaker 1]
+Zacząłbym od dashboardu i od ulubionych rzeczy, na które ja lubię sobie patrzeć. Jeżeli Piotr mnie męczy, to coś jest nie tak i muszę udowodnić, że jest okej.
+
+[Speaker 2]
+Kasper, i znowu Ci przerwę, bo tylko tylko wstępem. Panowie, miejcie na uwadze to, że rzeczywiście Kasper jest dość świeżym, ale ambitnym pracownikiem i takich poszukujemy, gdybyście mieli kolegów tego typu, którzy są gdzieś tam na uczelni i chcieli, albo są po uczelni i szukają pracy, to dajcie znać. Tego typu osoby jest rzeczywiście.
+
+Ja Kasper bardzo chciałbym, żeby mogli wyjść gdzieś tam, zaczepić się na pracę. Kasper praktycznie ten system, czego teraz widzicie, wdrożył, można powiedzieć, sam rozpracował ten system. Także tego typu ludzi potrzebujemy tutaj w Empeliku.
+
+Dzięki.
+
+[Speaker 1]
+Dziękuję za słowo otuchy. Dobra, sporo zrobiłem. To faktycznie zrobiłem sama, bo miałem pomoc od otarżeniowców.
+
+Nie będę wszystko opisywał sobie. Wracając, jak otrzymujemy, że coś jest nie tak i mam pokazać, że jest OK, to mam parę z moich ulubionych dashboardów. Zacznijmy od tego, co widzicie w tym momencie, czyli jest tak naprawdę zbitka moim zdaniem najważniejszej informacji, czy w tym momencie jest ruch, co się dzieje, czy przez ostatni tydzień była tragedia.
+
+To są ogólne informacje, czy to na temat licencji, czy to na temat logów systemowych. Tutaj widać, jak się zalogowałem dzisiaj, to okazało się, że coś jest nie tak z certyfikatem, co w sumie też widać w pasku. Będę musiał na to rzucić okiem.
+
+Na tym dashboardzie po prostu widzimy ruch. Nasze obecne polityki, firmware, tak naprawdę administracyjne rzeczy, nic ciekawego, nic takiego powalającego. Idąc dalej przez te dashboardy, Piotr mówi, adres IP.
+
+To ja mówię, OK, dobra, to szukamy. W tym miejscu, który w tym momencie widzicie, mamy zbitkę IP, które generują największy ruch. Każdy taki IP, możemy sobie wejść, to zaczyna się powoli trochę ciekawiej, powiedzmy.
+
+Mamy, gdzie bił, o jakich politykach bił, jaką usługą. Tutaj domena to wiadomo, istotne, czy chciał tylko i wyłącznie getować. Widzimy, że chciał, czy postować, może coś strzykiwać na stronę.
+
+Tak, dostał odpowiedzi. Jakieś przekierowania, sporo OK, nie wiadomo, o co chodzi. Do przeanalizowania, takie coś też można kliknąć.
+
+Przechodzimy do jeszcze, ok, niestety nic nie ma, a przechodzimy do jeszcze większych logów. Czy nawet URL-i, które próbował. No tutaj możemy nawet patrzeć URL injection czy tam path traversal.
+
+Jak zwał, tak zwał. Takie ciekawe rzeczy tutaj możemy wyhaczyć. Idąc dalej, client management.
+
+Akurat w tym rozwiązaniu to jest takie miejsce, które mówi mi, ile osób jest w tym momencie wyblokowane. To jest OK, to jest nie OK, które generuje ruch. Na jakiej podstawie oni są klasyfikowani, to też pokażę, też to było ustawione.
+
+Jedyna rzecz ciekawa stąd polega na tym, że jeżeli ktoś do nas dzwoni, że został nie OK zablokowany, to znajdujemy sobie takiego typka, takiego gościa. Widzimy, że ten jest ewidentnie zablokowany i niestety trochę poprzeszkadza tutaj, ale restore score czy restore all scores i gość może od nowa sobie próbować ile chce. Znaczy ile chce, póki go znowu nie zablokuje.
+
+Możemy też go usubskrybować na listę IP, ale to za chwilę. Idąc dalej, blok client ID. Mówi sama nazwa to sobie miejsce, gdzie ja ręcznie zablokowałem i będę musiał się tłumaczyć, jeżeli ręcznie to zablokowałem.
+
+Blok IP, dzisiaj też coś tutaj rano było, niestety już nic nie ma. Blok IP wypełnia się automatycznie. Na podstawie restore score.
+
+Jak mówiłem, za chwilę przejdziemy do dokładnej polityki, która działa u nas produkcyjnie. Lepiej o tym mi, może bardziej mi tego powiedzieć. I tyle.
+
+Dobra. Z ważnych dashboardów naprawdę to jest tyle. Policji, status to za chwilę do tego przechodzimy.
+
+I OWASP Compliance bardzo istotny. Niemniej jednak u nas niemożliwe do wprowadzenia w 100% ze względu na różne wymogi aplikacji internetowej. Niemniej jednak ważne, żeby znać co to jest OWASP Top 10.
+
+Mniejsza o to imię i dane. Polityka. Jak Piotrze będę pokazywał to dużo albo coś, to patrzę, zatrzymaj mnie.
+
+Istotniejszych rzeczy na WAFie. WAF u nas chroni jeden system. Ten system jest po dwóch łączach.
+
+Dlatego mamy dwie polityki, które widzicie są chodzące.
+
+[Speaker 2]
+I tutaj się wtrącę, bo jak doszłoby do skutku, że przekażecie nam swój projekt, a my go w późniejszym czasie wdrożymy, to ten system będzie chronił też wasz system.
+
+[Speaker 1]
+Swoją drogą to są wolne miejsca, bo jest jedno nie wykorzystane tak naprawdę, no z pewnych względów. Albo nawet dwa, ale na pewno same jedno. Wracając do polityki, czyli tak naprawdę źródła całej konfiguracji.
+
+Niestety tutaj, nie powiem, że to jest mega intuicyjne, bo moim zdaniem trochę nie jest. Ale to, co widzę teraz, to jest zbitek wszystkiego. To jest końcowe miejsce ustalania, co ma być chronione, gdzie ma być chronione, w jaki sposób i tak dalej.
+
+Idąc po kolei. Deployment mode, single server. Tutaj po prostu typ wyboru, że mamy chronić jednego IP-ka.
+
+Jedno łącze w tym momencie. Virtual server i server pool. I tutaj zaczyna się, nazwijmy to, w przypadku jednego serwera, mniejsza intuicyjność.
+
+W kompletnie innej zakładce wybieramy, co chronimy, jak chronimy, co chronimy i na jakim portzie i tak dalej. Intuicyjne, nie intuicyjne. Tutaj mówię, zależy od jednostki.
+
+W trakcie odrażania mnie, nie oszukuję, trochę mi to przeszkadzało, że musiałem tak przeskakiwać. Wybieramy, czy to jest HTTP, HTTPS. Wygrywamy certyfikat, który, jak widzicie, jest obecnie problem, ale dobrze jest do rozwiązania.
+
+I to jest z takich głównych konfiguracji. Jeden z wymogów, który słuszny jest, to jest skierowanie z 80 na 443, które jest zaznaczone i to powoduje, mam nadzieję, że będę w stanie to udowodnić, bo zamiast miejsca wytnie na wycięło. Niemożliwe.
+
+Przynajmniej działa. Krótki pokaz praktyczny. Idąc dalej, stąd są jeszcze dwie najważniejsze rzeczy, które przejdziemy głębiej i to są na samym dole Extended Protection Custom, czyli polityka.
+
+To są te flaki, które chronią wszystko, które definiują, co chronimy, jak chronimy i bardziej taka marketingowa rzecz, którą pokażę, czyli co się stanie, jak ktoś jest w stanie zablokowany. Wydaje mi się, że to jest dobry moment, żeby pokazać, co się stanie, jak ktoś będzie zablokowany. W skrócie wyskoczy mu taka strona.
+
+O co chodzi? Tutaj się należą też na to, że jak ktoś sobie zadzwoni, będzie udawał, że jest legitny, a nie jest. W kompletnym skrócie są użytkownicy wielu większych firm, nazwijmy to załóżmy IKEA, która chce się połączyć tutaj i korzysta z wielu IP-ków, zostawia wiele sesji, to jak mówię z doświadczenia, zostawia wiele sesji, użytkownik zostawia sesję, odchodzi na jednego kompa z innego IP-ka i chce na tą samą sesję się połączyć, bo mają załóżmy jedno konta.
+
+No i mamy blokadę, to nam ułatwia odblokowanie takiej osoby, bo mamy znaną IP-ka, przez IP-ka znamy identyfikator klienta, możemy go sobie cofnąć. Dobra, idąc dalej. Na jakiej podstawie w ogóle to blokujemy?
+
+Czyli o tym treckorze, o którym mówiłem wcześniej, mamy to w Client Management. To są rzeczy ustawione przeze mnie z głowy z konsultacją z Piotrem i innymi osobami tutaj, więc pod tym pozorem nie uważam to za idealne wartości. Niemniej jednak na czym to polega?
+
+W tym wypadku FortiWeb, jak widzicie, ma taki system punktowy. Jak ktoś przekroczy punkty, jest blokowana, jest jakaś akcja podejmowana. W tym systemie są tylko trzy kategorie, Trusted, Suspicious, Malicious, wiadomo o co chodzi.
+
+Zdecydowałem się tak naprawdę, żeby Trusted był jako jedyny dopuszczany bez żadnego problemu. Suspicious ma już Denial. Może jeszcze raz się połączyć, ale ponowne połączenie z tymi samymi ustawieniami powoduje, że dalej go by nie miał.
+
+Więc koniec konsultystyki, łącznie Trusted. Co jeszcze? Tak naprawdę teraz byśmy przyszli do samych flagów.
+
+Tak jak mówiłem wcześniej, jak mamy politykę i na samym dole zjedziemy. Mam nadzieję, że to się teraz załaduje. Mamy Web Protection Profile, czyli tę najważniejszą rzecz, która definiuje, jak to chronimy.
+
+Extended Protection Custom to jest podpięte, więc już w to wchodzimy i pokazujemy, jak głęboko to bronimy. Nad wszystkim nie będę się rozwodził. Najważniejsze powiem, bądź jakieś śmieszne przypadki, które były związane w trakcie ustawiania.
+
+Wszędzie tam, gdzie jest napisane POT, to są ręcznie konfigurowane rzeczy. Więc idąc od samej góry, sygnatury. Nie chciałem tego zmieniać.
+
+Wolę, żeby web brał odpowiedzialność za to, co aktualizuje, a nie ja, bo potem mija świecę głową. HDD Protocol Constraints to jest zabawa z ramką, z nagłówkami, z długością bitów w trakcie. Tego też nie chciałem pod żadnym problemem robić ręcznie.
+
+Jest ustawione domyślnie przez dostawcę. Idąc dalej. X-Forwarded Port to jest lekko ciekawe.
+
+Przyznam szczerze, że trochę podważa w ogóle VPN w tym momencie ta usługa, ponieważ służy do identyfikacji rzeczywistego adresu IP klienta. Moim zdaniem przy bardziej zaawansowanych VPN-ach to nie działa, ale lepiej dmuchać na zimne. Jest ustawione, nie ma nic, jako Trusted ma szukać sourceowych IP-ków, portów i realnych IP-ków.
+
+Przechodząc do Client Management. Przed chwilą tam byliśmy, to jest ten transfer trochę, który widzieliście. To są punkty, które definiują, czy jest kompletna blokada, czy jest alert i odmawiamy po prostu jednorazowego połączenia.
+
+Prosta sprawa. Course Protection. Załóżmy Course Protection.
+
+Tutaj nie jest ustawione. Dlaczego? Akurat ciekawa sytuacja, ponieważ aplikacja, którą bronimy, ciągnie rzeczy z third-party tools.
+
+A course wymaga, że wszystko byłoby wgrane w aplikację. Niemożliwe do ustawienia. Jest nieustawione.
+
+Luka? Tak. Trzeba się jej udowodnić.
+
+Nie za bolesną aplikacją, więc akceptujemy ryzyko. Man in the Browser Protection. Wiadomo, o co chodzi.
+
+Nie będę tłumaczył. Gość może podsłuchać, zobaczyć. Kuki Security Policy.
+
+Czyli tak naprawdę jest to przekazywanie Kuki jako sesji. Jest to utworzone niemniej jednak z tego, co pamiętam, nie jest to skonfigurowane na kompletnego maksa ze względu właśnie na przykładek z większymi klientami, którzy mają wiele aplików przydzielonych do siebie, a jedno konto i mogą mieć jedną sesję. Z ciekawszych rzeczy tutaj CSRF, czyli Cross Site Request Forgery, o ile dobrze pamiętam, ustawione.
+
+Niemniej jednak... Niemniej jednak. Weryfikuje tokeny.
+
+Nigdy nie widziałem tego w akcji. Może tak bym powiedział. Lepiej, jak mówiłem, dmuchać na ziemię.
+
+URL encryption. Ciekawa sprawa. Tak samo jak z Korsem przed chwilą.
+
+Nie da się ustawić u nas. Moim zdaniem genialne zabezpieczenie, że o takim typu path traversal, jak ktoś sobie w URL-ach wpisuje masę ukośników, żeby przejść do ruta załóżmy, strzela mnie. I nie da się ustawić, ponieważ URL ciągnie istotne rzeczy do obecnej sesji.
+
+Nie wiem, czy mogłem to powiedzieć, ale powiedziałem, więc... No. Innos dalej ustalone.
+
+Datalos protect prevention. Pomimo ustalenia, nie jest to wykupione u nas, więc to nie działa. Niemniej jednak, jeżeli będziemy to rozwijać dalej, jest to ustawione w razie ewentualnych potrzeb.
+
+Z dalszych rzeczy, które mogłyby być tutaj ciekawsze, to tak na... Tutaj przyznam szczerze, dalsze rzeczy są na przykład file security. To są ustawienia na podstawie znanych sygnatur.
+
+Więc tutaj za dużo typowe pliki, to było ustawione, które mogą zmienić, zrobić code injection u nas bezpośrednio w przeglądarce. One są po prostu poblokowane. Dodatkowa rzecz, która też mogłaby być, którą uważam, że zawsze warto zablokować, to są url, które prowadzą do miejsc konfiguracyjnych bądź administracyjnych.
+
+W tym wypadku nasze rozwiązanie nie pozwalało na zrobienie tego w jednym pliku, dlatego tutaj widzicie aż cztery różne konfigur patch. W skrócie chodzi o to, żeby osoba, która nie jest może bardzo wyoddokowana, nie ma wszystkich informacji na temat tego, co mamy, żeby sobie po prostu z czarnej, z zaproszeniem, dupy nie weszła do naszego konfiguracyjnego, miejsca konfiguracyjnego, administracyjnego. Z dalszych rzeczy, żeby za bardzo też tutaj nie zanudzać.
+
+XML protection, JSON protection, Graph protection, to są proste blokady przed wykonywaniem bądź wygrywaniem, postowaniem plików, na przykład właśnie JSON czy XML. url rewriting. Z tym były problemy ze względu na ów certyfikat w trakcie odrażania.
+
+Jest to wymagalne, żeby w tym momencie chodziło. Nawet w tym momencie, jeżeli chcemy redirektować osiemdziesiątkę na cztery, cztery, trzy. Z tego, co się orientuje, nie ma u nas usługi HSTS.
+
+Nie rozwinę ekran, mimo, sorry. Która od razu zadaje pytanie po cztery, cztery, trzy na samym początku. Niemniej jednak jest to wymagane, żeby koniec końców redirekt na HTTPS zadziałał.
+
+Ostatnia rzecz tutaj to geo-IP, geo-oblokowanie. Pomimo tego, że pisze rusem, tak naprawdę to jest pod tym trochę więcej tego. Na pewno tam nie mamy klientów, po co oni w ogóle tutaj wchodzą.
+
+Są od razu blokowani, żeby nas tylko nie denerwowali. Tak wygląda podpięcie, tak wygląda polityka podpięta pod konfigurację podpięta pod politykę, powinienem powiedzieć. I to jest kompletne flaki.
+
+To jest źródło tutaj, to jest najważniejsze ze wszystkich, moim zdaniem, rzeczy. Poniższe kategorie to tak naprawdę są pojedyncze wejścia przez taki ołóweczek. Jak tutaj wejdę przez ołóweczek, tak samo wejdę sobie dalej.
+
+Zagłębiać się też bardzo tutaj nie będę. Niemniej jednak tak to wygląda. Sygnatury, tak jak mówiłem na samej górze.
+
+W imię potwierdzenia moich słów. Poniższe rzeczy. Bot mitigation, to też jest bot mitigation.
+
+Policy predefined, tak jak mówię. Przychodząc wczesniejszy, tak naprawdę bym tylko się lał w wodę i rozwodził kompletnie bez no może powiedzmy, że bez sensu. Przejdę do IP protection.
+
+Co jest moment, jeżeli klient mówi, że nie może się połączyć, bo jest spierdzielona konfiguracja po ich stronie i non stop go blokuje. No to mamy IP list protection. Jest to zrobione też lekko nieintuicyjnie, ponieważ uch, uch, uch, uch.
+
+Wszystko usunąłem. Zgadowia się. Lekko nieintuicyjnie ze względu na to, że robi się to w miejscu, gdzie blokuje się IP i stworzy się listę deny, a po czym się dodaje IP trust.
+
+Lekko nie w tę stronę, ale zamysł działa, jeżeli klient ma problem. Tutaj wpisujemy prosto IP catch to grupę cokolwiek i klient nie dzwoni nam z problemami. Ostatnia rzecz, czyli to dwie ostatnie.
+
+Zarówno, jakbyście kiedykolwiek mieli okazję tłumaczyć się przed zarządem czy przed kierownictwem, dlaczego ma być tak, a nie inaczej, bądź dlaczego coś działa, to mamy logi i reporty. I tutaj tak naprawdę bym skończył. W tym miejscu będę kończył nazwijmy to prezentację.
+
+Przykładowy raport. Niech będzie scheduled report. Masa informacji, ale tutaj znajdziecie wszystko, czego potrzebujecie, w tym wypadku z ostatnich siedmiu dni.
+
+Jest to raport tygodniowy, który wysyłam do Piotra, żeby było, że system dalej działa i że sprawa wojny nad nim piecze, w ten czy inny sposób. Wszystko jest posegregowane. To, co się dzieje na bieżąco, detection, czy known exploits.
+
+Bardzo istotna rzecz, że takie co się wykryło i zablokowało. Było ich dwanaście jednego dnia. Co proste mówić, że ataki są non stop.
+
+Przechodząc po kolei. PCI to strona główna, ruch. Trochę mało, będzie ciekawe, ponieważ mamy tylko dwie polityki, dwa łącza, jedną aplikację, więc tutaj będzie kilka większości przypadków.
+
+Tutaj mamy top sources. Warty sprawdzenia, chociaż pewnie było zablokowane niejednokrotnie. Destination jest tylko jedno.
+
+Atak. To na pewno jest ciekawsze. Client management, czyli tref skór, który Wam pokazywałem.
+
+Został 243 razy przekroczony. Information disclosure. Prawdopodobnie została sesja wystawiona, bądź ktoś dał posta, a nie miał getta.
+
+Manipulacja, protokoł, HTTP. Szczegóły. Mówię, to jest tłumaczenie z raportu, to jest moje tłumaczenie.
+
+Jeżeli coś się dzieje, a Piotr chce ode mnie wytłumaczenie z raportu, to mówię Hej Piotrze, mam raport i zazwyczaj jestem w domu, jak go ładnie opiszę. I lobby. Najbardziej surowe miejsce całego systemu.
+
+Gdzie widzimy skąd, co, gdzie, jak jest kwalifikowane i co próbował. Do jakiego urla się dostał. Tutaj widzimy, że np.
+
+GOIP działa. Gość jest z kolei wycięty. Jest też mapowanie na mitrę.
+
+Mam nadzieję, że to szybko gdzieś pokażę tutaj. Nie widzę. Tak czy siak.
+
+Istotne, że jest mapowanie na mitrę, więc Kacper, ale ty pokazałeś go o lokalizacji.
+
+[Speaker 2]
+Może trzeba, że mitra jest, nie wiem, nie w tym będzie, nie? To jest nasze wycięcie, nie?
+
+[Speaker 1]
+Masz rację, masz rację, masz rację, masz rację, masz rację. O, zapłysnąłem, dziękuję. Brawo Kacper.
+
+I się teraz przynoszę do błędu, bo mówiłem o was w top ten. Jest mapowanie na was w top ten, czyli częściej nie bardzo używanych typów czy technik. Jak to się ładnie nazywa?
+
+Technik, tactics i procedures na aplikacje webowe. I tak naprawdę z takiego przelecenia po systemie, jak działa, co to jest, to jest wszystko. Znaczy wszystko.
+
+Wszystko w imieniu omówienia sprawy technicznej. Był trochę zabaw z tym, ale ważne, że jest okej i działa i Piotr podpisał mi wdrożenie.
+
+[Speaker 2]
+Dobrze.
+
+[Speaker 1]
+Czy masz jakieś pytania? Tak, żeby coś pokazać. Ładnie.
+
+[Speaker 2]
+Wiemy, chłopaki, zajmiemy się tej sprawy. Kacper już trochę ten. Zostań z nami oczywiście.
+
+Powiem wam w ten sposób, że taka prezentacja bardzo szybka była. Rzeczywiście funkcjonalność jest witychu. Już mówię sobie normalnie.
+
+Zobaczcie, że w przypadku waszej aplikacji nie jesteście w stanie tych wszystkich metod, które tutaj pokazywał Kacper, na które jesteśmy w miarę powiedzmy odporni, bo nigdy nie jesteśmy w stu procentach odporni. Pamiętajcie, że na gdzieś ten atak nastąpi. Ktoś może być mądrzejszy niż to urządzenie i całe zabezpieczenia.
+
+Sami nigdy. To taka przestroga. Jeżeli byście gdzieś jakieś aplikacje robili albo później komercyjnie chcieliby sprzedać, jeżeli byście mieli klienta, który nie ma zabezpieczeń tego typu i gdzieś tam krążą dane osobowe albo jakiekolwiek w sumie dane, no sorry, nie wódźcie się na to albo do projektu dorzucajcie wachlę tego czy innego.
+
+My mamy tutaj oczywiście można to na Linuxie wachla zrobić. Też mieliśmy takie propozycje, ale wybraliśmy inną metodykę. Natomiast Kacper przeleciał po tym raporcie i tak dalej.
+
+Zobaczylibyście ile rzeczywiście mamy tych prób, metod i tak dalej. Te raporty tygodniowe, które Kacper nam przesyła, ja sobie jeszcze później trochę koreluję z tymi rzeczami, które dostajemy z agencji rządowej, czy rzeczywiście tam nie jesteśmy podatni na to, co on gdzieś tam wykryje. Także to wszystko jest suma sumarum jest naprawdę bardzo ważne.
+
+A tym bardziej lamerskie jakieś aplikacje, a wypisane tylko dzięki AI-owi, bo jesteśmy świadomi teraz jak programowanie trochę wygląda. Nie do końca wszyscy rozumieją to, co rzucuje AI. No to tym bardziej trzeba wiecie w tym momencie korzystać z narzędzi i dobrych wdrożeniowców, bo my staraliśmy się mieć rzeczywiście w miarę dobrych wdrożeniowców, gdzie z każdą rzeczą nasz główny Kacper się zgłaszał.
+
+Natomiast własne próby też robiliśmy, czy rzeczywiście nam to działa, czy to funkcjonuje i czy blokuje. Przede wszystkim czy blokuje. Bo to ten system chroni nasz e-book, gdzie są dane klientów, ich wszystkie informacje związane z wyzwyczajem u nas wody i odprowadzenia do ścieków.
+
+[Speaker 1]
+To jest śmiechem, żartem, żartem, że jak testowaliśmy, czy działało, to pamiętam w piątek, tuż przed 15 wróciłem całego e-booka. Co działało? Była taka sytuacja.
+
+[Speaker 2]
+Wiecie, mieliśmy też pewne ograniczenia, Kacper miał pewne ograniczenia, które były związane z samą aplikacją, bo chcieliśmy pójść dalej, mocniej, ale niestety aplikacja nas zablokowała i sposób napisania aplikacji, także to też troszeczkę musieliśmy się w paru miejscach, powiedzmy, ugiąć ze względu na technologię zastosowaną przez dostawcę, a to był Asseco DS, no niestety. Wielki gracz. Nie będzie robić pisania, niektórych napisów.
+ 

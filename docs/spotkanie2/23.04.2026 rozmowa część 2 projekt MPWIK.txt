@@ -1,0 +1,592 @@
+Transkrypcja rozmowy naszego zespołu Kuba Rafał Mateusz z Piotrem Szefem IT w Mpwiku oraz jego pracownikiem Kacprem, część 2 rozmowa o projekcie naszego rozwiązania. 
+
+Sprawdzona ręcznie przez Rafała poprawiona, bez błędów większych. 
+23.04.2026
+
+[Speaker 1]
+No dobra, Panowie, teraz z Waszej strony, co chcecie nam pokazać, o co chcecie nas zapytać, śmiało, jedziemy z tematem.
+
+[Speaker 2]
+No dobra, no to chcieliśmy pokazać na czym my w ogóle stoimy w tym momencie, co mamy tam zrobione na naszej stronie. Po udostępnię ekran i sobie przelecimy to wszystko. Widać?
+
+Tak. No dobra, no to zaczniemy od zakładki o systemie. Tu jest taka instrukcja dla użytkowników jak korzystać, co tu jest w tym systemie.
+
+No to co, zaimportowaliśmy te 1378 ulic z terytu. Udało nam się ponad 51 tysięcy budynków, poligonów z mapy. To jest ogólnie taki rozkład tych budynków, ile nie ma jeszcze przypisanego adresu.
+
+Ale ogólnie większość jest w tym.
+
+[Speaker 1]
+No i co?
+
+[Speaker 2]
+Co, wrócić jeszcze do tego rozkładu?
+
+[Speaker 1]
+Nie, nie, idziemy dalej.
+
+[Speaker 2]
+Legenda kolorów, awarie, planowane wyłączenia i remonty. Takie mamy kolory na mapie. Rejestracja i wybór kanału.
+
+No to instrukcja dla użytkownika jak się zarejestrować, zasada ciszy nocnej, kod wyrejestrowania RODO. On jest, aktualnie działamy na bramce symulacyjnej do wysyłania smsów, więc on jest po prostu przesyłany na sms albo na ten kanał komunikacji, który użytkownik preferuje. No i tutaj bezpieczeństwo danych jakieś takie wstępne.
+
+No i tak, jeśli chodzi o panel użytkownika, no to tak, może on sobie wpisać ulicę, żeby zobaczyć czy jest awaria. Numer domu auto uzupełniany z tego co mamy w bazie, z budynków jakie posiadamy w bazie.
+
+[Speaker 1]
+A już teraz mam pierwsze pytanie, przepraszam, będę Was tak męczył. Można bez numeru domu?
+
+[Speaker 2]
+Można, można, oczywiście. No teraz to działa, ogólnie przejdzie jak nie wpiszemy numeru domu, więc jak samo ulicę no to wyskoczy po prostu na danej ulicy. No i tak, jeśli chodzi o mapkę, no to tam gdzie występuje awaria są zaznaczone poligony, no i dosyć ładnie to widać.
+
+[Speaker 1]
+Ładnie, podoba mi się.
+
+[Speaker 2]
+Możemy sobie tu zobaczyć, ogólnie ta pineska jest tak mniej więcej wyśrodkowana pomiędzy budynkami, więc jak będzie ich dużo, na przykład na ulicy Nadbystrzyckiej zaznaczamy dużo budynków, no to ona może się trochę rozjechać. To jeszcze wymaga troszkę poprawy. No i co, jeśli chodzi o mapkę to tyle.
+
+[Speaker 1]
+Bardzo ładnie. A wiesz co, a pokaż mi teraz tryb responsywny w tym, to okno, w trybie responsywnym.
+
+[Speaker 7]
+Jak, jak, chwila.
+
+[Speaker 1]
+No tak jakbym to oglądał na komórce.
+
+[Speaker 7]
+A, dobra.
+
+[Speaker 1]
+Okej.
+
+[Speaker 2]
+No tak to wygląda na komórce.
+
+[Speaker 1]
+Dobra. No to wróćmy do normalnego trybu.
+
+[Speaker 2]
+Dobra, no to dalej przechodzimy do zakładki rejestracja. No i tutaj użytkownik może wybrać swoje kanały. Ulica jest auto uzupełniana.
+
+Jeżeli nie wybierze z listy, no to nie może przesłać formularza.
+
+[Speaker 1]
+Dobrze.
+
+[Speaker 2]
+Numer budynku, no to tak samo, zaciągany z bazy, może sobie kliknąć. Jak pisze coś innego, nie przejdzie mu formularz. Telefon oczywiście w formacie takim.
+
+[Speaker 1]
+Jakie ograniczenia, przepraszam, że ci przeszkadzam, jakie ograniczenia daliście do dodaj kolejny adres? Czy to tak też sobie można bez liku?
+
+[Speaker 2]
+Nie dodaliśmy jeszcze do tego ograniczeń.
+
+[Speaker 1]
+No właśnie, to jeszcze się zastanawiam nad tym, jak to zrobić. Ilu wariatów może być, żeby sobie tak nie klikać i wiecie, nie ten.
+
+[Speaker 2]
+No właśnie, no nad tym też musimy troszkę pomyśleć.
+
+[Speaker 1]
+A wstawieni kwestia walidacji formularza pod kątem tej samej ulicy na przykład, że ktoś znowu wstawi tam muzyczną nr 1 i drugim razem znowu wam wstawi muzyczną nr 1, nie? To też sobie tak ograniczcie, zobaczcie, żeby ktoś nie wstawił tych samych ulic po 10 razy na przykład, nie? Dobra, dobra.
+
+Kwestia później zajętości tablic bazodanowych. Także to tak, to co mi się tak, jak oglądam to przepraszam, bo jak wam coś tam nie tak mówię. No jedziemy.
+
+[Speaker 2]
+No dobra, no i co? Jak wybrał sobie smsa, to podaje tylko smsa. Na ten sms mu przychodzi token, którego następnie może wkleić sobie w zakładce wyrejestruj.
+
+No i normalnie trwale usuwa jego dane. No i to tyle, jeśli chodzi o panel użytkownika.
+
+[Speaker 1]
+Może jeszcze wróćmy do rejestracji, jak możemy. Dobra. Jako, bo teraz tak.
+
+Zobaczcie, jestem wariatem, mam numery moich znajomych. Użyliście tokenu przy wyrejestrowaniu. Użyjcie tokenu rejestracji, bo jak ja podam tu chłopaków numery, powstawiam mi głupkowate ulice, to będą dostawali smsy.
+
+Czyli jeżeli podam numer telefonu, żeby dostał token, który też ma wpisać, że to rzeczywiście jest on wpisuje, nie? Takie 2FA, to jak by?
+
+[Speaker 2]
+Właśnie my myśleliśmy o tym, żeby to też było jakoś weryfikowalne, czyli na przykład jak on sobie uzupełni tą ulicę, kliknie zarejestruj się, no to na jego sms, czy tam kanał komunikacji przychodzi jakiś kod weryfikacyjny, no i on po prostu to weryfikuje. No to właśnie to też musimy obsłużyć.
+
+[Speaker 1]
+Tak, zróbcie i będzie naprawdę, będzie super. Dobra. Pamiętajcie jedną rzecz.
+
+U nas jest troszeczkę tak zrobione, bo dokładnie w podobny sposób mamy rejestrację do Ebooka, że też tam to kwestia czasu wygaśnięcia tokenów. Pamiętajcie, dobrze? Żeby zrobić.
+
+Dobra. I token nie wisiał cały czas, że on może do jakiegoś czasu, tylko tu trzeba by było jakiś komunikat dać, że token, który wysłaliśmy na maila, bądź smsa będzie ważny tam 24 godziny. To tak maksymalnie, jakbym mógł Was prosić, nie?
+
+[Speaker 2]
+Dobra. To jeszcze masz jakieś pytania, czy możemy już lecieć dalej?
+
+[Speaker 1]
+Wiesz co, wyrażam zgodę na przetwarzanie moich danych z systemem RODO. Tutaj będziemy, najprawdopodobniej zrobimy link do naszej strony głównej, jak będzie ktoś chciał wytworzyć zasady RODO, to ewentualnie, ale to tak sobie wymyślę, żeby nasz klient RODO się trochę tym zajął. Poza tym...
+
+Dobra. Kacper, Ty coś jeszcze widzisz?
+
+[Speaker 3]
+Ja miałem pytanie do Ciebie o numerów telefonów. Czy tutaj można byłoby zmiesza ustawić, żeby były załóżmy... Znaczy, to zależy, czy będzie ustawione pod wafem, za wafem, czy nie.
+
+Chodzi o to, żeby... To zazwyczaj pewnie ktoś będzie z Polski. Czyli jest sposób, moglibyście to zrobić w ten sposób, żeby nie było plus 48, tylko zawsze było 48.
+
+Chociaż chyba...
+
+[Speaker 2]
+Tak, możemy to zrobić w ten sposób, ale ogólnie nawet jak on pisze dziewięć cyfr bez tego prefiksu, no to do bazy to trafia z prefiksem 48.
+
+[Speaker 1]
+OK. Kasper, pamiętajmy o tym, że mogą chcieć mieć komunikaty ludzie, którzy siedzą po prostu za granicą, więc ten prefiks musi gdzieś tam istnieć. Jak domyślnie nie istnieje, jak nie wpisze, to przyjmujemy 48, ale mogą siedzieć nasi klienci za granicą, którzy to wynajmują mieszkania.
+
+[Speaker 8]
+OK.
+
+[Speaker 1]
+Jesteśmy takim studentom i w tym momencie też jest możliwość wyszłania SMS-a za gramanice, jak to mówią.
+
+[Speaker 3]
+Dobra, nie ma tematu.
+
+[Speaker 1]
+Nie, no temat jest bardzo dobrze, bo mnie to czasami denerwuje, jak ja muszę plus 48 wpisywać gdzieś tam dopiero swój numer, ale jak chłopaki by zrobili, że domyślnie, jak nikt nie wpisze, no to będzie 48, to będzie OK.
+
+[Speaker 2]
+No to tak teraz to jest obsłużone.
+
+[Speaker 1]
+Dobra.
+
+[Speaker 2]
+Dobra. To lecimy do panelu dyspozytora, czy tam administratora. No i jakiś taki prosty ekranik logowania.
+
+I tak, tu jest ogólnie dashboard cały ze zdarzeniami, które już istnieją. Dyspozytor może sobie dodawać zdarzenie. No takie, jak powiedziałem wcześniej, awarie, planowane wyłączenie.
+
+Tu oczywiście jest auto uzupełniane.
+
+[Speaker 1]
+Z tego, co mamy w bazie. Dobra, dobra, dobra.
+
+[Speaker 2]
+Z tego, co mamy w bazie.
+
+[Speaker 1]
+Wyciągnijmy od tego widoku, dobra? Ale to powiem Wam, o co chodzi. Dobra.
+
+[Speaker 2]
+No to może on sobie klikać budyneczki, które są oczywiście dostępne.
+
+[Speaker 1]
+I on w tym momencie... Super, czyli jest multi-click. Dobra, super.
+
+[Speaker 2]
+Tak. Może podawać zakres numeru i może normalnie numery dopisywać. Zawaliste.
+
+Z palca. Super. Daje tam jakiś sobie opis, czyli nie wiem, woda niezdatna do picia.
+
+[Speaker 1]
+Wiecie co? To już do tego opisu, żeby chłopakom na pogotowiu przyspieszyć. Czy można by było dołożyć taki słownik typowy?
+
+Że na przykład, tak jak mówisz, w słowniku już mamy woda niezdatna do picia. On sobie wybiera, to mu to wtedy wstawia i on na przykład już nic nie dopisuje albo cokolwiek innego będzie chciał. Czyli takie typowe rzeczy, które chłopaki wpisują, czyli taki słownik.
+
+Nie to, że będzie trzeba go wybrać, ale jak będzie chciał, to będzie miał szybciej wtedy, nie?
+
+[Speaker 2]
+No tak. No to jesteśmy w stanie na pewno obsługiwać.
+
+[Speaker 1]
+Takie schemy komunikaty. Tak, tak. Bo wiecie, to się powtarzają, to nikt tam nie siedzi i nie wymyśla nowych komunikatów, nie?
+
+Tylko na przykład awaria wodociągowa itd., nie? Awaria wodociągowa, ale jakiś słownik. Taki wpisz słownika albo tam, że hydrant już uszkodzony też może być taki komunikat.
+
+No taki słownik, żeby sobie wybierał, a później jeszcze mógł do tego coś dopisać, no? Dobra.
+
+[Speaker 2]
+Dobra. No to tak, statusy są trzy. Jest zgłoszona w naprawie i usunięta.
+
+Jeśli statusy się zmieniają, czyli na przykład ze zgłoszonej w naprawie, no to wtedy idzie SMS do użytkownika, że tam status zmienił się.
+
+[Speaker 1]
+No i dobra, i teraz już. Żeby ten system był bardziej rozwojowy. Kasper, jak coś to mnie poprawię, proszę.
+
+Wydaje mi się, że to też by było fajnie, gdyby to było na słowniku. Aha. I możecie, bo teraz ja wiem, że macie pewnie sztywną listę wyboru.
+
+Zastosowaliście. Zobacz, zastanówcie się, żeby zrobić małą tabelę i jednak zrobić listę wyboru, żebyśmy nie mogli dopisywać do tego. Bo jest coś takiego czasami, jak planowana niby awaria, że planowane zatrzymanie dostępu do wody albo oni sobie coś z planowaniem mają napisane.
+
+I wtedy, żeby oni mogli dopisywać do tego słownika, to będzie bardziej takie ogólne wtedy.
+
+[Speaker 8]
+OK.
+
+[Speaker 1]
+I na przykład wybierali kolory. Bo wyście teraz na sztywno przypisali te kolorki, nie? Gdyby tam w bazie sobie RGB wpiszcie kolor, który powiedzmy taki wybierze sobie tam u nas na pogotowiu gościu, co siedzi, wpisze sobie coś do słownika i będzie mógł sobie też oznaczać to, że będzie informacja, nie?
+
+OK. Nie musi to być zgłaszane w tym momencie klientom, bo musielibyśmy znowu na formularzu rejestracji robić do czego chcemy mieć dostęp. Także tam zostawmy główne rzeczy, które są, do czego służyć ma ten system, no i będziemy myśleć o rozwoju.
+
+Czyli na pewno te awarie, zakończenia i tak dalej. SMSy to głównie o awariach i mailach, nie?
+
+[Speaker 8]
+Mhm.
+
+[Speaker 1]
+Gdyby tam, jakie myślisz, planowany remont może być jakiejś magistrali, tak? Czasowe wyłączenie magistrali albo jakieś tam części od tego miejsca do tego miejsca, no to taki komunikat na takiej stronie też mógłby się zamieszczać. Tylko co oni tam dokładnie mają i jaką listę mają tych rzeczy, no to ja tak do końca nie wiem.
+
+Tyle wiem, co Wam mówię. Dobra.
+
+[Speaker 2]
+No i co? Ten dyspozytor może ustawić szacowany czas usunięcia. No i tu pojawia się kolejna kwestia.
+
+Czyli jeżeli dyspozytor na przykład nie zaaktualizuje tego, w sensie nie będzie tego aktualizował na bieżąco, no to możemy sobie zaznaczyć, że żeby przedłużał po prostu ten szacowany czas, gdy on przekroczy, teraźniejszy, no i przedłuża on o godzinę albo zamknąć po prostu zdarzenie.
+
+[Speaker 1]
+Dobra. Dobra. To by było tutaj, to by było fajne.
+
+Bardzo mi się podoba to automatyczne przedłużanie. Oni nie musieliby, to jest bardzo dobry pomysł. Powiem Wam szczerze, nie pomyślałem o tym.
+
+Teraz jak to zobaczyłem, to jest super. Podoba mi się to.
+
+[Speaker 2]
+No dobra. No i co? I puszczam sobie to zdarzenie.
+
+SMSy idą do użytkowników. Coś tam Rafał chciał mówić?
+
+[Speaker 6]
+To możesz zadawać.
+
+[Speaker 2]
+No. No to czas taki. No i idzie taki SMS. Okej. Dobra. Jeszcze na panelu administratora mamy tak, tabele z subskrybentami, jakieś tam filtry podstawowe. Może sobie zaznaczyć zgodę nocną.
+
+Mamy logi powiadomień.
+
+[Speaker 1]
+Super.
+
+[Speaker 2]
+No i mamy...
+
+[Speaker 1]
+No. Wiesz co, a pokaż mi jak w ogóle wcześniej zamyka powiedzmy awarię dyspozytor. No może...
+
+On ją po prostu usuwa.
+
+[Speaker 2]
+Może ją usunąć w ten sposób albo może ją usunąć w ten sposób.
+
+[Speaker 1]
+I teraz tak. Dla zachowania historii przycisk usuń niech nie będzie. To pierwsza rzecz.
+
+Dobrze. To tutaj przetrzymujemy te zdarzenia. Wróćmy do dashboardu.
+
+Jeżeli możesz tego głównego tego. On może tylko takie zdarzenie wcześniej zamknąć. Dobra.
+
+Albo w ogóle zamknąć, wyedytować. Także tutaj jak mógłbym Was prosić w Waszym projekcie, który będziecie trzymać. Oczywiście może to zostać.
+
+Tutaj przydałby się czwarty kafelek jakby zamknięte zgłoszenia. Bo rozumiem, że mamy aktywne zdarzenia. Wtedy byśmy mieli wszystkie aktywne.
+
+Naciska sobie. To są kafelki te tam 9, 3, 4 czy to jest w tym momencie tylko statystyka?
+
+[Speaker 2]
+To jest tylko statystyka.
+
+[Speaker 1]
+No pomyślcie nad tym czy te kafelki nie powinny być w formie, że jeżeli nacisnę to widzę wszystkie awarie. Dyspozytor widzi awarie. Czyli naciska sobie na to trójkę i widzi tylko awarie.
+
+Czyli ma filtrowanie.
+
+[Speaker 2]
+No to ogólnie on ma filtrowanie też tu.
+
+[Speaker 1]
+No to dobra. To w sumie mogłoby być. Tylko tu by się przydał checkbox, żeby nie albo nie nawet.
+
+Zamknięte jeszcze. Czwarty kafelek, który by był zamknięty. No to tak.
+
+To tutaj trzeba by było dodać jeszcze filtrowanie pokaz zamknięty do tych typów zdań. Dobra. To tak może.
+
+Nie zauważyłem tego filtrowania ślepy. Jestem stary. Ok.
+
+Dobra.
+
+[Speaker 2]
+Jeżeli chodzi o ten panel administratora, no to mamy też mapę budynków. No i tutaj administrator może dodawać adresy do budynków, które nie mają tego adresu przypisanego. Czyli może sobie on kliknąć ten kafelek, wpisać adres, zapisać ten adres, no i on już w bazie widnieje.
+
+[Speaker 7]
+Super.
+
+[Speaker 2]
+No, ale to jest troszkę mozolna robota, bo dużo jest. Znaczy dużo, no trochę jest tych adresów. Trochę tych poligonów, które nie mają tego adresu.
+
+[Speaker 1]
+Dobra, uzupełnią. Jak będą chcieli, jak będziecie, będą uzupełniać, będzie tam awaria. Także to nie.
+
+Także to na spokojnie. Ten system ma żyć. Dobra, pokaż użytkowników.
+
+[Speaker 2]
+No i tutaj ogólnie jest taki panelek, że dla administratora, czyli on ma pod sobą dyspozytorów, może ustawiać ich rolę, może zmienić na administratora, dezaktywować ich konto, lub je po prostu usunąć. Lub dodać konto nowego dyspozytora.
+
+[Speaker 1]
+Tom, pokaż, dodaj konto. Jakie macie granice hasła? Osiem znaków.
+
+Minimum dwanaście. Dobra. Minimum dwanaście.
+
+Na tą chwilę możemy nie wymagać znaków specjalnych. Duże, małe litery, cyfry. Dobra?
+
+To tak już mówię. I teraz tak, dyspozytor, gdyby trzeba było ten system, dodalibyście jeszcze pole, powiedzmy dział do tego, bo jakby się okazało, że tam jeszcze z sieci wodociągowej coś by robili, a trzeba by było im to udostępnić, nie tylko dyspozytor, to żeby było wiadomo, że tam jakiś tam facet, i to jest symbol TSK na przykład. U nas maksymalnie symbole działu są trzyliterowe.
+
+Także w razie czego max trzy litery. I co jeszcze? Kasper przychodzi, czy coś jeszcze na pomysł jakiś z użytkownikami, co nam jest potrzebne, tylko dyspozytor nam wystarczy.
+
+Teraz zastanawiam się o zapewnianiu ulic. Tak, to dyspozytor.
+
+[Speaker 3]
+Zależy, jak bardzo chcemy segmentować upewnienia.
+
+[Speaker 1]
+Tak, właśnie. Ja sam się zastanawiam w tym momencie.
+
+[Speaker 3]
+Bo potem możemy sobie zrobić niezły burdel i nie to, że nie jestem na tym, bo jestem, ale możemy zrobić sobie burdel, a to jest kolejna rzecz, którą musimy mieć w piecze. Bądźmy szczerzy, że to się skończy średnio.
+
+[Speaker 1]
+Dobrze, a pokażcie mi jeszcze w tym momencie, macie gdzieś wykaz ulic, które są w systemie? Z tej strony? Znaczy nie, to w systemie waszym, czyli ja na przykład też z tego programu widzę spis ulic.
+
+[Speaker 2]
+Nie mamy spisu ulic.
+
+[Speaker 1]
+Okej, no to w tym momencie, wiecie, trzeba by było, bo jeżeli na przykład, to w jaki sposób słownikowo ma dyspozytor poprawić, bo zrobił pomyłkę ortograficzną ulicy, nazwę ulicy?
+
+[Speaker 2]
+Ale w sensie w mapie budynków, jak one tutaj... Chyba usługiwaliśmy tu edytowanie tego. Na przykład do istniejącego budynku, o tutaj, prezydenta Gabriela Narutowicza w 14, no to on może albo usunąć, albo go edytować.
+
+[Speaker 1]
+Dobra, czyli to jest, czyli w ten sposób. No dobra. To na to chwilę by było.
+
+Dobra, no jak na wynawet... Tak, wystarczająco.
+
+[Speaker 2]
+Dobra, nie wiem. Chłopaki, macie coś do powiedzenia? Może czegoś nie pokazałem?
+
+Czy...
+
+[Speaker 5]
+Ja ci wtrącę, bo ogólnie pokazałeś panel administratora, pokaż jeszcze panel dyspozytora, bo on się różni, nie ma tych zakładek subskrybencji i logi, więc pokaż.
+
+[Speaker 2]
+No to tak, dyspozytor ma tylko dashboard, w sumie dostępny. Może on zgłosić zdarzenia, może je edytować, może je usuwać. Ma też dostępną mapę budynków.
+
+No i jeśli chodzi o budynki, to jak będzie chciał dodać adres, to nie może tego zrobić. To wyłącznie można zrobić administrator, może go edytować.
+
+[Speaker 1]
+Dobrze, że pokazaliście, bo dyspozytor w razie czego musi mieć możliwość, bo nie będzie kogoś administratora w nocy budził, jak będzie mu brakowało nazwy ulicy. Okej, dobra. Tylko być może takie dodawanie przez dyspozytora, wiem, że to trochę daleko, ale można by było gdzieś logować, nie?
+
+Że tam, powiedzmy, ktoś tam dodał taką ulicę o 3 w nocy w systemie. Pozwólcie, dyspozytor musi mieć możliwość dotowania ulicy.
+
+[Speaker 7]
+Dobra. No. No nie wiem, w którym.
+
+[Speaker 5]
+No dobra, gdzieś mi się przywinęło to, ale to jeszcze poszukamy. Albo to obsłużymy.
+
+[Speaker 2]
+No. No i co? I w sumie to tyle, co na ten moment zrobiliśmy.
+
+[Speaker 1]
+Zrobiliście bardzo dużo. Bardzo dużo i bardzo fajnie. Podoba mi się to rzeczywiście.
+
+Pamiętajcie o tych rzeczach, o których rozmawialiśmy. Czyli tutaj, żeby dyspozytor mógł dodawać. Nie mógł usuwać, w razie czego ulicy, ale mógł dodawać, ewentualnie poprawiać nazwę.
+
+Dobra, dobra. Bez sprawy coś tam się pomyli. Także, no.
+
+Bardzo, bardzo, bardzo fajne. Zastanawiam się jeszcze, jakbyś ten ogólny widok zdarzeń zrobił. W dashboardzie?
+
+Tak, listę pokaż. Bo tutaj, gdybyśmy chcieli udostępniać różnym działom, bo tak myślę, że tam działy na zemborzyckiej jakby wpisywali, to tutaj przy filtrowaniu będzie, będzie może jeszcze konieczność pokazania, który dział coś wpisał, albo wyfiltrowania wszystkich zdarzeń danego działu. Aha.
+
+Na przykład, jeżeli pracownik będzie z TSK, a dyspozytor jest TP. U nas dyspozytoria ma symbol TP. Dział związany z, jest TSW, to jest sieć wodociągowa, gdzie oni tam powiedzmy w ciągu dnia robią takie, jakieś rzeczy związane z eksploatacją wodociągową.
+
+Mogą zamknąć na chwilę jakiś odcinek wody. TSK jest na przykład związane z siecią kanalizacyjną, czyli tak samo mogą czyścić jakiś odcinek, jakąś rurę kanalizacyjną. No to wtedy taki wpis mógłby robić TSK.
+
+No to tutaj trzeba by było brać od pracownika jakby, pobrać sobie, który pracownik wpisuje. Oczywiście człowiek ma tego nie widzieć, bo człowiek widzi tylko mpwik Natomiast tutaj wewnętrznie, żebyśmy mogli przefiltrować sobie.
+
+No i teraz jeszcze takie pytanko, czy ten grid, który teraz widzę, da się wyeksportować? Nie da się.
+
+[Speaker 7]
+Jeszcze na ten moment się nie da.
+
+[Speaker 1]
+Nie, no spoko, ale to i tak jest, wiecie, to nie ma problemu. W razie czego DBVIEWER też z tego korzystam. Gdzieś tam to znam to.
+
+Na opowiedziach moich, które przed chwilą pokazywaliście. No dobra, na tym punktie dla mnie jest zajebiste, panowie. Parę drobnych poprawek, o których rozmawialiśmy się i ten projekt naprawdę jest dla mnie jest super, super.
+
+No to w porządku. Dla Twojej wiadomości stoi to na Linuxie Oracle Linux 9, tak? Dobrze mówię?
+
+[Speaker 2]
+Jeszcze nie stoi, ale będziemy tak to robić.
+
+[Speaker 1]
+Tak. Gdybyś się, Kacper, jakbyś mógł jakieś namiary na siebie, gdyby chłopaki mieli z Wafem pytanie, to ja bym Cię mógł prosić. Czy tutaj na czacie, czy maila podacie?
+
+Znaczy ja mam do nich maila, ale to może zostaw na czacie, to chłopaki se zgarną i potem macie. Tak, tak. Rozumiem, że nie prywatne, ja?
+
+Znaczy jak Ci się któryś chłopaku podoba i macie...
+
+[Speaker 3]
+No to wiesz, te napisy są bardzo, bardzo zachęcające.
+
+[Speaker 1]
+To pod tym kątem dla mnie rzeczywiście jest to super, co pokazaliście. Gdybyście mieli pytania w stosunku do Wafa, to jak najbardziej. I w ogóle, Kacper, jeżeli by mieli jakieś pytania związane z tym, jak to u nas funkcjonuje, co możemy zrobić, to też do mnie, albo już teraz Wy się znacie, Kacper.
+
+Przynajmniej skafelka. OnBus to jest skafelka, ale gdzieś tam pewnie się kiedyś razem spotkamy. To z mojej strony byłoby tyle.
+
+Bardzo fajne. Jest super. Naprawdę super.
+
+No cóż mogę Wam powiedzieć. Jak w ogóle z tym projektem, powiedzcie mi, ma być? No kiedy Wy go macie zrobić?
+
+Jakieś takie formalne rzeczy. Jak to wygląda? No to już mówimy.
+
+Dobra.
+
+[Speaker 7]
+Czekaj, chłopacy, mówisz czy ja?
+
+[Speaker 2]
+Ja mówię, tak. Dobra. 15 maja ogólnie mamy jakieś warsztaty od pomysłu do prezentacji, gdzie będziemy się uczyć prezentować tego naszego rozwiązania.
+
+21 maja prezentacja wyników prac poszczególnych zespołów przed kolegiem dziekańskim. 22 maja dostarczenie prezentacji i 28 maja uroczysta gala festiwalowa. To są nasze terminy.
+
+[Speaker 1]
+Dobra, a czy gdzieś ja tam będę musiał być? Czy coś? Weźcie się spytajcie.
+
+Albo ktoś u nas z prezesów. 27, 28 maja jest spotkanie. Mam takie.
+
+Jakby coś, to bym 28 nie był. Jakbyście mogli się zapytać, czy ktoś z naszej strony jest potrzebny do tego.
+
+[Speaker 4]
+Dobrze, w tym momencie do dzieka na pierwszej się zapytam.
+
+[Speaker 1]
+Dobra, a czy ktoś z MPWiKu? Znaczy generalnie to tam prezes to nie wiem, ale ze strony, no jakimś tam opiekunem 80, jeżeli miałbym być czy coś, to dajcie mi wcześniej znać, żebym wiedział.
+
+[Speaker 4]
+Dobra, w porządku. Czyli zapytać się o 27 i 28, czy ktoś z MPWiKu musi być, tak?
+
+[Speaker 1]
+No nie wiem, tam 28 macie galę, tak? To zapytajcie się o ten 28, czy ktoś ma być z MPWiKu. To prosimy Was o taką informację.
+
+Jeszcze się zastanawiam. To Wy będziecie to na żywo prezentować tam na tej gali, czy gdzieś wcześniej? Jak to ma wyglądać?
+
+[Speaker 6]
+To każdy będzie miał po 10 minut chyba na prezentację tego swojego rozwiązania, a potem po oceniu.
+
+[Speaker 1]
+Dobrze, a będą chcieli jakieś od nas, to też zapytajcie się, czy ja mam jakąś opinię na ten temat swojego wyrażać jako MPWiKi, bo tu pracujemy nad tym projektem. Czy jakieś opinie, o co z tym projektem Waszym zrobimy? Czy ten projekt będzie nam przekazany?
+
+No bo ja bym chciał ten projekt od Was wziąć w jakikolwiek sposób, tak jak rozmawialiśmy, w jaki sposób możecie nam przekazać swoje prawa autorskie. Jeżeli to jest w ten sposób, to może być zorganizowane?
+
+[Speaker 4]
+Właśnie już pisałem o tym z Ciechanem i Dział Prawne Politechniki Lubelskiej, jakkolwiek, nie rozcie sobie praw do naszego projektu, więc to jest pełni w naszych rękach ten projekt. To tutaj pewnie będzie tak, jak na ostatnie spotkanie z Tobą rozmawialiśmy.
+
+[Speaker 1]
+Nam to pewnie odpowiada. To sobie jeszcze szczerze, tak na razie, dowiedzcie się formalnie, co jest wymagane z naszej strony MPWiKu, albo z mojej strony. Jeżeli jakieś opinie na temat tego projektu, czy cokolwiek, to dajcie mi trochę wcześniej znać, żebym się mógł w jakiś sposób przygotować na ten temat i tak dalej, i tak dalej.
+
+Nie wiem, czy coś mam napisać, że to nie jest projekt z zaprzeczeniem, jak to teraz młodzi mówią, przynajmniej nie w domu z dupy wzięty, tylko rzeczywiście przeznaczony do tego, żeby funkcjonował później u nas w spółce. Dobra? Dobra.
+
+Dobra, dobra. Czasami, gdybym nie odbierał, to przepraszam Was, postaram się jakoś to, żeby szybko, tak jak ostatnio chyba Jakub dzwonił, to przepraszam, ale czasami takie są sytuacje, a nie inne. Ale gdyby coś, to piszcie smsa, to wtedy jak zobaczę, że pilny kontakt, to się wtedy na pewno gdzieś tam obecnie.
+
+Dobra? No dobra, chyba, że macie do nas jeszcze jakieś pytania?
+
+[Speaker 7]
+No z mojej strony na przykład nie mam pytań.
+
+[Speaker 6]
+Mieliśmy, będziemy dalej to szlifować, żeby było na tego okolicach 14 baja już takie prawie użytkowane, pewnie użytkowane.
+
+[Speaker 1]
+Dobrze, to teraz jeszcze tak, z mojej strony sprawdźcie sobie jeszcze tablety, responsywność na tabletach, jak to mniej więcej wygląda, żeby to ładnie wyglądało, bo przede wszystkim tam ludzie będą patrzeć na to, żeby to ładnie wyglądało, więc poprzekręcajcie sobie pionowo, poziomo różnej wielkości ekranów, to ja to kiedyś utrzymałem, pamiętam, że zawsze sobie sprawdzałem, jak to wygląda, żeby się gdzieś tam pole wam nie przesunęło jakoś głupkowato przy różnych, przy 10.1, tam przy 11 calach. Zobaczcie sobie, jak to mniej więcej wygląda, jak to z responsywnością odbywa. I możecie się rzeczywiście tym pochwalić, że do korzystania jest też na komórkach, nie tylko na komputerze i tak dalej.
+
+To przy prezentacjach moim zdaniem jest korzystne, pokazanie, jak to wygląda na poszczególnych urządzeniach. Czy coś jeszcze tak w związku z tym? No tak poza tym głupkowato odporne.
+
+Zobaczcie, że macie na pewno poustawiane, żeby ktoś coś nie wpisał, niepotrzebnego jakiejś znaki, jakby jakieś odbezpieczeństwa się facet przyczaił. To sprawdźcie sobie to, co Kacper wspominał o metodach wyłamów w przypadku pól, gdzie można coś tam strzyknąć. Też sobie zobaczcie.
+Starajcie się ograniczać pola do ilości znaków, tam, gdzie jest to możliwe.
+
+Zastanówcie się o polach. I typie pól. I walidacji tych pól.
+
+Później po wpisaniu. Bo czasami gdzieś tam też... Kiedyś takie błędy popełniałem jakby, czyli programowania.
+
+Czyli walidacji przed zapisaniem do bazy danych. Nawet przez dyspozytora. Nawet przez dyspozytora.
+
+Pamiętajcie, zero trust. Nie ufamy nikomu. Nawet jeżeli dyspozytor ma dostęp z panelu dyspozytora i będzie chciał wpisać w nazwie ulicy coś, co może zaszkodzić systemowi, to tam też ma być głupkowato odporny.
+
+Czyli nawet jeżeli będzie nadawał numer budynku, to żeby nie mógł wpisać tylko cyfry, a nie wiadomo co. Wiadomo, że są budynki 4A albo inne, no ale to jesteście młodzi, inteligentni. Poradzicie sobie z takimi rzeczami.
+
+Także też możecie gdzieś tam, jak będziecie opisywać swoją pracę, no to zwróćcie uwagę na to, że zero trust to też już po drugiej stronie, czyli u nas w Będrowiku. I taki dyspozytor nie może wykonywać, wpisywać do bazy danych na przykład z głupkowatych ciągów znaków, co spowoduje wywrócenie systemu, zanim się zapisze coś tam do bazy danych. Dobra?
+
+To są takie ważne kwestie teraz bezpieczeństwa. O tym się wszędzie trąbi, o bezpieczeństwie z jednej, ale i z drugiej strony, czyli wewnętrznie od przedsiębiorstwa. Z zewnątrz to tym bardziej dokładnie pod tym kątem.
+
+Weryfikacja tokenowa, wpisanego numeru telefonu, to też pod tym kątem. No i zastanówcie się, bo jakbyście gdzieś jeszcze to, ja teraz pewnie bym to chciał jeszcze, tylko nie kapcze, bo Google chyba w tym roku, na koniec roku zamyka inny sposób, czy jesteśmy człowiekiem rzeczywiście, czy nie jakiś automat nam pakuje i spróbuje razy tam coś wpisać. Dobra?
+
+Tak sobie zastanówcie. Dobra. I pamiętajcie jeszcze o jednej rzeczy, jeżeli nawet jesteś człowiekiem, to te kapcze nowe, tak to nazwę, są też takie dla ludzi związanych ze słabowidzeniem, czyli czasami trochę jakby wygląda, jakby dla idiotów, że obrazek trzeba tam ułożyć albo cokolwiek innego.
+
+To są ci ludzie z upośledzeniami, a my jako przedsiębiorstwo trochę publiczne musimy spełniać wymogi tych rzeczy. Jeszcze na razie myślę, że zwalidujemy sobie. Na razie zróbcie te techniczne rzeczy, a później sobie jeszcze zwalidujemy pod kątem tego, co ja pamiętam, kodu i z tym związanego pod kątem właśnie spełnienia wymogów WCAG 2.0, dobra?
+
+To tam jest, żeby każdy obrazek miał alta opisanego, niektórzy nie muszą ładować z obrazkami stron itd., itd. Jak robimy profeskę, no to przynajmniej też będziecie mogli pochwalić się, że np. Wasza strona w 80% według Waszej opinii spełnia wymogi WCAG 2.0, bo wszystkie alty obrazków są opisane, bo nie ma tam dżastowania tekstów, tylko jest teksty SLAM, bo to jest wymóg. Brakowało mi powiększania czcionek, zmieszania czcionek, kontrastowania, chyba, że nie chcecie w to iść, bo być może w Waszym projekcie nie jest to wymagane, ale gdy na prezentacji pokażecie moim zdaniem oprócz funkcjonalności, poczekajcie, muszę dodać. Tak? Cześć.
+
+Dobra, dobra. Gdybyście chcieli pokazać pod kątem też profesjonalnego, takiego bardziej wykonającą, no to te rzeczy zawsze można zawsze można wtedy wyszczególnić, że spełniacie wymogi w sumie ustawowe teraz, dla Was przynajmniej. Dobra?
+
+To tak z mojej strony jeszcze, to co mogę Wam podpowiedzieć. Także będziecie chcieli przejrzeć pod tym kątem tą stronę, to mogę Wam parę rzeczy pokazać i może parę rzeczy, nie to, że wytchnąć błędów, ale pokazać, co mogło być inaczej. Bo studiowałem to z naszą stroną internetową, kurde, osiedziałem się jak głupiak.
+
+Dobra.
+
+[Speaker 3]
+Jeśli chodzi o to WCAG, no to my jakieś tam testy robiliśmy, to one są zgodne z WCAG 2.1. Na jakim poziomie?
+
+[Speaker 4]
+Jakim oprogramowaniem robiliście? Dobra, nie warto.
+
+[Speaker 3]
+Te testy? No. Wtyczką.
+
+[Speaker 4]
+Wtyczką do proma robiliśmy.
+
+[Speaker 1]
+Okej. No to dobrze. To ważne, moim zdaniem ważne, by było to w prezentacji Waszej, gdzie będziecie to wskazywać, wskazać to, że takie testy przeprowadziliście i że ta strona jest zgodna z tym.
+
+No, ale to wszystko nie jest zgodne, no nie ma kontrastu i powiększony odścianek. No to to, co wyłapałem tak szybko z rokołu. No dobra.
+
+To co? Do następnego spotkania. Ja jestem zachwycony tym.
+
+Rzeczywiście. Jak byście kiedyś gdzieś tam zainteresowali się tym coś Kasper robi kiedyś, no to zapraszam, jak jeszcze tu będę. To co?
+
+Będziecie dzwonić i pisać, w razie czego, jak będziecie się chcieli spotkać?
+
+[Speaker 3]
+Tak, tak. W razie co, będziemy w kontakcie.
+
+[Speaker 1]
+Dobra. I proszę o te informacje, jakbym gdzieś tam był potrzebny albo coś Wam napisać, to dajcie mi znać.
+
+[Speaker 4]
+Dobra?
+
+[Speaker 1]
+Dobra. Dobra. Fajnie.
+
+Dobra, to trzymajcie się. Kasper, dzięki za prezentację. Wam chłopaki też dzięki za prezentację.
+
+[Speaker 2]
+Sekundka. Tak? Właśnie dostałem odpowiedź od dziekana w zasadzie telefon na szybko.
+
+I tak, ponoć tutaj jest oczekiwane, żeby ktoś tutaj z MPWiKu się pojawił i że inne formalności to już dziekan biz z ponoć prezesem albo wiceprezesem ustala. Na szybko ustalałem, przepraszam.
+
+[Speaker 1]
+No to dobra, to niech sobie oni, to oni sobie ustalają. Nie wiem, czy prezes mi powie, że mam być, jak mi nie powiem, no to po prostu, no to się nie, nie, nie, nie wchodzę tam, gdzie mnie nie zapraszają.
+
+[Speaker 2]
+To znaczy tutaj dziekanowi odpowiada, żeby to na pewno, żeby ktoś był i też zaprasza jak najwięcej osób ogólnie. Więc w razie czego się o to pytałem, no to może Pan kogoś odmawiać, że Ty możesz Piotra kogoś odmawiać.
+
+[Speaker 1]
+Dobra, to musicie mi dać informację, gdzie, kiedy, o której godzinie walczymy. Jasne, dobra. Dobra, to fajnie Panowie.
+
+To trzymajcie się takimi. Naprawdę mi się podobało. Powiedzcie mi.
+
+Super. Dzięki za prezentację. Cześć.
+
+[Speaker 3]
+A my też dziękujemy. Na razie. Okej.
+
