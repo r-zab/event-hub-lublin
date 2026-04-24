@@ -81,6 +81,17 @@ class SubscriberCreate(BaseModel):
     def addresses_not_empty(cls, v: list[AddressCreate]) -> list[AddressCreate]:
         if not v:
             raise ValueError("Musisz podać co najmniej jeden adres.")
+        if len(v) > 5:
+            raise ValueError("Możesz podać maksymalnie 5 adresów.")
+        seen: set[tuple[int | None, str]] = set()
+        for addr in v:
+            key = (addr.street_id, addr.house_number.strip().lower())
+            if key in seen:
+                raise ValueError(
+                    f"Duplikat adresu: ulica id={addr.street_id}, "
+                    f"numer '{addr.house_number}'. Każdy adres musi być unikalny."
+                )
+            seen.add(key)
         return v
 
     @model_validator(mode="after")
@@ -100,6 +111,15 @@ class SubscriberCreate(BaseModel):
                 raise ValueError("Nieprawidłowy format adresu e-mail.")
 
         return self
+
+
+class InitRegistrationResponse(BaseModel):
+    pending_id: str
+
+
+class VerifyRegistrationRequest(BaseModel):
+    pending_id: str
+    code: str
 
 
 class SubscriberResponse(BaseModel):

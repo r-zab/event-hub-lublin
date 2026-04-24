@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from app.middleware import TrustedProxyMiddleware
 
 from app.config import settings
 from app.limiter import limiter
@@ -81,6 +82,7 @@ async def lifespan(app: FastAPI):
     )
     scheduler.start()
     logger.info("Uruchamianie %s v%s", settings.APP_NAME, settings.APP_VERSION)
+    logger.info("Trusted proxies (T1.4): %s", settings.TRUSTED_PROXIES)
     logger.info(
         "APScheduler uruchomiony — poranna kolejka SMS o 06:00, auto-close/extend co 1 min (Europe/Warsaw)"
     )
@@ -139,6 +141,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Musi być dodany po CORSMiddleware — staje się warstwą zewnętrzną (outermost).
+# Przepisuje request.client.host na realny IP z X-Forwarded-For,
+# dzięki czemu slowapi rate-limit działa po IP użytkownika, nie IP WAF.
+_trusted_proxies = [h.strip() for h in settings.TRUSTED_PROXIES.split(",") if h.strip()]
+app.add_middleware(TrustedProxyMiddleware, trusted_hosts=_trusted_proxies)
+
 
 @app.get("/health", tags=["System"])
 async def health_check():
@@ -148,6 +156,7 @@ async def health_check():
         "app": settings.APP_NAME,
         "version": settings.APP_VERSION,
     }
+
 
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])

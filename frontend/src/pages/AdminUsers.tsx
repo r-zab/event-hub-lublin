@@ -38,7 +38,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Trash2, ShieldCheck, Wrench } from 'lucide-react';
+import { Loader2, Plus, Trash2, ShieldCheck, Wrench, Eye, EyeOff, Pencil } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
@@ -96,6 +96,16 @@ async function toggleUserActive(userId: number, is_active: boolean): Promise<Use
   });
 }
 
+async function updateUserDetails(
+  userId: number,
+  body: { full_name?: string | null; new_password?: string },
+): Promise<UserItem> {
+  return apiFetch<UserItem>(`/admin/users/${userId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
 async function deleteUser(userId: number): Promise<void> {
   return apiFetch<void>(`/admin/users/${userId}`, { method: 'DELETE' });
 }
@@ -113,6 +123,13 @@ export default function AdminUsers() {
   const [newPassword, setNewPassword] = useState('');
   const [newFullName, setNewFullName] = useState('');
   const [newRole, setNewRole] = useState<'admin' | 'dispatcher'>('dispatcher');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editUser, setEditUser] = useState<UserItem | null>(null);
+  const [editFullName, setEditFullName] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [showEditPassword, setShowEditPassword] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-users'],
@@ -172,13 +189,90 @@ export default function AdminUsers() {
     },
   });
 
+  const editMutation = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: { full_name?: string | null; new_password?: string } }) =>
+      updateUserDetails(id, body),
+    onSuccess: (user) => {
+      toast({ title: 'Dane zaktualizowane', description: `Konto „${user.username}" zostało zaktualizowane.` });
+      setEditDialogOpen(false);
+      setEditPassword('');
+      setShowEditPassword(false);
+      invalidate();
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Błąd', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const openEditDialog = (user: UserItem) => {
+    setEditUser(user);
+    setEditFullName(user.full_name ?? '');
+    setEditPassword('');
+    setShowEditPassword(false);
+    setEditDialogOpen(true);
+  };
+
+  const handleEdit = () => {
+    if (!editUser) return;
+    if (editPassword && editPassword.length < 12) {
+      toast({ title: 'Hasło musi mieć min. 12 znaków', variant: 'destructive' });
+      return;
+    }
+    if (editPassword && !/[A-Z]/.test(editPassword)) {
+      toast({ title: 'Hasło musi zawierać co najmniej jedną wielką literę', variant: 'destructive' });
+      return;
+    }
+    if (editPassword && !/[a-z]/.test(editPassword)) {
+      toast({ title: 'Hasło musi zawierać co najmniej jedną małą literę', variant: 'destructive' });
+      return;
+    }
+    if (editPassword && !/\d/.test(editPassword)) {
+      toast({ title: 'Hasło musi zawierać co najmniej jedną cyfrę', variant: 'destructive' });
+      return;
+    }
+    const body: { full_name?: string | null; new_password?: string } = {
+      full_name: editFullName.trim() || null,
+    };
+    if (editPassword) body.new_password = editPassword;
+    editMutation.mutate({ id: editUser.id, body });
+  };
+
+  const passwordStrength = (pwd: string): { score: number; label: string; color: string } => {
+    if (pwd.length === 0) return { score: 0, label: '', color: '' };
+    let score = 0;
+    if (pwd.length >= 12) score++;
+    if (/[A-Z]/.test(pwd)) score++;
+    if (/[a-z]/.test(pwd)) score++;
+    if (/\d/.test(pwd)) score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+    if (score <= 2) return { score, label: 'Słabe', color: 'bg-destructive' };
+    if (score === 3) return { score, label: 'Średnie', color: 'bg-yellow-500' };
+    if (score === 4) return { score, label: 'Dobre', color: 'bg-blue-500' };
+    return { score, label: 'Silne', color: 'bg-green-500' };
+  };
+
+  const pwdStrength = passwordStrength(newPassword);
+  const editPwdStrength = passwordStrength(editPassword);
+
   const handleCreate = () => {
     if (!newUsername.trim() || !newPassword.trim()) {
       toast({ title: 'Uzupełnij login i hasło', variant: 'destructive' });
       return;
     }
-    if (newPassword.length < 8) {
-      toast({ title: 'Hasło musi mieć min. 8 znaków', variant: 'destructive' });
+    if (newPassword.length < 12) {
+      toast({ title: 'Hasło musi mieć min. 12 znaków', variant: 'destructive' });
+      return;
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      toast({ title: 'Hasło musi zawierać co najmniej jedną wielką literę', variant: 'destructive' });
+      return;
+    }
+    if (!/[a-z]/.test(newPassword)) {
+      toast({ title: 'Hasło musi zawierać co najmniej jedną małą literę', variant: 'destructive' });
+      return;
+    }
+    if (!/\d/.test(newPassword)) {
+      toast({ title: 'Hasło musi zawierać co najmniej jedną cyfrę', variant: 'destructive' });
       return;
     }
     createMutation.mutate({
@@ -225,15 +319,42 @@ export default function AdminUsers() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="new-password">Hasło (min. 8 znaków)</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  autoComplete="new-password"
-                />
+                <Label htmlFor="new-password">Hasło (min. 12 znaków, A-Z, a-z, 0-9)</Label>
+                <div className="relative">
+                  <Input
+                    id="new-password"
+                    type={showNewPassword ? 'text' : 'password'}
+                    placeholder="••••••••••••"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    autoComplete="new-password"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                    aria-label={showNewPassword ? 'Ukryj hasło' : 'Pokaż hasło'}
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {newPassword.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex gap-1 h-1.5">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <div
+                          key={i}
+                          className={`flex-1 rounded-full transition-colors ${
+                            i <= pwdStrength.score ? pwdStrength.color : 'bg-muted'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{pwdStrength.label}</p>
+                  </div>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="new-fullname">Imię i nazwisko (opcjonalnie)</Label>
@@ -272,6 +393,80 @@ export default function AdminUsers() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Dialog edycji danych użytkownika */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edytuj konto — {editUser?.username}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-fullname">Imię i nazwisko</Label>
+              <Input
+                id="edit-fullname"
+                placeholder="np. Jan Kowalski"
+                value={editFullName}
+                onChange={(e) => setEditFullName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-password">Nowe hasło (zostaw puste, aby nie zmieniać)</Label>
+              <div className="relative">
+                <Input
+                  id="edit-password"
+                  type={showEditPassword ? 'text' : 'password'}
+                  placeholder="••••••••••••"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  autoComplete="new-password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEditPassword((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                  aria-label={showEditPassword ? 'Ukryj hasło' : 'Pokaż hasło'}
+                >
+                  {showEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {editPassword.length > 0 && (
+                <div className="space-y-1">
+                  <div className="flex gap-1 h-1.5">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div
+                        key={i}
+                        className={`flex-1 rounded-full transition-colors ${
+                          i <= editPwdStrength.score ? editPwdStrength.color : 'bg-muted'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{editPwdStrength.label}</p>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditDialogOpen(false)}
+              disabled={editMutation.isPending}
+            >
+              Anuluj
+            </Button>
+            <Button onClick={handleEdit} disabled={editMutation.isPending}>
+              {editMutation.isPending ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Zapisywanie…</>
+              ) : (
+                'Zapisz zmiany'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Stan ładowania / błąd */}
       {isLoading && (
@@ -332,6 +527,17 @@ export default function AdminUsers() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-2">
+                        {/* Edycja danych */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => openEditDialog(user)}
+                          aria-label={`Edytuj konto ${user.username}`}
+                        >
+                          <Pencil className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+
                         {/* Zmiana roli */}
                         <Select
                           value={user.role}

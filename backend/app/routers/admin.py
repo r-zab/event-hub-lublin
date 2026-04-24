@@ -5,11 +5,12 @@ Auth:   Bearer JWT + rola 'admin' (get_current_admin)
 """
 
 import logging
+import re
 from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -121,16 +122,44 @@ class CreateUserBody(BaseModel):
     """Dane do tworzenia nowego konta użytkownika."""
 
     username: str = Field(min_length=3, max_length=50)
-    password: str = Field(min_length=8)
+    password: str = Field(min_length=12, max_length=128)
     full_name: str | None = None
     role: Literal["admin", "dispatcher"] = "dispatcher"
 
+    @field_validator("password")
+    @classmethod
+    def password_complexity(cls, v: str) -> str:
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Hasło musi zawierać co najmniej jedną wielką literę (A-Z)")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Hasło musi zawierać co najmniej jedną małą literę (a-z)")
+        if not re.search(r"\d", v):
+            raise ValueError("Hasło musi zawierać co najmniej jedną cyfrę (0-9)")
+        return v
+
 
 class UpdateUserBody(BaseModel):
-    """Pola do aktualizacji konta (rola lub status aktywności)."""
+    """Pola do aktualizacji konta (rola, status, imię lub reset hasła)."""
 
     role: Literal["admin", "dispatcher"] | None = None
     is_active: bool | None = None
+    full_name: str | None = None
+    new_password: str | None = None
+
+    @field_validator("new_password")
+    @classmethod
+    def new_password_complexity(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if len(v) < 12:
+            raise ValueError("Hasło musi mieć co najmniej 12 znaków")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Hasło musi zawierać co najmniej jedną wielką literę (A-Z)")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Hasło musi zawierać co najmniej jedną małą literę (a-z)")
+        if not re.search(r"\d", v):
+            raise ValueError("Hasło musi zawierać co najmniej jedną cyfrę (0-9)")
+        return v
 
 
 # ---------------------------------------------------------------------------
@@ -312,6 +341,12 @@ async def update_user(
                     detail="Nie można dezaktywować ostatniego aktywnego administratora",
                 )
         user.is_active = body.is_active
+
+    if "full_name" in body.model_fields_set:
+        user.full_name = body.full_name or None
+
+    if body.new_password is not None:
+        user.password_hash = hash_password(body.new_password)
 
     db.add(user)
     await db.commit()

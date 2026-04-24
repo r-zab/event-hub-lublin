@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { z } from 'zod';
-import { Plus, CheckCircle2, Home, RotateCcw } from 'lucide-react';
+import { Plus, CheckCircle2, Home, RotateCcw, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -47,8 +47,12 @@ const emptyAddress = (): Address => ({
   apartment_number: '',
 });
 
+type Step = 'form' | 'verify' | 'success';
+
 const Register = () => {
   const { toast } = useToast();
+
+  // step 1 state
   const [addresses, setAddresses] = useState<Address[]>([emptyAddress()]);
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -58,6 +62,12 @@ const Register = () => {
   const [notifyBySms, setNotifyBySms] = useState(false);
   const [houseNumberValidity, setHouseNumberValidity] = useState<boolean[]>([true]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // step 2 state
+  const [step, setStep] = useState<Step>('form');
+  const [pendingId, setPendingId] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
   const [unsubscribeToken, setUnsubscribeToken] = useState<string | null>(null);
 
   const handleAddressChange = (index: number, field: string, value: string) => {
@@ -88,10 +98,9 @@ const Register = () => {
     setHouseNumberValidity((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmitStep1 = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Walidacja Zod — kanały + pola kontaktowe
     const channelValidation = registerSchema.safeParse({
       notify_by_sms: notifyBySms,
       notify_by_email: notifyByEmail,
@@ -121,6 +130,12 @@ const Register = () => {
       return;
     }
 
+    const addrKeys = addresses.map((a) => `${a.street_id ?? ''}|${a.house_number.trim().toLowerCase()}`);
+    if (new Set(addrKeys).size !== addrKeys.length) {
+      toast({ title: 'Duplikat adresu', description: 'Każdy adres musi być unikalny (ta sama ulica i numer budynku wystepuje kilka razy).', variant: 'destructive' });
+      return;
+    }
+
     if (houseNumberValidity.some((v) => v === false)) {
       toast({ title: 'Nieprawidłowy numer budynku', description: 'Sprawdź numer budynku — nie figuruje w bazie MPWiK.', variant: 'destructive' });
       return;
@@ -128,7 +143,6 @@ const Register = () => {
 
     setIsSubmitting(true);
 
-    // Puste stringi dla niewybranych kanałów mapujemy na null — nie naruszają unique constraint w DB
     const payload = {
       phone: notifyBySms ? phone.replace(/[\s-]/g, '') : null,
       email: notifyByEmail ? email.trim() : null,
@@ -145,11 +159,12 @@ const Register = () => {
     };
 
     try {
-      const result = await apiFetch<{ unsubscribe_token: string }>('/subscribers', {
+      const result = await apiFetch<{ pending_id: string }>('/subscribers/init', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
-      setUnsubscribeToken(result.unsubscribe_token);
+      setPendingId(result.pending_id);
+      setStep('verify');
     } catch (err) {
       const raw = err instanceof Error ? err.message : '';
       let description = 'Spróbuj ponownie lub skontaktuj się z administratorem.';
@@ -171,7 +186,44 @@ const Register = () => {
     }
   };
 
+  const handleSubmitVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (verificationCode.trim().length !== 6) {
+      toast({ title: 'Nieprawidłowy kod', description: 'Kod weryfikacyjny musi mieć 6 cyfr.', variant: 'destructive' });
+      return;
+    }
+
+    setIsVerifying(true);
+
+    try {
+      const result = await apiFetch<{ unsubscribe_token: string }>('/subscribers/verify', {
+        method: 'POST',
+        body: JSON.stringify({ pending_id: pendingId, code: verificationCode.trim() }),
+      });
+      setUnsubscribeToken(result.unsubscribe_token);
+      setStep('success');
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : '';
+      let description = 'Spróbuj ponownie.';
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed?.detail && typeof parsed.detail === 'string') {
+          description = parsed.detail;
+        }
+      } catch {
+        if (raw) description = raw;
+      }
+      toast({ title: 'Błąd weryfikacji', description, variant: 'destructive' });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   const resetForm = () => {
+    setStep('form');
+    setPendingId('');
+    setVerificationCode('');
     setUnsubscribeToken(null);
     setAddresses([emptyAddress()]);
     setPhone('');
@@ -183,7 +235,7 @@ const Register = () => {
     setHouseNumberValidity([true]);
   };
 
-  if (unsubscribeToken) {
+  if (step === 'success' && unsubscribeToken) {
     return (
       <div className="container max-w-2xl py-10">
         <div className="flex flex-col items-center gap-6 text-center">
@@ -225,6 +277,59 @@ const Register = () => {
     );
   }
 
+  if (step === 'verify') {
+    const channelLabel = notifyBySms ? `SMS na numer ${phone}` : `e-mail na adres ${email}`;
+    return (
+      <div className="container max-w-md py-10 space-y-8">
+        <div className="text-center space-y-2">
+          <h1 className="font-heading text-2xl font-bold">Potwierdź rejestrację</h1>
+          <p className="text-muted-foreground text-sm">
+            Wysłaliśmy 6-cyfrowy kod weryfikacyjny przez <strong>{channelLabel}</strong>.
+            Wpisz go poniżej, aby dokończyć rejestrację.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmitVerify} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="code">Kod weryfikacyjny</Label>
+            <Input
+              id="code"
+              name="code"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="000000"
+              autoComplete="one-time-code"
+              className="text-center text-2xl tracking-widest font-mono"
+              required
+              aria-label="Kod weryfikacyjny"
+            />
+            <p className="text-xs text-muted-foreground">Kod jest ważny 24 godziny. Masz maksymalnie 5 prób.</p>
+          </div>
+
+          <Button
+            type="submit"
+            size="lg"
+            className="w-full text-base font-semibold"
+            disabled={isVerifying || verificationCode.length !== 6}
+          >
+            {isVerifying ? 'Weryfikowanie...' : 'Potwierdź kod'}
+          </Button>
+        </form>
+
+        <div className="text-center">
+          <Button variant="ghost" size="sm" onClick={() => setStep('form')} className="gap-1.5">
+            <ArrowLeft className="h-4 w-4" />
+            Wróć i popraw dane
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container max-w-2xl py-10 space-y-8">
       <div className="text-center space-y-2">
@@ -234,9 +339,9 @@ const Register = () => {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-8">
+      <form onSubmit={handleSubmitStep1} className="space-y-8">
 
-        {/* Kanały powiadomień — na górze formularza */}
+        {/* Kanały powiadomień */}
         <fieldset className="space-y-4 rounded-lg border border-border p-4">
           <legend className="font-heading text-lg font-semibold px-1">Preferowany kanał powiadomień</legend>
           <p className="text-xs text-muted-foreground">Wybierz, w jaki sposób chcesz otrzymywać powiadomienia o awariach.</p>
@@ -284,13 +389,24 @@ const Register = () => {
               />
             ))}
           </div>
-          <Button type="button" variant="outline" size="sm" onClick={addAddress} className="gap-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addAddress}
+            disabled={addresses.length >= 5}
+            className="gap-1.5"
+            title={addresses.length >= 5 ? 'Maksymalna liczba adresów to 5' : undefined}
+          >
             <Plus className="h-4 w-4" aria-hidden="true" />
             Dodaj kolejny adres
           </Button>
+          {addresses.length >= 5 && (
+            <p className="text-xs text-muted-foreground">Osiagnięto limit 5 adresów.</p>
+          )}
         </fieldset>
 
-        {/* Dane kontaktowe — wyświetlane zależnie od wybranego kanału */}
+        {/* Dane kontaktowe */}
         {(notifyBySms || notifyByEmail) && (
           <fieldset className="space-y-4">
             <legend className="font-heading text-lg font-semibold">Dane kontaktowe</legend>
@@ -378,7 +494,7 @@ const Register = () => {
             houseNumberValidity.some((v) => !v)
           }
         >
-          {isSubmitting ? 'Rejestrowanie...' : 'Zarejestruj się'}
+          {isSubmitting ? 'Wysyłanie kodu...' : 'Wyślij kod weryfikacyjny'}
         </Button>
       </form>
     </div>

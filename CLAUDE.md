@@ -15,8 +15,8 @@ System powiadamiania mieszkańców o awariach sieci wodociągowej dla MPWiK Lubl
 ## Komendy Deweloperskie
 
 ```bash
-# Backend
-cd backend && uvicorn app.main:app --reload
+# Backend (run.py przekazuje TRUSTED_PROXIES do uvicorn jako forwarded_allow_ips)
+cd backend && python run.py
 
 # Frontend
 cd frontend && npm run dev

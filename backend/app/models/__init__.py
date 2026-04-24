@@ -3,6 +3,7 @@ from app.models.audit import BuildingAuditLog
 from app.models.building import Building
 from app.models.event import Event, EventHistory
 from app.models.notification import NotificationLog
+from app.models.pending_subscriber import PendingSubscriber
 from app.models.street import Street
 from app.models.subscriber import Subscriber, SubscriberAddress
 from app.models.user import User
@@ -18,4 +19,5 @@ __all__ = [
     "SubscriberAddress",
     "NotificationLog",
     "ApiKey",
+    "PendingSubscriber",
 ]

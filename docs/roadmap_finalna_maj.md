@@ -69,10 +69,10 @@
 
 | ID | Prio | Zadanie | Pliki / Komponenty | Oszacowanie |
 |---|---|---|---|---|
-| T1.1 | **K** | **2FA rejestracji subskrybenta** — endpoint `POST /subscribers/init` zwraca `pending_id` + wysyła 6-cyfrowy token SMS/email; `POST /subscribers/verify` finalizuje. Token TTL 24h, max 5 prób. | `routers/subscribers.py`, nowy model `PendingSubscriber`, migracja Alembic, `Register.tsx` (2-step wizard) | 1.5 dnia |
-| T1.2 | **K** | **Limit liczby adresów per subskrybent** (max 5) + **deduplikacja** (street_id + house_number). Walidacja backend + UI. | `schemas/subscriber.py`, `Register.tsx` (`AddressRow.tsx`) | 0.5 dnia |
-| T1.3 | **K** | **Polityka haseł 12+ znaków** — duże/małe/cyfry. Walidator Pydantic + komunikat 422 + wskaźnik siły hasła w UI tworzenia konta. | `schemas/user.py`, `AdminUsers.tsx` | 0.5 dnia |
-| T1.4 | **K** | **Trusted Proxy / X-Forwarded-For** — konfiguracja FastAPI `ProxyHeadersMiddleware`, rate-limit slowapi po realnym IP zamiast IP łącza WAF. | `main.py`, `config.py` (`TRUSTED_PROXIES`) | 0.5 dnia |
+| T1.1 | ✅ (K) | **2FA rejestracji subskrybenta** — endpoint `POST /subscribers/init` zwraca `pending_id` + wysyła 6-cyfrowy token SMS/email; `POST /subscribers/verify` finalizuje. Token TTL 24h, max 5 prób. | `routers/subscribers.py`, nowy model `PendingSubscriber`, migracja Alembic, `Register.tsx` (2-step wizard) | 1.5 dnia |
+| T1.2 | ✅ (K) | **Limit liczby adresów per subskrybent** (max 5) + **deduplikacja** (street_id + house_number). Walidacja backend + UI. | `schemas/subscriber.py`, `Register.tsx` (`AddressRow.tsx`) | 0.5 dnia |
+| T1.3 | ✅ (K) | **Polityka haseł 12+ znaków** — duże/małe/cyfry. Walidator Pydantic + komunikat 422 + wskaźnik siły hasła w UI tworzenia konta. | `schemas/user.py`, `AdminUsers.tsx` | 0.5 dnia |
+| T1.4 | ✅ (K) | **Trusted Proxy / X-Forwarded-For** — konfiguracja FastAPI `ProxyHeadersMiddleware`, rate-limit slowapi po realnym IP zamiast IP łącza WAF. | `main.py`, `config.py` (`TRUSTED_PROXIES`) | 0.5 dnia |
 | T1.5 | **W** | **Walidacja Zero Trust dyspozytora** — sanityzacja inputów `description`, `house_number_from/to`, `street_name`. Whitelist regex (cyfry + opcjonalne litery dla numerów: `^\d{1,4}[A-Za-z]?$`). | `schemas/event.py`, `schemas/street.py` | 0.5 dnia |
 | T1.6 | **K** | **Token registration TTL** — komunikat w UI o ważności 24h. Cleanup cron: `clean_expired_pending_subscribers()` co 1h. | `notification_service.py`, `main.py` (scheduler) | 0.25 dnia |
 | T1.7 | **W** | **Logowanie operacji dyspozytora** (audit log) — dodawanie/edycja ulicy z poziomu dyspozytora. Reuse `BuildingAuditLog` jako wzorzec → nowy `StreetAuditLog`. | nowy model + migracja | 0.5 dnia |
@@ -320,4 +320,8 @@ Zrób <ID> z roadmap_finalna_maj.md zgodnie z sekcją 8 (zasady operacyjne).
 | ID | Data | Co zrobiono | Pliki |
 |---|---|---|---|
 | — | — | _(pusto — uzupełniaj wg sekcji 8.2 krok 5b)_ | — |
+| T1.1 | 2026-04-24 | Dodano 2FA rejestracji: model PendingSubscriber, endpointy /init i /verify, migrację Alembic, 2-krokowy wizard w Register.tsx | `models/pending_subscriber.py`, `models/__init__.py`, `schemas/subscriber.py`, `routers/subscribers.py`, `alembic/versions/20260424_add_pending_subscribers.py`, `frontend/src/pages/Register.tsx` |
+| T1.2 | 2026-04-24 | Dodano limit 5 adresów i deduplikację (street_id + house_number) — walidator Pydantic w schemas i blokada przycisku + toast w Register.tsx | `backend/app/schemas/subscriber.py`, `frontend/src/pages/Register.tsx` |
+| T1.3 | 2026-04-24 | Polityka haseł 12+ znaków (A-Z, a-z, 0-9): field_validator w CreateUserBody, walidacja w handleCreate, wskaźnik siły hasła (4-segmentowy pasek) w AdminUsers.tsx | `backend/app/routers/admin.py`, `frontend/src/pages/AdminUsers.tsx` |
+| T1.4 | 2026-04-24 | ProxyHeadersMiddleware (uvicorn) + TRUSTED_PROXIES w config — slowapi rate-limit działa po realnym IP z X-Forwarded-For, nie IP WAF | `backend/app/main.py`, `backend/app/config.py` |
 

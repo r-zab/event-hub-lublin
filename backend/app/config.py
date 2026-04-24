@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
+    # Trusted proxies — lista IP reverse-proxy oddzielona przecinkami (X-Forwarded-For)
+    # Nadpisz w .env: prod → IP WAF Fortinet, dev-test Zero Trust → 8.8.8.8
+    TRUSTED_PROXIES: str = "127.0.0.1"
+
     # Geocoding
     NOMINATIM_URL: str = "https://nominatim.openstreetmap.org"
     NOMINATIM_USER_AGENT: str = "MPWiKLublin-Powiadomienia/1.0"

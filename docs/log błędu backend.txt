@@ -1,0 +1,1630 @@
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements! https://aka.ms/PSWindows
+
+(.venv) PS C:\Users\rafal\PycharmProjects\event-hub-lublin\backend> uvicorn app.main:app --reload --port 8000
+INFO:     Will watch for changes in these directories: ['C:\\Users\\rafal\\PycharmProjects\\event-hub-lublin\\backend']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [11284] using WatchFiles
+2026-04-24 20:26:38 [INFO] uvicorn.error: Started server process [4108]
+2026-04-24 20:26:38 [INFO] uvicorn.error: Waiting for application startup.
+2026-04-24 20:26:38 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 20:26:38 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 20:26:38 [INFO] apscheduler.scheduler: Added job "process_morning_queue" to job store "default"
+2026-04-24 20:26:38 [INFO] apscheduler.scheduler: Added job "auto_extend_overdue_events" to job store "default"
+2026-04-24 20:26:38 [INFO] apscheduler.scheduler: Scheduler started
+2026-04-24 20:26:38 [INFO] app.main: Uruchamianie Event Hub Lublin v0.1.0
+2026-04-24 20:26:38 [INFO] app.main: APScheduler uruchomiony — poranna kolejka SMS o 06:00, auto-close/extend co 1 min (Europe/Warsaw)
+2026-04-24 20:26:38 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:26:38 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:27:38.709149+02:00 (in 59.993674 seconds)
+2026-04-24 20:26:38 [INFO] uvicorn.error: Application startup complete.
+2026-04-24 20:27:38 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:27:38 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:28:38.709149+02:00 (in 59.994439 seconds)
+2026-04-24 20:27:38 [INFO] apscheduler.executors.default: Running job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:28:38 CEST)" (scheduled at 2026-04-24 20:27:38.709149+02:00)
+2026-04-24 20:27:42 [ERROR] app.services.notification_service: auto_extend_overdue_events: nieoczekiwany błąd
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\backend\app\services\notification_service.py", line 1035, in auto_extend_overdue_events
+    result = await db.execute(
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\ext\asyncio\session.py", line 461, in execute
+    result = await greenlet_spawn(
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 201, in greenlet_spawn
+    result = context.throw(*sys.exc_info())
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2362, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2237, in _execute_internal
+    conn = self._connection_for_bind(bind)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2106, in _connection_for_bind
+    return trans._connection_for_bind(engine, execution_options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 2, in _connection_for_bind
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 1189, in _connection_for_bind
+    conn = bind.connect()
+           ^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 3278, in connect
+    return self._connection_cls(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 146, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 3302, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 449, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 1263, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 712, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\pool\impl.py", line 179, in _do_get
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\pool\impl.py", line 177, in _do_get
+    return self._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 390, in _create_connection
+    return _ConnectionRecord(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 674, in __init__
+    self.__connect()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 900, in __connect
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 896, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\create.py", line 643, in connect
+    return dialect.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 621, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 953, in connect
+    await_only(creator_fn(*arg, **kw)),
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\connection.py", line 2329, in connect
+    return await connect_utils._connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\connect_utils.py", line 1017, in _connect
+    raise last_error or exceptions.TargetServerAttributeNotMatched(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\connect_utils.py", line 991, in _connect
+    conn = await _connect_addr(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\connect_utils.py", line 828, in _connect_addr
+    return await __connect_addr(params, True, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\connect_utils.py", line 873, in __connect_addr
+    tr, pr = await connector
+             ^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\connect_utils.py", line 744, in _create_ssl_connection
+    tr, pr = await loop.create_connection(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 1140, in create_connection
+    raise OSError('Multiple exceptions: {}'.format(
+OSError: Multiple exceptions: [Errno 10061] Connect call failed ('::1', 5433, 0, 0), [Errno 10061] Connect call failed ('127.0.0.1', 5433)
+2026-04-24 20:27:42 [INFO] apscheduler.executors.default: Job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:28:38 CEST)" executed successfully
+2026-04-24 20:28:38 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:28:38 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:29:38.709149+02:00 (in 59.990114 seconds)
+2026-04-24 20:28:38 [INFO] apscheduler.executors.default: Running job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:29:38 CEST)" (scheduled at 2026-04-24 20:28:38.709149+02:00)
+2026-04-24 20:28:38 [INFO] app.services.notification_service: auto_extend: zdarzenie id=45 'Ignacego Daszyńskiego' przedłużono o 1h (23.04 18:35 → 23.04 19:35)
+2026-04-24 20:28:38 [INFO] app.services.notification_service: auto_extend_overdue_events: zamknięto=0, przedłużono=1
+2026-04-24 20:28:38 [INFO] apscheduler.executors.default: Job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:29:38 CEST)" executed successfully
+2026-04-24 20:29:38 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:29:38 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:30:38.709149+02:00 (in 59.989932 seconds)
+2026-04-24 20:29:38 [INFO] apscheduler.executors.default: Running job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:30:38 CEST)" (scheduled at 2026-04-24 20:29:38.709149+02:00)
+2026-04-24 20:29:38 [INFO] app.services.notification_service: auto_extend: zdarzenie id=45 'Ignacego Daszyńskiego' przedłużono o 1h (23.04 19:35 → 23.04 20:35)
+2026-04-24 20:29:38 [INFO] app.services.notification_service: auto_extend_overdue_events: zamknięto=0, przedłużono=1
+2026-04-24 20:29:38 [INFO] apscheduler.executors.default: Job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:30:38 CEST)" executed successfully
+2026-04-24 20:30:38 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:30:38 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:31:38.709149+02:00 (in 59.990475 seconds)
+2026-04-24 20:30:38 [INFO] apscheduler.executors.default: Running job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:31:38 CEST)" (scheduled at 2026-04-24 20:30:38.709149+02:00)
+2026-04-24 20:30:38 [INFO] app.services.notification_service: auto_extend: zdarzenie id=45 'Ignacego Daszyńskiego' przedłużono o 1h (23.04 20:35 → 23.04 21:35)
+2026-04-24 20:30:38 [INFO] app.services.notification_service: auto_extend_overdue_events: zamknięto=0, przedłużono=1
+2026-04-24 20:30:38 [INFO] apscheduler.executors.default: Job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:31:38 CEST)" executed successfully
+2026-04-24 20:31:38 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:31:38 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:31:38.709149+02:00 (in 0.003290 seconds)
+2026-04-24 20:31:38 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:31:38 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:32:38.709149+02:00 (in 59.988342 seconds)
+2026-04-24 20:31:38 [INFO] apscheduler.executors.default: Running job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:32:38 CEST)" (scheduled at 2026-04-24 20:31:38.709149+02:00)
+2026-04-24 20:31:38 [INFO] app.services.notification_service: auto_extend: zdarzenie id=45 'Ignacego Daszyńskiego' przedłużono o 1h (23.04 21:35 → 23.04 22:35)
+2026-04-24 20:31:38 [INFO] app.services.notification_service: auto_extend_overdue_events: zamknięto=0, przedłużono=1
+2026-04-24 20:31:38 [INFO] apscheduler.executors.default: Job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:32:38 CEST)" executed successfully
+2026-04-24 20:32:38 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:32:38 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:33:38.709149+02:00 (in 59.982458 seconds)
+2026-04-24 20:32:38 [INFO] apscheduler.executors.default: Running job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:33:38 CEST)" (scheduled at 2026-04-24 20:32:38.709149+02:00)
+2026-04-24 20:32:38 [INFO] app.services.notification_service: auto_extend: zdarzenie id=45 'Ignacego Daszyńskiego' przedłużono o 1h (23.04 22:35 → 23.04 23:35)
+2026-04-24 20:32:38 [INFO] app.services.notification_service: auto_extend_overdue_events: zamknięto=0, przedłużono=1
+2026-04-24 20:32:38 [INFO] apscheduler.executors.default: Job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:33:38 CEST)" executed successfully
+2026-04-24 20:33:38 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:33:38 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:33:38.709149+02:00 (in 0.024855 seconds)
+2026-04-24 20:33:38 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:33:38 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:34:38.709149+02:00 (in 59.994341 seconds)
+2026-04-24 20:33:38 [INFO] apscheduler.executors.default: Running job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:34:38 CEST)" (scheduled at 2026-04-24 20:33:38.709149+02:00)
+2026-04-24 20:33:38 [INFO] app.services.notification_service: auto_extend: zdarzenie id=45 'Ignacego Daszyńskiego' przedłużono o 1h (23.04 23:35 → 24.04 00:35)
+2026-04-24 20:33:38 [INFO] app.services.notification_service: auto_extend_overdue_events: zamknięto=0, przedłużono=1
+2026-04-24 20:33:38 [INFO] apscheduler.executors.default: Job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:34:38 CEST)" executed successfully
+2026-04-24 20:34:38 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:34:38 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:34:38.709149+02:00 (in 0.000321 seconds)
+2026-04-24 20:34:38 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:34:38 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:35:38.709149+02:00 (in 59.984932 seconds)
+2026-04-24 20:34:38 [INFO] apscheduler.executors.default: Running job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:35:38 CEST)" (scheduled at 2026-04-24 20:34:38.709149+02:00)
+2026-04-24 20:34:38 [INFO] app.services.notification_service: auto_extend: zdarzenie id=45 'Ignacego Daszyńskiego' przedłużono o 1h (24.04 00:35 → 24.04 01:35)
+2026-04-24 20:34:38 [INFO] app.services.notification_service: auto_extend_overdue_events: zamknięto=0, przedłużono=1
+2026-04-24 20:34:38 [INFO] apscheduler.executors.default: Job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:35:38 CEST)" executed successfully
+2026-04-24 20:35:38 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:35:38 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:36:38.709149+02:00 (in 59.985482 seconds)
+2026-04-24 20:35:38 [INFO] apscheduler.executors.default: Running job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:36:38 CEST)" (scheduled at 2026-04-24 20:35:38.709149+02:00)
+2026-04-24 20:35:38 [INFO] app.services.notification_service: auto_extend: zdarzenie id=45 'Ignacego Daszyńskiego' przedłużono o 1h (24.04 01:35 → 24.04 02:35)
+2026-04-24 20:35:38 [INFO] app.services.notification_service: auto_extend_overdue_events: zamknięto=0, przedłużono=1
+2026-04-24 20:35:38 [INFO] apscheduler.executors.default: Job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:36:38 CEST)" executed successfully
+WARNING:  WatchFiles detected changes in 'app\models\pending_subscriber.py'. Reloading...
+2026-04-24 20:35:53 [INFO] uvicorn.error: Shutting down
+2026-04-24 20:35:53 [INFO] uvicorn.error: Waiting for application shutdown.
+2026-04-24 20:35:53 [INFO] app.main: Zatrzymywanie Event Hub Lublin
+2026-04-24 20:35:53 [INFO] apscheduler.scheduler: Scheduler has been shut down
+2026-04-24 20:35:53 [INFO] uvicorn.error: Application shutdown complete.
+2026-04-24 20:35:53 [INFO] uvicorn.error: Finished server process [4108]
+2026-04-24 20:35:54 [INFO] uvicorn.error: Started server process [35496]
+2026-04-24 20:35:54 [INFO] uvicorn.error: Waiting for application startup.
+2026-04-24 20:35:54 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 20:35:54 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 20:35:54 [INFO] apscheduler.scheduler: Added job "process_morning_queue" to job store "default"
+2026-04-24 20:35:54 [INFO] apscheduler.scheduler: Added job "auto_extend_overdue_events" to job store "default"
+2026-04-24 20:35:54 [INFO] apscheduler.scheduler: Scheduler started
+2026-04-24 20:35:54 [INFO] app.main: Uruchamianie Event Hub Lublin v0.1.0
+2026-04-24 20:35:54 [INFO] app.main: APScheduler uruchomiony — poranna kolejka SMS o 06:00, auto-close/extend co 1 min (Europe/Warsaw)
+2026-04-24 20:35:54 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:35:54 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:36:54.976407+02:00 (in 59.997932 seconds)
+2026-04-24 20:35:54 [INFO] uvicorn.error: Application startup complete.
+WARNING:  WatchFiles detected changes in 'app\models\__init__.py'. Reloading...
+2026-04-24 20:36:06 [INFO] uvicorn.error: Shutting down
+2026-04-24 20:36:06 [INFO] uvicorn.error: Waiting for application shutdown.
+2026-04-24 20:36:06 [INFO] app.main: Zatrzymywanie Event Hub Lublin
+2026-04-24 20:36:06 [INFO] apscheduler.scheduler: Scheduler has been shut down
+2026-04-24 20:36:06 [INFO] uvicorn.error: Application shutdown complete.
+2026-04-24 20:36:06 [INFO] uvicorn.error: Finished server process [35496]
+WARNING:  WatchFiles detected changes in 'app\schemas\subscriber.py'. Reloading...
+2026-04-24 20:36:07 [INFO] uvicorn.error: Started server process [23136]
+2026-04-24 20:36:07 [INFO] uvicorn.error: Waiting for application startup.
+2026-04-24 20:36:07 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 20:36:07 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 20:36:07 [INFO] apscheduler.scheduler: Added job "process_morning_queue" to job store "default"
+2026-04-24 20:36:07 [INFO] apscheduler.scheduler: Added job "auto_extend_overdue_events" to job store "default"
+2026-04-24 20:36:07 [INFO] apscheduler.scheduler: Scheduler started
+2026-04-24 20:36:07 [INFO] app.main: Uruchamianie Event Hub Lublin v0.1.0
+2026-04-24 20:36:07 [INFO] app.main: APScheduler uruchomiony — poranna kolejka SMS o 06:00, auto-close/extend co 1 min (Europe/Warsaw)
+2026-04-24 20:36:07 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:36:07 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:37:07.945308+02:00 (in 59.997963 seconds)
+2026-04-24 20:36:07 [INFO] uvicorn.error: Application startup complete.
+2026-04-24 20:36:07 [ERROR] uvicorn.error: Traceback (most recent call last):
+  File "C:\Users\rafal\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rafal\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 123, in run
+    raise KeyboardInterrupt()
+KeyboardInterrupt
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 700, in lifespan
+    await receive()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\uvicorn\lifespan\on.py", line 137, in receive
+    return await self.receive_queue.get()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\AppData\Local\Programs\Python\Python312\Lib\asyncio\queues.py", line 158, in get
+    await getter
+asyncio.exceptions.CancelledError
+
+2026-04-24 20:36:09 [INFO] uvicorn.error: Started server process [27760]
+2026-04-24 20:36:09 [INFO] uvicorn.error: Waiting for application startup.
+2026-04-24 20:36:09 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 20:36:09 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 20:36:09 [INFO] apscheduler.scheduler: Added job "process_morning_queue" to job store "default"
+2026-04-24 20:36:09 [INFO] apscheduler.scheduler: Added job "auto_extend_overdue_events" to job store "default"
+2026-04-24 20:36:09 [INFO] apscheduler.scheduler: Scheduler started
+2026-04-24 20:36:09 [INFO] app.main: Uruchamianie Event Hub Lublin v0.1.0
+2026-04-24 20:36:09 [INFO] app.main: APScheduler uruchomiony — poranna kolejka SMS o 06:00, auto-close/extend co 1 min (Europe/Warsaw)
+2026-04-24 20:36:09 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:36:09 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:37:09.391778+02:00 (in 59.998474 seconds)
+2026-04-24 20:36:09 [INFO] uvicorn.error: Application startup complete.
+WARNING:  WatchFiles detected changes in 'alembic\versions\20260424_add_pending_subscribers.py'. Reloading...
+2026-04-24 20:36:23 [INFO] uvicorn.error: Shutting down
+2026-04-24 20:36:23 [INFO] uvicorn.error: Waiting for application shutdown.
+2026-04-24 20:36:23 [INFO] app.main: Zatrzymywanie Event Hub Lublin
+2026-04-24 20:36:23 [INFO] apscheduler.scheduler: Scheduler has been shut down
+2026-04-24 20:36:23 [INFO] uvicorn.error: Application shutdown complete.
+2026-04-24 20:36:23 [INFO] uvicorn.error: Finished server process [27760]
+2026-04-24 20:36:25 [INFO] uvicorn.error: Started server process [34952]
+2026-04-24 20:36:25 [INFO] uvicorn.error: Waiting for application startup.
+2026-04-24 20:36:25 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 20:36:25 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 20:36:25 [INFO] apscheduler.scheduler: Added job "process_morning_queue" to job store "default"
+2026-04-24 20:36:25 [INFO] apscheduler.scheduler: Added job "auto_extend_overdue_events" to job store "default"
+2026-04-24 20:36:25 [INFO] apscheduler.scheduler: Scheduler started
+2026-04-24 20:36:25 [INFO] app.main: Uruchamianie Event Hub Lublin v0.1.0
+2026-04-24 20:36:25 [INFO] app.main: APScheduler uruchomiony — poranna kolejka SMS o 06:00, auto-close/extend co 1 min (Europe/Warsaw)
+2026-04-24 20:36:25 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:36:25 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:37:25.341921+02:00 (in 59.998470 seconds)
+2026-04-24 20:36:25 [INFO] uvicorn.error: Application startup complete.
+WARNING:  WatchFiles detected changes in 'app\routers\subscribers.py'. Reloading...
+2026-04-24 20:36:34 [INFO] uvicorn.error: Shutting down
+2026-04-24 20:36:34 [INFO] uvicorn.error: Waiting for application shutdown.
+2026-04-24 20:36:34 [INFO] app.main: Zatrzymywanie Event Hub Lublin
+2026-04-24 20:36:34 [INFO] apscheduler.scheduler: Scheduler has been shut down
+2026-04-24 20:36:34 [INFO] uvicorn.error: Application shutdown complete.
+2026-04-24 20:36:34 [INFO] uvicorn.error: Finished server process [34952]
+2026-04-24 20:36:35 [INFO] uvicorn.error: Started server process [31524]
+2026-04-24 20:36:35 [INFO] uvicorn.error: Waiting for application startup.
+2026-04-24 20:36:35 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 20:36:35 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 20:36:35 [INFO] apscheduler.scheduler: Added job "process_morning_queue" to job store "default"
+2026-04-24 20:36:35 [INFO] apscheduler.scheduler: Added job "auto_extend_overdue_events" to job store "default"
+2026-04-24 20:36:35 [INFO] apscheduler.scheduler: Scheduler started
+2026-04-24 20:36:35 [INFO] app.main: Uruchamianie Event Hub Lublin v0.1.0
+2026-04-24 20:36:35 [INFO] app.main: APScheduler uruchomiony — poranna kolejka SMS o 06:00, auto-close/extend co 1 min (Europe/Warsaw)
+2026-04-24 20:36:35 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:36:35 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:37:35.758193+02:00 (in 59.998456 seconds)
+2026-04-24 20:36:35 [INFO] uvicorn.error: Application startup complete.
+WARNING:  WatchFiles detected changes in 'app\routers\subscribers.py'. Reloading...
+2026-04-24 20:37:08 [INFO] uvicorn.error: Shutting down
+2026-04-24 20:37:08 [INFO] uvicorn.error: Waiting for application shutdown.
+2026-04-24 20:37:08 [INFO] app.main: Zatrzymywanie Event Hub Lublin
+2026-04-24 20:37:08 [INFO] apscheduler.scheduler: Scheduler has been shut down
+2026-04-24 20:37:08 [INFO] uvicorn.error: Application shutdown complete.
+2026-04-24 20:37:08 [INFO] uvicorn.error: Finished server process [31524]
+2026-04-24 20:37:10 [INFO] uvicorn.error: Started server process [13408]
+2026-04-24 20:37:10 [INFO] uvicorn.error: Waiting for application startup.
+2026-04-24 20:37:10 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 20:37:10 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 20:37:10 [INFO] apscheduler.scheduler: Added job "process_morning_queue" to job store "default"
+2026-04-24 20:37:10 [INFO] apscheduler.scheduler: Added job "auto_extend_overdue_events" to job store "default"
+2026-04-24 20:37:10 [INFO] apscheduler.scheduler: Scheduler started
+2026-04-24 20:37:10 [INFO] app.main: Uruchamianie Event Hub Lublin v0.1.0
+2026-04-24 20:37:10 [INFO] app.main: APScheduler uruchomiony — poranna kolejka SMS o 06:00, auto-close/extend co 1 min (Europe/Warsaw)
+2026-04-24 20:37:10 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:37:10 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:38:10.044510+02:00 (in 59.997447 seconds)
+2026-04-24 20:37:10 [INFO] uvicorn.error: Application startup complete.
+2026-04-24 20:38:10 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:38:10 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:38:10.044510+02:00 (in 0.000498 seconds)
+2026-04-24 20:38:10 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:38:10 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:39:10.044510+02:00 (in 59.985523 seconds)
+2026-04-24 20:38:10 [INFO] apscheduler.executors.default: Running job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:39:10 CEST)" (scheduled at 2026-04-24 20:38:10.044510+02:00)
+2026-04-24 20:38:10 [INFO] app.services.notification_service: auto_extend: zdarzenie id=45 'Ignacego Daszyńskiego' przedłużono o 1h (24.04 02:35 → 24.04 03:35)
+2026-04-24 20:38:10 [INFO] app.services.notification_service: auto_extend_overdue_events: zamknięto=0, przedłużono=1
+2026-04-24 20:38:10 [INFO] apscheduler.executors.default: Job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:39:10 CEST)" executed successfully
+2026-04-24 20:39:10 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:39:10 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:40:10.044510+02:00 (in 59.972271 seconds)
+2026-04-24 20:39:10 [INFO] apscheduler.executors.default: Running job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:40:10 CEST)" (scheduled at 2026-04-24 20:39:10.044510+02:00)
+2026-04-24 20:39:10 [INFO] app.services.notification_service: auto_extend: zdarzenie id=45 'Ignacego Daszyńskiego' przedłużono o 1h (24.04 03:35 → 24.04 04:35)
+2026-04-24 20:39:10 [INFO] app.services.notification_service: auto_extend_overdue_events: zamknięto=0, przedłużono=1
+2026-04-24 20:39:10 [INFO] apscheduler.executors.default: Job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:40:10 CEST)" executed successfully
+2026-04-24 20:40:10 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:40:10 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:41:10.044510+02:00 (in 59.992264 seconds)
+2026-04-24 20:40:10 [INFO] apscheduler.executors.default: Running job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:41:10 CEST)" (scheduled at 2026-04-24 20:40:10.044510+02:00)
+2026-04-24 20:40:10 [INFO] app.services.notification_service: auto_extend: zdarzenie id=45 'Ignacego Daszyńskiego' przedłużono o 1h (24.04 04:35 → 24.04 05:35)
+2026-04-24 20:40:10 [INFO] app.services.notification_service: auto_extend_overdue_events: zamknięto=0, przedłużono=1
+2026-04-24 20:40:10 [INFO] apscheduler.executors.default: Job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:41:10 CEST)" executed successfully
+2026-04-24 20:40:32 [DEBUG] app.routers.events: Lista zdarzeń: skip=0 limit=100 total=10
+2026-04-24 20:40:32 [INFO] uvicorn.access: 127.0.0.1:57162 - "GET /api/v1/events?skip=0&limit=100 HTTP/1.1" 200
+2026-04-24 20:40:34 [DEBUG] app.routers.events: Lista zdarzeń: skip=0 limit=100 total=10
+2026-04-24 20:40:34 [INFO] uvicorn.access: 127.0.0.1:55485 - "GET /api/v1/events?skip=0&limit=100 HTTP/1.1" 200
+2026-04-24 20:41:10 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:41:10 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:42:10.044510+02:00 (in 59.992886 seconds)
+2026-04-24 20:41:10 [INFO] apscheduler.executors.default: Running job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:42:10 CEST)" (scheduled at 2026-04-24 20:41:10.044510+02:00)
+2026-04-24 20:41:10 [INFO] app.services.notification_service: auto_extend: zdarzenie id=45 'Ignacego Daszyńskiego' przedłużono o 1h (24.04 05:35 → 24.04 06:35)
+2026-04-24 20:41:10 [INFO] app.services.notification_service: auto_extend_overdue_events: zamknięto=0, przedłużono=1
+2026-04-24 20:41:10 [INFO] apscheduler.executors.default: Job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:42:10 CEST)" executed successfully
+2026-04-24 20:41:33 [DEBUG] app.routers.events: Lista zdarzeń: skip=0 limit=100 total=10
+2026-04-24 20:41:33 [INFO] uvicorn.access: 127.0.0.1:62827 - "GET /api/v1/events?skip=0&limit=100 HTTP/1.1" 200
+2026-04-24 20:41:35 [DEBUG] app.routers.events: Lista zdarzeń: skip=0 limit=100 total=10
+2026-04-24 20:41:35 [INFO] uvicorn.access: 127.0.0.1:53680 - "GET /api/v1/events?skip=0&limit=100 HTTP/1.1" 200
+2026-04-24 20:42:10 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:42:10 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:43:10.044510+02:00 (in 59.990439 seconds)
+2026-04-24 20:42:10 [INFO] apscheduler.executors.default: Running job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:43:10 CEST)" (scheduled at 2026-04-24 20:42:10.044510+02:00)
+2026-04-24 20:42:10 [INFO] app.services.notification_service: auto_extend: zdarzenie id=45 'Ignacego Daszyńskiego' przedłużono o 1h (24.04 06:35 → 24.04 07:35)
+2026-04-24 20:42:10 [INFO] app.services.notification_service: auto_extend_overdue_events: zamknięto=0, przedłużono=1
+2026-04-24 20:42:10 [INFO] apscheduler.executors.default: Job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:43:10 CEST)" executed successfully
+2026-04-24 20:42:33 [DEBUG] app.routers.events: Lista zdarzeń: skip=0 limit=100 total=10
+2026-04-24 20:42:33 [INFO] uvicorn.access: 127.0.0.1:54344 - "GET /api/v1/events?skip=0&limit=100 HTTP/1.1" 200
+2026-04-24 20:42:35 [DEBUG] app.routers.events: Lista zdarzeń: skip=0 limit=100 total=10
+2026-04-24 20:42:35 [INFO] uvicorn.access: 127.0.0.1:51294 - "GET /api/v1/events?skip=0&limit=100 HTTP/1.1" 200
+2026-04-24 20:43:10 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:43:10 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:43:10.044510+02:00 (in 0.004114 seconds)
+2026-04-24 20:43:10 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:43:10 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:44:10.044510+02:00 (in 59.988651 seconds)
+2026-04-24 20:43:10 [INFO] apscheduler.executors.default: Running job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:44:10 CEST)" (scheduled at 2026-04-24 20:43:10.044510+02:00)
+2026-04-24 20:43:10 [INFO] app.services.notification_service: auto_extend: zdarzenie id=45 'Ignacego Daszyńskiego' przedłużono o 1h (24.04 07:35 → 24.04 08:35)
+2026-04-24 20:43:10 [INFO] app.services.notification_service: auto_extend_overdue_events: zamknięto=0, przedłużono=1
+2026-04-24 20:43:10 [INFO] apscheduler.executors.default: Job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:44:10 CEST)" executed successfully
+2026-04-24 20:43:33 [DEBUG] app.routers.events: Lista zdarzeń: skip=0 limit=100 total=10
+2026-04-24 20:43:33 [INFO] uvicorn.access: 127.0.0.1:58036 - "GET /api/v1/events?skip=0&limit=100 HTTP/1.1" 200
+2026-04-24 20:43:35 [DEBUG] app.routers.events: Lista zdarzeń: skip=0 limit=100 total=10
+2026-04-24 20:43:35 [INFO] uvicorn.access: 127.0.0.1:60308 - "GET /api/v1/events?skip=0&limit=100 HTTP/1.1" 200
+2026-04-24 20:43:54 [DEBUG] app.routers.streets: Autocomplete 'ul. Lipowa' → 0 wynikow
+2026-04-24 20:43:54 [INFO] uvicorn.access: 127.0.0.1:64986 - "GET /api/v1/streets?q=ul.%20Lipowa HTTP/1.1" 200
+2026-04-24 20:44:00 [DEBUG] app.routers.streets: Autocomplete 'lis' → 10 wynikow
+2026-04-24 20:44:00 [INFO] uvicorn.access: 127.0.0.1:51133 - "GET /api/v1/streets?q=lis HTTP/1.1" 200
+2026-04-24 20:44:02 [DEBUG] app.routers.streets: Autocomplete 'Lipowa' → 1 wynikow
+2026-04-24 20:44:02 [INFO] uvicorn.access: 127.0.0.1:62902 - "GET /api/v1/streets?q=Lipowa HTTP/1.1" 200
+2026-04-24 20:44:04 [DEBUG] app.routers.streets: Budynki dla street_id=4981 → 42 wynikow
+2026-04-24 20:44:04 [INFO] uvicorn.access: 127.0.0.1:53592 - "GET /api/v1/streets/4981/buildings HTTP/1.1" 200
+2026-04-24 20:44:10 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:44:10 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:45:10.044510+02:00 (in 59.991251 seconds)
+2026-04-24 20:44:10 [INFO] apscheduler.executors.default: Running job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:45:10 CEST)" (scheduled at 2026-04-24 20:44:10.044510+02:00)
+2026-04-24 20:44:10 [INFO] app.services.notification_service: auto_extend: zdarzenie id=45 'Ignacego Daszyńskiego' przedłużono o 1h (24.04 08:35 → 24.04 09:35)
+2026-04-24 20:44:10 [INFO] app.services.notification_service: auto_extend_overdue_events: zamknięto=0, przedłużono=1
+2026-04-24 20:44:10 [INFO] apscheduler.executors.default: Job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:45:10 CEST)" executed successfully
+2026-04-24 20:44:12 [DEBUG] app.routers.streets: Autocomplete 'Lipowa' → 1 wynikow
+2026-04-24 20:44:12 [INFO] uvicorn.access: 127.0.0.1:54793 - "GET /api/v1/streets?q=Lipowa HTTP/1.1" 200
+2026-04-24 20:44:13 [DEBUG] app.routers.streets: Budynki dla street_id=4981 → 42 wynikow
+2026-04-24 20:44:13 [INFO] uvicorn.access: 127.0.0.1:63809 - "GET /api/v1/streets/4981/buildings HTTP/1.1" 200
+2026-04-24 20:44:25 [DEBUG] app.routers.streets: Autocomplete 'Lip' → 8 wynikow
+2026-04-24 20:44:25 [INFO] uvicorn.access: 127.0.0.1:63955 - "GET /api/v1/streets?q=Lip HTTP/1.1" 200
+2026-04-24 20:44:25 [DEBUG] app.routers.streets: Autocomplete 'Lipo' → 1 wynikow
+2026-04-24 20:44:25 [INFO] uvicorn.access: 127.0.0.1:56851 - "GET /api/v1/streets?q=Lipo HTTP/1.1" 200
+2026-04-24 20:44:26 [DEBUG] app.routers.streets: Autocomplete 'Lipowa' → 1 wynikow
+2026-04-24 20:44:26 [INFO] uvicorn.access: 127.0.0.1:51782 - "GET /api/v1/streets?q=Lipowa HTTP/1.1" 200
+2026-04-24 20:44:26 [DEBUG] app.routers.streets: Budynki dla street_id=4981 → 42 wynikow
+2026-04-24 20:44:26 [INFO] uvicorn.access: 127.0.0.1:51783 - "GET /api/v1/streets/4981/buildings HTTP/1.1" 200
+2026-04-24 20:44:32 [DEBUG] app.routers.streets: Autocomplete 'Lip' → 8 wynikow
+2026-04-24 20:44:32 [INFO] uvicorn.access: 127.0.0.1:58434 - "GET /api/v1/streets?q=Lip HTTP/1.1" 200
+2026-04-24 20:44:32 [DEBUG] app.routers.streets: Autocomplete 'Lipo' → 1 wynikow
+2026-04-24 20:44:32 [INFO] uvicorn.access: 127.0.0.1:56631 - "GET /api/v1/streets?q=Lipo HTTP/1.1" 200
+2026-04-24 20:44:33 [DEBUG] app.routers.streets: Autocomplete 'Lipow' → 1 wynikow
+2026-04-24 20:44:33 [INFO] uvicorn.access: 127.0.0.1:65283 - "GET /api/v1/streets?q=Lipow HTTP/1.1" 200
+2026-04-24 20:44:33 [DEBUG] app.routers.events: Lista zdarzeń: skip=0 limit=100 total=10
+2026-04-24 20:44:33 [INFO] uvicorn.access: 127.0.0.1:61424 - "GET /api/v1/events?skip=0&limit=100 HTTP/1.1" 200
+2026-04-24 20:44:33 [DEBUG] app.routers.streets: Autocomplete 'Lipowa' → 1 wynikow
+2026-04-24 20:44:33 [INFO] uvicorn.access: 127.0.0.1:54686 - "GET /api/v1/streets?q=Lipowa HTTP/1.1" 200
+2026-04-24 20:44:34 [DEBUG] app.routers.streets: Budynki dla street_id=4981 → 42 wynikow
+2026-04-24 20:44:34 [INFO] uvicorn.access: 127.0.0.1:64503 - "GET /api/v1/streets/4981/buildings HTTP/1.1" 200
+2026-04-24 20:44:47 [INFO] app.services.gateways: 
+----------------------------------------
+[MOCK SMS] DO: +480303 *** 53
+TREŚĆ: MPWiK Lublin: kod weryfikacyjny 788633. Wazny 24h. Nie udostepniaj nikomu.
+----------------------------------------
+2026-04-24 20:44:47 [INFO] app.routers.subscribers: init_registration: SMS z kodem do +48030…, status=sent
+2026-04-24 20:44:47 [INFO] uvicorn.access: 127.0.0.1:53532 - "POST /api/v1/subscribers/init HTTP/1.1" 200
+2026-04-24 20:45:04 [INFO] uvicorn.access: 127.0.0.1:63963 - "POST /api/v1/subscribers/verify HTTP/1.1" 500
+2026-04-24 20:45:04 [ERROR] uvicorn.error: Exception in ASGI application
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 538, in _prepare_and_execute
+    self._rows = deque(await prepared_stmt.fetch(*parameters))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 176, in fetch
+    data = await self.__bind_execute(args, 0, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 241, in __bind_execute
+    data, status, _ = await self.__do_execute(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 230, in __do_execute
+    return await executor(protocol)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "asyncpg\protocol\protocol.pyx", line 207, in bind_execute
+asyncpg.exceptions.UniqueViolationError: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(33, 4981, 1B) already exists.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2118, in _exec_insertmany_context
+    dialect.do_execute(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 572, in execute
+    self._adapt_connection.await_(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 550, in _prepare_and_execute
+    self._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 501, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 784, in _handle_exception
+    raise translated_error from error
+sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.IntegrityError: <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(33, 4981, 1B) already exists.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 399, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 70, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\errors.py", line 187, in __call__
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\errors.py", line 165, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 62, in wrapped_app
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 715, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 735, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 62, in wrapped_app
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\routing.py", line 212, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\slowapi\extension.py", line 734, in async_wrapper
+    response = await func(*args, **kwargs)  # type: ignore
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\backend\app\routers\subscribers.py", line 328, in verify_registration
+    await db.commit()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\ext\asyncio\session.py", line 1009, in commit
+    await greenlet_spawn(self.sync_session.commit)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 203, in greenlet_spawn
+    result = context.switch(value)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2028, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 1313, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 1288, in _prepare_impl
+    self.session.flush()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4352, in flush
+    self._flush(objects)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4487, in _flush
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4448, in _flush
+    flush_context.execute()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 466, in execute
+    rec.execute(self)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 642, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\persistence.py", line 93, in save_obj
+    _emit_insert_statements(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\persistence.py", line 1143, in _emit_insert_statements
+    result = connection.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1418, in execute
+    return meth(
+           ^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 515, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1640, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1844, in _execute_context
+    return self._exec_insertmany_context(dialect, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2126, in _exec_insertmany_context
+    self._handle_dbapi_exception(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2118, in _exec_insertmany_context
+    dialect.do_execute(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 572, in execute
+    self._adapt_connection.await_(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 550, in _prepare_and_execute
+    self._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 501, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 784, in _handle_exception
+    raise translated_error from error
+sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(33, 4981, 1B) already exists.
+[SQL: INSERT INTO subscriber_addresses (subscriber_id, street_id, street_name, house_number, flat_number) SELECT p0::INTEGER, p1::INTEGER, p2::VARCHAR, p3::VARCHAR, p4::VARCHAR FROM (VALUES ($1::INTEGER, $2::INTEGER, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR,  ... 290 characters truncated ... RETURNING subscriber_addresses.id, subscriber_addresses.created_at, subscriber_addresses.id AS id__1]
+[parameters: (33, 4981, 'Lipowa', '1B', None, 33, 4981, 'Lipowa', '2', None, 33, 4981, 'Lipowa', '1B', None, 33, 4981, 'Lipowa', '1B', None)]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2026-04-24 20:45:05 [INFO] uvicorn.access: 127.0.0.1:60292 - "POST /api/v1/subscribers/verify HTTP/1.1" 500
+2026-04-24 20:45:05 [ERROR] uvicorn.error: Exception in ASGI application
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 538, in _prepare_and_execute
+    self._rows = deque(await prepared_stmt.fetch(*parameters))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 176, in fetch
+    data = await self.__bind_execute(args, 0, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 241, in __bind_execute
+    data, status, _ = await self.__do_execute(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 230, in __do_execute
+    return await executor(protocol)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "asyncpg\protocol\protocol.pyx", line 207, in bind_execute
+asyncpg.exceptions.UniqueViolationError: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(34, 4981, 1B) already exists.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2118, in _exec_insertmany_context
+    dialect.do_execute(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 572, in execute
+    self._adapt_connection.await_(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 550, in _prepare_and_execute
+    self._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 501, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 784, in _handle_exception
+    raise translated_error from error
+sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.IntegrityError: <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(34, 4981, 1B) already exists.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 399, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 70, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\errors.py", line 187, in __call__
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\errors.py", line 165, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 62, in wrapped_app
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 715, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 735, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 62, in wrapped_app
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\routing.py", line 212, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\slowapi\extension.py", line 734, in async_wrapper
+    response = await func(*args, **kwargs)  # type: ignore
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\backend\app\routers\subscribers.py", line 328, in verify_registration
+    await db.commit()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\ext\asyncio\session.py", line 1009, in commit
+    await greenlet_spawn(self.sync_session.commit)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 203, in greenlet_spawn
+    result = context.switch(value)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2028, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 1313, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 1288, in _prepare_impl
+    self.session.flush()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4352, in flush
+    self._flush(objects)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4487, in _flush
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4448, in _flush
+    flush_context.execute()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 466, in execute
+    rec.execute(self)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 642, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\persistence.py", line 93, in save_obj
+    _emit_insert_statements(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\persistence.py", line 1143, in _emit_insert_statements
+    result = connection.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1418, in execute
+    return meth(
+           ^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 515, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1640, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1844, in _execute_context
+    return self._exec_insertmany_context(dialect, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2126, in _exec_insertmany_context
+    self._handle_dbapi_exception(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2118, in _exec_insertmany_context
+    dialect.do_execute(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 572, in execute
+    self._adapt_connection.await_(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 550, in _prepare_and_execute
+    self._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 501, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 784, in _handle_exception
+    raise translated_error from error
+sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(34, 4981, 1B) already exists.
+[SQL: INSERT INTO subscriber_addresses (subscriber_id, street_id, street_name, house_number, flat_number) SELECT p0::INTEGER, p1::INTEGER, p2::VARCHAR, p3::VARCHAR, p4::VARCHAR FROM (VALUES ($1::INTEGER, $2::INTEGER, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR,  ... 290 characters truncated ... RETURNING subscriber_addresses.id, subscriber_addresses.created_at, subscriber_addresses.id AS id__1]
+[parameters: (34, 4981, 'Lipowa', '1B', None, 34, 4981, 'Lipowa', '2', None, 34, 4981, 'Lipowa', '1B', None, 34, 4981, 'Lipowa', '1B', None)]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2026-04-24 20:45:06 [INFO] uvicorn.access: 127.0.0.1:64790 - "POST /api/v1/subscribers/verify HTTP/1.1" 500
+2026-04-24 20:45:06 [ERROR] uvicorn.error: Exception in ASGI application
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 538, in _prepare_and_execute
+    self._rows = deque(await prepared_stmt.fetch(*parameters))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 176, in fetch
+    data = await self.__bind_execute(args, 0, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 241, in __bind_execute
+    data, status, _ = await self.__do_execute(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 230, in __do_execute
+    return await executor(protocol)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "asyncpg\protocol\protocol.pyx", line 207, in bind_execute
+asyncpg.exceptions.UniqueViolationError: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(35, 4981, 1B) already exists.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2118, in _exec_insertmany_context
+    dialect.do_execute(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 572, in execute
+    self._adapt_connection.await_(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 550, in _prepare_and_execute
+    self._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 501, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 784, in _handle_exception
+    raise translated_error from error
+sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.IntegrityError: <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(35, 4981, 1B) already exists.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 399, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 70, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\errors.py", line 187, in __call__
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\errors.py", line 165, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 62, in wrapped_app
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 715, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 735, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 62, in wrapped_app
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\routing.py", line 212, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\slowapi\extension.py", line 734, in async_wrapper
+    response = await func(*args, **kwargs)  # type: ignore
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\backend\app\routers\subscribers.py", line 328, in verify_registration
+    await db.commit()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\ext\asyncio\session.py", line 1009, in commit
+    await greenlet_spawn(self.sync_session.commit)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 203, in greenlet_spawn
+    result = context.switch(value)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2028, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 1313, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 1288, in _prepare_impl
+    self.session.flush()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4352, in flush
+    self._flush(objects)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4487, in _flush
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4448, in _flush
+    flush_context.execute()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 466, in execute
+    rec.execute(self)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 642, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\persistence.py", line 93, in save_obj
+    _emit_insert_statements(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\persistence.py", line 1143, in _emit_insert_statements
+    result = connection.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1418, in execute
+    return meth(
+           ^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 515, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1640, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1844, in _execute_context
+    return self._exec_insertmany_context(dialect, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2126, in _exec_insertmany_context
+    self._handle_dbapi_exception(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2118, in _exec_insertmany_context
+    dialect.do_execute(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 572, in execute
+    self._adapt_connection.await_(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 550, in _prepare_and_execute
+    self._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 501, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 784, in _handle_exception
+    raise translated_error from error
+sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(35, 4981, 1B) already exists.
+[SQL: INSERT INTO subscriber_addresses (subscriber_id, street_id, street_name, house_number, flat_number) SELECT p0::INTEGER, p1::INTEGER, p2::VARCHAR, p3::VARCHAR, p4::VARCHAR FROM (VALUES ($1::INTEGER, $2::INTEGER, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR,  ... 290 characters truncated ... RETURNING subscriber_addresses.id, subscriber_addresses.created_at, subscriber_addresses.id AS id__1]
+[parameters: (35, 4981, 'Lipowa', '1B', None, 35, 4981, 'Lipowa', '2', None, 35, 4981, 'Lipowa', '1B', None, 35, 4981, 'Lipowa', '1B', None)]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2026-04-24 20:45:06 [INFO] uvicorn.access: 127.0.0.1:59245 - "POST /api/v1/subscribers/verify HTTP/1.1" 500
+2026-04-24 20:45:06 [ERROR] uvicorn.error: Exception in ASGI application
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 538, in _prepare_and_execute
+    self._rows = deque(await prepared_stmt.fetch(*parameters))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 176, in fetch
+    data = await self.__bind_execute(args, 0, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 241, in __bind_execute
+    data, status, _ = await self.__do_execute(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 230, in __do_execute
+    return await executor(protocol)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "asyncpg\protocol\protocol.pyx", line 207, in bind_execute
+asyncpg.exceptions.UniqueViolationError: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(36, 4981, 1B) already exists.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2118, in _exec_insertmany_context
+    dialect.do_execute(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 572, in execute
+    self._adapt_connection.await_(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 550, in _prepare_and_execute
+    self._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 501, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 784, in _handle_exception
+    raise translated_error from error
+sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.IntegrityError: <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(36, 4981, 1B) already exists.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 399, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 70, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\errors.py", line 187, in __call__
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\errors.py", line 165, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 62, in wrapped_app
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 715, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 735, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 62, in wrapped_app
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\routing.py", line 212, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\slowapi\extension.py", line 734, in async_wrapper
+    response = await func(*args, **kwargs)  # type: ignore
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\backend\app\routers\subscribers.py", line 328, in verify_registration
+    await db.commit()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\ext\asyncio\session.py", line 1009, in commit
+    await greenlet_spawn(self.sync_session.commit)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 203, in greenlet_spawn
+    result = context.switch(value)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2028, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 1313, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 1288, in _prepare_impl
+    self.session.flush()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4352, in flush
+    self._flush(objects)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4487, in _flush
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4448, in _flush
+    flush_context.execute()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 466, in execute
+    rec.execute(self)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 642, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\persistence.py", line 93, in save_obj
+    _emit_insert_statements(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\persistence.py", line 1143, in _emit_insert_statements
+    result = connection.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1418, in execute
+    return meth(
+           ^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 515, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1640, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1844, in _execute_context
+    return self._exec_insertmany_context(dialect, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2126, in _exec_insertmany_context
+    self._handle_dbapi_exception(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2118, in _exec_insertmany_context
+    dialect.do_execute(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 572, in execute
+    self._adapt_connection.await_(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 550, in _prepare_and_execute
+    self._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 501, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 784, in _handle_exception
+    raise translated_error from error
+sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(36, 4981, 1B) already exists.
+[SQL: INSERT INTO subscriber_addresses (subscriber_id, street_id, street_name, house_number, flat_number) SELECT p0::INTEGER, p1::INTEGER, p2::VARCHAR, p3::VARCHAR, p4::VARCHAR FROM (VALUES ($1::INTEGER, $2::INTEGER, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR,  ... 290 characters truncated ... RETURNING subscriber_addresses.id, subscriber_addresses.created_at, subscriber_addresses.id AS id__1]
+[parameters: (36, 4981, 'Lipowa', '1B', None, 36, 4981, 'Lipowa', '2', None, 36, 4981, 'Lipowa', '1B', None, 36, 4981, 'Lipowa', '1B', None)]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2026-04-24 20:45:06 [INFO] uvicorn.access: 127.0.0.1:50583 - "POST /api/v1/subscribers/verify HTTP/1.1" 500
+2026-04-24 20:45:06 [ERROR] uvicorn.error: Exception in ASGI application
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 538, in _prepare_and_execute
+    self._rows = deque(await prepared_stmt.fetch(*parameters))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 176, in fetch
+    data = await self.__bind_execute(args, 0, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 241, in __bind_execute
+    data, status, _ = await self.__do_execute(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 230, in __do_execute
+    return await executor(protocol)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "asyncpg\protocol\protocol.pyx", line 207, in bind_execute
+asyncpg.exceptions.UniqueViolationError: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(37, 4981, 1B) already exists.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2118, in _exec_insertmany_context
+    dialect.do_execute(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 572, in execute
+    self._adapt_connection.await_(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 550, in _prepare_and_execute
+    self._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 501, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 784, in _handle_exception
+    raise translated_error from error
+sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.IntegrityError: <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(37, 4981, 1B) already exists.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 399, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 70, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\errors.py", line 187, in __call__
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\errors.py", line 165, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 62, in wrapped_app
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 715, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 735, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 62, in wrapped_app
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\routing.py", line 212, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\slowapi\extension.py", line 734, in async_wrapper
+    response = await func(*args, **kwargs)  # type: ignore
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\backend\app\routers\subscribers.py", line 328, in verify_registration
+    await db.commit()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\ext\asyncio\session.py", line 1009, in commit
+    await greenlet_spawn(self.sync_session.commit)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 203, in greenlet_spawn
+    result = context.switch(value)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2028, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 1313, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 1288, in _prepare_impl
+    self.session.flush()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4352, in flush
+    self._flush(objects)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4487, in _flush
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4448, in _flush
+    flush_context.execute()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 466, in execute
+    rec.execute(self)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 642, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\persistence.py", line 93, in save_obj
+    _emit_insert_statements(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\persistence.py", line 1143, in _emit_insert_statements
+    result = connection.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1418, in execute
+    return meth(
+           ^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 515, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1640, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1844, in _execute_context
+    return self._exec_insertmany_context(dialect, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2126, in _exec_insertmany_context
+    self._handle_dbapi_exception(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2118, in _exec_insertmany_context
+    dialect.do_execute(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 572, in execute
+    self._adapt_connection.await_(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 550, in _prepare_and_execute
+    self._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 501, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 784, in _handle_exception
+    raise translated_error from error
+sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(37, 4981, 1B) already exists.
+[SQL: INSERT INTO subscriber_addresses (subscriber_id, street_id, street_name, house_number, flat_number) SELECT p0::INTEGER, p1::INTEGER, p2::VARCHAR, p3::VARCHAR, p4::VARCHAR FROM (VALUES ($1::INTEGER, $2::INTEGER, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR,  ... 290 characters truncated ... RETURNING subscriber_addresses.id, subscriber_addresses.created_at, subscriber_addresses.id AS id__1]
+[parameters: (37, 4981, 'Lipowa', '1B', None, 37, 4981, 'Lipowa', '2', None, 37, 4981, 'Lipowa', '1B', None, 37, 4981, 'Lipowa', '1B', None)]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2026-04-24 20:45:06 [INFO] uvicorn.access: 127.0.0.1:52502 - "POST /api/v1/subscribers/verify HTTP/1.1" 500
+2026-04-24 20:45:06 [ERROR] uvicorn.error: Exception in ASGI application
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 538, in _prepare_and_execute
+    self._rows = deque(await prepared_stmt.fetch(*parameters))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 176, in fetch
+    data = await self.__bind_execute(args, 0, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 241, in __bind_execute
+    data, status, _ = await self.__do_execute(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 230, in __do_execute
+    return await executor(protocol)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "asyncpg\protocol\protocol.pyx", line 207, in bind_execute
+asyncpg.exceptions.UniqueViolationError: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(38, 4981, 1B) already exists.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2118, in _exec_insertmany_context
+    dialect.do_execute(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 572, in execute
+    self._adapt_connection.await_(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 550, in _prepare_and_execute
+    self._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 501, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 784, in _handle_exception
+    raise translated_error from error
+sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.IntegrityError: <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(38, 4981, 1B) already exists.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 399, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 70, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\errors.py", line 187, in __call__
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\errors.py", line 165, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 62, in wrapped_app
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 715, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 735, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 62, in wrapped_app
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\routing.py", line 212, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\slowapi\extension.py", line 734, in async_wrapper
+    response = await func(*args, **kwargs)  # type: ignore
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\backend\app\routers\subscribers.py", line 328, in verify_registration
+    await db.commit()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\ext\asyncio\session.py", line 1009, in commit
+    await greenlet_spawn(self.sync_session.commit)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 203, in greenlet_spawn
+    result = context.switch(value)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2028, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 1313, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 1288, in _prepare_impl
+    self.session.flush()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4352, in flush
+    self._flush(objects)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4487, in _flush
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4448, in _flush
+    flush_context.execute()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 466, in execute
+    rec.execute(self)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 642, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\persistence.py", line 93, in save_obj
+    _emit_insert_statements(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\persistence.py", line 1143, in _emit_insert_statements
+    result = connection.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1418, in execute
+    return meth(
+           ^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 515, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1640, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1844, in _execute_context
+    return self._exec_insertmany_context(dialect, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2126, in _exec_insertmany_context
+    self._handle_dbapi_exception(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2118, in _exec_insertmany_context
+    dialect.do_execute(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 572, in execute
+    self._adapt_connection.await_(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 550, in _prepare_and_execute
+    self._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 501, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 784, in _handle_exception
+    raise translated_error from error
+sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(38, 4981, 1B) already exists.
+[SQL: INSERT INTO subscriber_addresses (subscriber_id, street_id, street_name, house_number, flat_number) SELECT p0::INTEGER, p1::INTEGER, p2::VARCHAR, p3::VARCHAR, p4::VARCHAR FROM (VALUES ($1::INTEGER, $2::INTEGER, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR,  ... 290 characters truncated ... RETURNING subscriber_addresses.id, subscriber_addresses.created_at, subscriber_addresses.id AS id__1]
+[parameters: (38, 4981, 'Lipowa', '1B', None, 38, 4981, 'Lipowa', '2', None, 38, 4981, 'Lipowa', '1B', None, 38, 4981, 'Lipowa', '1B', None)]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2026-04-24 20:45:10 [DEBUG] apscheduler.scheduler: Looking for jobs to run
+2026-04-24 20:45:10 [DEBUG] apscheduler.scheduler: Next wakeup is due at 2026-04-24 20:46:10.044510+02:00 (in 59.994115 seconds)
+2026-04-24 20:45:10 [INFO] apscheduler.executors.default: Running job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:46:10 CEST)" (scheduled at 2026-04-24 20:45:10.044510+02:00)
+2026-04-24 20:45:10 [INFO] app.services.notification_service: auto_extend: zdarzenie id=45 'Ignacego Daszyńskiego' przedłużono o 1h (24.04 09:35 → 24.04 10:35)
+2026-04-24 20:45:10 [INFO] app.services.notification_service: auto_extend_overdue_events: zamknięto=0, przedłużono=1
+2026-04-24 20:45:10 [INFO] apscheduler.executors.default: Job "auto_extend_overdue_events (trigger: interval[0:01:00], next run at: 2026-04-24 20:46:10 CEST)" executed successfully
+2026-04-24 20:45:28 [INFO] uvicorn.access: 127.0.0.1:57545 - "POST /api/v1/subscribers/verify HTTP/1.1" 500
+2026-04-24 20:45:28 [ERROR] uvicorn.error: Exception in ASGI application
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 538, in _prepare_and_execute
+    self._rows = deque(await prepared_stmt.fetch(*parameters))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 176, in fetch
+    data = await self.__bind_execute(args, 0, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 241, in __bind_execute
+    data, status, _ = await self.__do_execute(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\asyncpg\prepared_stmt.py", line 230, in __do_execute
+    return await executor(protocol)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "asyncpg\protocol\protocol.pyx", line 207, in bind_execute
+asyncpg.exceptions.UniqueViolationError: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(39, 4981, 1B) already exists.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2118, in _exec_insertmany_context
+    dialect.do_execute(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 572, in execute
+    self._adapt_connection.await_(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 550, in _prepare_and_execute
+    self._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 501, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 784, in _handle_exception
+    raise translated_error from error
+sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.IntegrityError: <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(39, 4981, 1B) already exists.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 399, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 70, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\errors.py", line 187, in __call__
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\errors.py", line 165, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\middleware\exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 62, in wrapped_app
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 715, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 735, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 62, in wrapped_app
+    raise exc
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\fastapi\routing.py", line 212, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\slowapi\extension.py", line 734, in async_wrapper
+    response = await func(*args, **kwargs)  # type: ignore
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\backend\app\routers\subscribers.py", line 328, in verify_registration
+    await db.commit()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\ext\asyncio\session.py", line 1009, in commit
+    await greenlet_spawn(self.sync_session.commit)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 203, in greenlet_spawn
+    result = context.switch(value)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 2028, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 1313, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 1288, in _prepare_impl
+    self.session.flush()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4352, in flush
+    self._flush(objects)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4487, in _flush
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\session.py", line 4448, in _flush
+    flush_context.execute()
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 466, in execute
+    rec.execute(self)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 642, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\persistence.py", line 93, in save_obj
+    _emit_insert_statements(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\orm\persistence.py", line 1143, in _emit_insert_statements
+    result = connection.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1418, in execute
+    return meth(
+           ^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\sql\elements.py", line 515, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1640, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1844, in _execute_context
+    return self._exec_insertmany_context(dialect, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2126, in _exec_insertmany_context
+    self._handle_dbapi_exception(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2118, in _exec_insertmany_context
+    dialect.do_execute(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 572, in execute
+    self._adapt_connection.await_(
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 550, in _prepare_and_execute
+    self._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 501, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "C:\Users\rafal\PycharmProjects\event-hub-lublin\.venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 784, in _handle_exception
+    raise translated_error from error
+sqlalchemy.exc.IntegrityError: (sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.UniqueViolationError'>: duplicate key value violates unique constraint "uix_subscriber_address"
+DETAIL:  Key (subscriber_id, street_id, house_number)=(39, 4981, 1B) already exists.
+[SQL: INSERT INTO subscriber_addresses (subscriber_id, street_id, street_name, house_number, flat_number) SELECT p0::INTEGER, p1::INTEGER, p2::VARCHAR, p3::VARCHAR, p4::VARCHAR FROM (VALUES ($1::INTEGER, $2::INTEGER, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR,  ... 290 characters truncated ... RETURNING subscriber_addresses.id, subscriber_addresses.created_at, subscriber_addresses.id AS id__1]
+[parameters: (39, 4981, 'Lipowa', '1B', None, 39, 4981, 'Lipowa', '2', None, 39, 4981, 'Lipowa', '1B', None, 39, 4981, 'Lipowa', '1B', None)]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
