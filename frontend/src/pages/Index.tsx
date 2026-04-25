@@ -7,59 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2, Droplets, Search, CheckCircle2 } from 'lucide-react';
 import { type Street } from '@/data/mockData';
-import { apiFetch } from '@/lib/api';
-import {
-  formatEventNumbers,
-  streetLabel,
-  sortHouseNumbers,
-  isEventAffectingHouseNumber,
-} from '@/lib/utils';
-
-// ---------------------------------------------------------------------------
-// Typy
-// ---------------------------------------------------------------------------
-
-interface BuildingNumber {
-  id: number;
-  house_number: string;
-}
-
-// ---------------------------------------------------------------------------
-// Hook — pobiera unikalne numery budynków dla wybranej ulicy
-// ---------------------------------------------------------------------------
-
-function useBuildingNumbers(streetId: number | null) {
-  const [numbers, setNumbers] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    if (!streetId) {
-      setNumbers([]);
-      return;
-    }
-    let cancelled = false;
-    setIsLoading(true);
-
-    apiFetch<BuildingNumber[]>(`/streets/${streetId}/buildings`)
-      .then((data) => {
-        if (cancelled) return;
-        const unique = sortHouseNumbers(
-          [...new Set(
-            data
-              .map((b) => b.house_number)
-              .filter((n): n is string => Boolean(n)),
-          )],
-        );
-        setNumbers(unique);
-      })
-      .catch(() => { if (!cancelled) setNumbers([]); })
-      .finally(() => { if (!cancelled) setIsLoading(false); });
-
-    return () => { cancelled = true; };
-  }, [streetId]);
-
-  return { numbers, isLoading };
-}
+import { formatEventNumbers, streetLabel } from '@/lib/utils';
 
 // ---------------------------------------------------------------------------
 // ErrorBoundary dla mapy
@@ -103,25 +51,9 @@ const Index = () => {
   const [submittedStreet, setSubmittedStreet] = useState<{ name: string; id: number | null } | null>(null);
   const [showStreetSuggestions, setShowStreetSuggestions] = useState(false);
 
-  // --- Wyszukiwanie numeru ---
-  const [houseQuery, setHouseQuery] = useState('');
-  const [submittedHouseNumber, setSubmittedHouseNumber] = useState('');
-  const [showHouseSuggestions, setShowHouseSuggestions] = useState(false);
-  const houseInputRef = useRef<HTMLInputElement>(null);
-
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { streets: suggestions, isLoading: streetsLoading } = useStreets(streetQuery);
-  const { numbers: buildingNumbers, isLoading: numbersLoading } = useBuildingNumbers(
-    selectedStreet?.id ?? null,
-  );
-
-  // Filtruj numery budynków wg wpisanej frazy
-  const filteredNumbers = useMemo(() => {
-    const q = houseQuery.trim().toUpperCase();
-    if (!q) return buildingNumbers;
-    return buildingNumbers.filter((n) => n.toUpperCase().startsWith(q));
-  }, [buildingNumbers, houseQuery]);
 
   // ---------------------------------------------------------------------------
   // Handlery ulicy
@@ -131,8 +63,6 @@ const Index = () => {
     const val = e.target.value;
     setStreetQuery(val);
     setSelectedStreet(null);
-    setHouseQuery('');
-    setSubmittedHouseNumber('');
     setShowStreetSuggestions(val.length >= 3);
     if (!val) setSubmittedStreet(null);
   };
@@ -141,39 +71,10 @@ const Index = () => {
     setSelectedStreet(street);
     setStreetQuery(street.full_name);
     setShowStreetSuggestions(false);
-    setHouseQuery('');
-    setSubmittedHouseNumber('');
-    // Przenieś fokus na pole numeru gdy jest dostępne
-    setTimeout(() => houseInputRef.current?.focus(), 80);
   }, []);
 
   const handleStreetBlur = () => {
     setTimeout(() => setShowStreetSuggestions(false), 150);
-  };
-
-  // ---------------------------------------------------------------------------
-  // Handlery numeru budynku
-  // ---------------------------------------------------------------------------
-
-  const handleHouseInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setHouseQuery(val);
-    setSubmittedHouseNumber('');
-    setShowHouseSuggestions(val.length >= 1 || buildingNumbers.length > 0);
-  };
-
-  const selectHouseNumber = useCallback((num: string) => {
-    setHouseQuery(num);
-    setSubmittedHouseNumber(num);
-    setShowHouseSuggestions(false);
-  }, []);
-
-  const handleHouseFocus = () => {
-    if (selectedStreet && buildingNumbers.length > 0) setShowHouseSuggestions(true);
-  };
-
-  const handleHouseBlur = () => {
-    setTimeout(() => setShowHouseSuggestions(false), 150);
   };
 
   // ---------------------------------------------------------------------------
@@ -184,42 +85,27 @@ const Index = () => {
     const q = streetQuery.trim();
     if (!q) return;
     setSubmittedStreet({ name: q, id: selectedStreet?.id ?? null });
-    if (houseQuery.trim()) setSubmittedHouseNumber(houseQuery.trim());
     setShowStreetSuggestions(false);
-    setShowHouseSuggestions(false);
-  }, [streetQuery, selectedStreet, houseQuery]);
+  }, [streetQuery, selectedStreet]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleSearch();
-    if (e.key === 'Escape') {
-      setShowStreetSuggestions(false);
-      setShowHouseSuggestions(false);
-    }
+    if (e.key === 'Escape') setShowStreetSuggestions(false);
   };
 
   // ---------------------------------------------------------------------------
-  // Filtrowanie zdarzeń
-  // Backend wyklucza już 'usunieta'; filtr po ulicy i numerze pozostaje client-side
-  // bo isEventAffectingHouseNumber wymaga logiki spatial niedostępnej jako prosty query param.
+  // Filtrowanie zdarzeń po ulicy (client-side fallback — backend filtruje po streetId gdy dostępne)
   // ---------------------------------------------------------------------------
 
   const filteredEvents = useMemo(() => {
     if (!submittedStreet) return events;
 
     const searchTerms = submittedStreet.name.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    let result = events.filter((e) => {
+    return events.filter((e) => {
       const text = `${e.street_name ?? ''} ${formatEventNumbers(e)}`.toLowerCase();
       return searchTerms.every((term) => text.includes(term));
     });
-
-    if (submittedHouseNumber) {
-      result = result.filter((e) =>
-        isEventAffectingHouseNumber(e, submittedHouseNumber),
-      );
-    }
-
-    return result;
-  }, [events, submittedStreet, submittedHouseNumber]);
+  }, [events, submittedStreet]);
 
   const noResultsForQuery = submittedStreet && filteredEvents.length === 0 && !isLoading;
 
@@ -230,14 +116,13 @@ const Index = () => {
       return;
     }
     if (filteredEvents.length > 0) setFocusedEventId(filteredEvents[0].id);
-  }, [submittedStreet, submittedHouseNumber, filteredEvents]);
+  }, [submittedStreet, filteredEvents]);
 
   // Opis aktualnego wyszukiwania (pod nagłówkiem listy)
   const searchDescription = useMemo(() => {
     if (!submittedStreet) return null;
-    if (submittedHouseNumber) return `„${submittedStreet.name} ${submittedHouseNumber}"`;
     return `„${submittedStreet.name}"`;
-  }, [submittedStreet, submittedHouseNumber]);
+  }, [submittedStreet]);
 
   return (
     <div className="flex flex-col">
@@ -256,7 +141,7 @@ const Index = () => {
             Wpisz nazwę ulicy, aby sprawdzić aktywne awarie i planowane wyłączenia.
           </p>
 
-          {/* Pasek wyszukiwania: ulica + numer */}
+          {/* Pasek wyszukiwania: ulica */}
           <div ref={containerRef} className="flex flex-col sm:flex-row gap-2 max-w-2xl mx-auto">
 
             {/* Pole ulicy */}
@@ -304,51 +189,6 @@ const Index = () => {
                 </ul>
               )}
             </div>
-
-            {/* Pole numeru budynku — widoczne gdy ulica jest wybrana */}
-            {selectedStreet && (
-              <div className="relative w-full sm:w-36">
-                <Input
-                  ref={houseInputRef}
-                  placeholder="Nr domu"
-                  value={houseQuery}
-                  onChange={handleHouseInputChange}
-                  onFocus={handleHouseFocus}
-                  onBlur={handleHouseBlur}
-                  onKeyDown={handleKeyDown}
-                  className="bg-white text-foreground placeholder:text-muted-foreground border-0 h-12 text-base"
-                  aria-label="Numer budynku"
-                  role="combobox"
-                  aria-haspopup="listbox"
-                  aria-autocomplete="list"
-                  aria-expanded={showHouseSuggestions}
-                  aria-controls="house-suggestions-listbox"
-                />
-                {numbersLoading && (
-                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-                )}
-                {showHouseSuggestions && filteredNumbers.length > 0 && (
-                  <ul
-                    id="house-suggestions-listbox"
-                    className="absolute z-50 left-0 right-0 mt-1 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-left"
-                    role="listbox"
-                  >
-                    {filteredNumbers.map((num) => (
-                      <li
-                        key={num}
-                        role="option"
-                        aria-selected={houseQuery === num}
-                        className="px-3 py-2 text-sm cursor-pointer hover:bg-accent transition-colors font-medium text-foreground"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => selectHouseNumber(num)}
-                      >
-                        {num}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
 
             <Button
               onClick={handleSearch}

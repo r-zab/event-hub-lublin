@@ -50,15 +50,27 @@ def _validate_house_number(v: str | None) -> str | None:
     return v
 
 
-def _sanitize_description(v: str | None) -> str | None:
+_FORBIDDEN_CHARS = frozenset("<>%_*")
+
+
+def _sanitize_text(v: str | None, field_label: str, max_len: int = 2000) -> str | None:
+    """Wspólna sanityzacja pól tekstowych: XSS + LIKE injection (OWASP A03)."""
     if v is None:
         return v
     v = v.strip()
-    if len(v) > 2000:
-        raise ValueError("Opis nie może przekraczać 2000 znaków.")
-    if "<" in v or ">" in v:
-        raise ValueError("Opis zawiera niedozwolone znaki (< >).")
+    if len(v) > max_len:
+        raise ValueError(f"{field_label} nie może przekraczać {max_len} znaków.")
+    if _FORBIDDEN_CHARS & set(v):
+        raise ValueError(f"{field_label} zawiera niedozwolone znaki (< > % _ *).")
     return v
+
+
+def _sanitize_description(v: str | None) -> str | None:
+    return _sanitize_text(v, "Opis")
+
+
+def _sanitize_custom_message(v: str | None) -> str | None:
+    return _sanitize_text(v, "Treść wiadomości")
 
 
 def _validate_street_name_input(v: str | None) -> str | None:
@@ -146,6 +158,11 @@ class EventCreate(EventBase):
     def sanitize_description(cls, v: str | None) -> str | None:
         return _sanitize_description(v)
 
+    @field_validator("custom_message", mode="after")
+    @classmethod
+    def sanitize_custom_message(cls, v: str | None) -> str | None:
+        return _sanitize_custom_message(v)
+
     @field_validator("street_name", mode="after")
     @classmethod
     def validate_street_name(cls, v: str) -> str:
@@ -199,6 +216,11 @@ class EventUpdate(BaseModel):
     @classmethod
     def sanitize_description(cls, v: str | None) -> str | None:
         return _sanitize_description(v)
+
+    @field_validator("custom_message", mode="after")
+    @classmethod
+    def sanitize_custom_message(cls, v: str | None) -> str | None:
+        return _sanitize_custom_message(v)
 
     @field_validator("street_name", mode="after")
     @classmethod

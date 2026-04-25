@@ -21,7 +21,7 @@ export interface StatusChange {
 
 export interface EventItem {
   id: number;
-  event_type: EventType;
+  event_type: string; // T2.1: dynamiczne typy z DB — może być dowolny kod, nie tylko znane 3
   source?: string;
   street_id?: number;
   street_name: string;

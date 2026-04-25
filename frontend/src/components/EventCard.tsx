@@ -1,20 +1,16 @@
 import { Clock, MapPin, TriangleAlert, Wrench, CalendarClock } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
-import { type EventItem, type EventType, TYPE_LABELS } from '@/data/mockData';
+import { type EventItem } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { formatEventNumbers, formatDateTime } from '@/lib/utils';
+import { useEventTypes } from '@/hooks/useEventTypes';
 
-const typeIcons: Record<EventType, typeof TriangleAlert> = {
+// Kształt ikony per znany typ — nieznane typy dostają trójkąt ostrzeżenia
+const typeIcons: Partial<Record<string, typeof TriangleAlert>> = {
   awaria: TriangleAlert,
   planowane_wylaczenie: CalendarClock,
   remont: Wrench,
-};
-
-const typeStyles: Record<EventType, { icon: string; label: string }> = {
-  awaria: { icon: 'text-red-600', label: 'text-red-700' },
-  planowane_wylaczenie: { icon: 'text-blue-600', label: 'text-blue-700' },
-  remont: { icon: 'text-amber-600', label: 'text-amber-700' },
 };
 
 const DATETIME_FORMAT: Intl.DateTimeFormatOptions = {
@@ -31,8 +27,14 @@ interface EventCardProps {
 }
 
 export function EventCard({ event, onFocus }: EventCardProps) {
-  const Icon = typeIcons[event.event_type];
-  const styles = typeStyles[event.event_type];
+  const { eventTypes } = useEventTypes();
+
+  // Kolor i etykieta z dynamicznego słownika typów zdarzeń (T2.1 + bugfix)
+  const eventTypeDef = eventTypes.find((t) => t.code === event.event_type);
+  const eventColor = eventTypeDef?.default_color_rgb ?? '#6B7280';
+  const eventLabel = eventTypeDef?.name_pl ?? event.event_type;
+
+  const Icon = typeIcons[event.event_type] ?? TriangleAlert;
   const numbers = formatEventNumbers(event);
   let displayNumbers = numbers;
   let hiddenCount = 0;
@@ -62,9 +64,16 @@ export function EventCard({ event, onFocus }: EventCardProps) {
     >
       <CardHeader className="pb-2 flex flex-row items-start justify-between gap-2">
         <div className="flex items-center gap-2">
-          {Icon && <Icon className={`h-5 w-5 shrink-0 ${styles.icon}`} aria-hidden="true" />}
-          <span className={`font-semibold text-sm font-heading ${styles.label}`}>
-            {TYPE_LABELS[event.event_type]}
+          <Icon
+            className="h-5 w-5 shrink-0"
+            style={{ color: eventColor }}
+            aria-hidden="true"
+          />
+          <span
+            className="font-semibold text-sm font-heading"
+            style={{ color: eventColor }}
+          >
+            {eventLabel}
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">

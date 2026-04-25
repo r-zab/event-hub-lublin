@@ -266,18 +266,21 @@ function BuildingLayer({ features, selectedIds, onToggle, renderKey, streetName 
 // Komponent koszyka — pojedynczy element kolejki
 // ---------------------------------------------------------------------------
 
-const TYPE_LABELS: Record<string, string> = {
-  awaria: 'Awaria',
-  planowane_wylaczenie: 'Planowe wył.',
-  remont: 'Remont',
-};
+// T2.2: znaki niedozwolone w opisie — spójność z Pydantic (LIKE injection + XSS)
+const FORBIDDEN_DESC_RE = /[<>%_*]/;
 
-function QueueCard({ item, onRemove }: { item: QueueItem; onRemove: () => void }) {
+function checkDescription(val: string): string | null {
+  if (FORBIDDEN_DESC_RE.test(val)) return 'Opis zawiera niedozwolone znaki (< > % _ *). Usuń je przed zapisem.';
+  if (val.length > 2000) return 'Opis nie może przekraczać 2000 znaków.';
+  return null;
+}
+
+function QueueCard({ item, onRemove, eventTypesDict }: { item: QueueItem; onRemove: () => void; eventTypesDict?: EventTypeDictItem[] }) {
   return (
     <div className="flex items-start justify-between rounded-md bg-card border border-border px-3 py-2.5 text-sm gap-3">
       <div className="flex items-start gap-2 min-w-0">
         <Badge variant="outline" className="shrink-0 mt-0.5 text-xs">
-          {TYPE_LABELS[item.event_type] ?? item.event_type}
+          {eventTypesDict?.find((t) => t.code === item.event_type)?.name_pl ?? item.event_type}
         </Badge>
         <div className="min-w-0">
           <p className="font-medium truncate">
@@ -364,6 +367,10 @@ const AdminEventForm = () => {
   const [autoExtend, setAutoExtend] = useState(false);
   const [autoClose, setAutoClose] = useState(false);
 
+  // --- Walidacja opisu i treści wiadomości (T1.5.1) ---
+  const [descError, setDescError] = useState<string | null>(null);
+  const [customMessageError, setCustomMessageError] = useState<string | null>(null);
+
   // --- Edytowalna treść powiadomienia ---
   const [customMessage, setCustomMessage] = useState('');
   const [isMessageEdited, setIsMessageEdited] = useState(false);
@@ -398,6 +405,12 @@ const AdminEventForm = () => {
         'Błąd daty: Czas zakończenia musi być późniejszy niż czas rozpoczęcia.'],
       [/start_time.*past/i,
         'Błąd daty: Czas rozpoczęcia nie może być w przeszłości.'],
+      [/opis zawiera niedozwolone znaki/i,
+        'Błąd opisu: Usuń niedozwolone znaki (< > % _ *) z pola Opis.'],
+      [/treść wiadomości zawiera niedozwolone znaki/i,
+        'Błąd wiadomości: Usuń niedozwolone znaki (< > % _ *) z treści powiadomienia.'],
+      [/treść szablonu zawiera niedozwolone znaki/i,
+        'Błąd szablonu: Treść zawiera niedozwolone znaki (< > % _ *).'],
     ];
 
     const translate = (msg: string): string => {
@@ -696,7 +709,8 @@ const AdminEventForm = () => {
 
     } else {
       // Domyślny: nowe zdarzenie lub edycja bez wykrytych zmian → szablon "nowe zgłoszenie"
-      const typeLabel = TYPE_LABELS[eventType] ?? eventType;
+      // T2.2: używamy name_pl ze słownika zamiast technicznego kodu
+      const typeLabel = eventTypesDict?.find((t) => t.code === eventType)?.name_pl ?? eventType;
       const descPart = description ? ` ${description}.` : '';
       let timePart: string;
       if (eventType === 'planowane_wylaczenie') {
@@ -713,6 +727,8 @@ const AdminEventForm = () => {
     }
 
     setCustomMessage(msg);
+    // Auto-generowany tekst nie zawiera znaków niedozwolonych — czyścimy błąd
+    setCustomMessageError(null);
   }, [isEdit, initialData, eventType, selectedStreet, streetQuery, houseFrom, houseTo, selectedNums, startTime, estimatedEnd, description, status, isMessageEdited]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------------------------------------------------------------------------
@@ -852,6 +868,18 @@ const AdminEventForm = () => {
       toast({ title: 'Wybierz typ zdarzenia', variant: 'destructive' });
       return;
     }
+    const currentDescError = checkDescription(description);
+    if (currentDescError) {
+      setDescError(currentDescError);
+      toast({ title: 'Błąd opisu', description: currentDescError, variant: 'destructive' });
+      return;
+    }
+    const currentMsgError = checkDescription(customMessage);
+    if (currentMsgError) {
+      setCustomMessageError('Treść wiadomości zawiera niedozwolone znaki (< > % _ *). Usuń je przed wysłaniem.');
+      toast({ title: 'Błąd treści wiadomości', description: 'Usuń niedozwolone znaki z pola „Edytuj treść wiadomości".', variant: 'destructive' });
+      return;
+    }
     if (!validateHouseFrom()) {
       toast({ title: 'Nieprawidłowy numer budynku', description: 'Wybierz numer z listy lub pozostaw puste.', variant: 'destructive' });
       return;
@@ -941,6 +969,20 @@ const AdminEventForm = () => {
         description: 'Wybierz ulicę lub dodaj ulice do kolejki.',
         variant: 'destructive',
       });
+      return;
+    }
+
+    // T1.5.1: ostateczna walidacja opisu i treści wiadomości przed wysłaniem
+    const currentDescError = checkDescription(description);
+    if (currentDescError) {
+      setDescError(currentDescError);
+      toast({ title: 'Błąd opisu', description: currentDescError, variant: 'destructive' });
+      return;
+    }
+    const currentMsgError = checkDescription(customMessage);
+    if (currentMsgError) {
+      setCustomMessageError('Treść wiadomości zawiera niedozwolone znaki (< > % _ *). Usuń je przed wysłaniem.');
+      toast({ title: 'Błąd treści wiadomości', description: 'Usuń niedozwolone znaki z pola „Edytuj treść wiadomości".', variant: 'destructive' });
       return;
     }
 
@@ -1366,7 +1408,10 @@ const AdminEventForm = () => {
                   value=""
                   onValueChange={(val) => {
                     const tpl = filtered.find((m) => String(m.id) === val);
-                    if (tpl) setDescription(tpl.body);
+                    if (tpl) {
+                      setDescription(tpl.body);
+                      setDescError(checkDescription(tpl.body));
+                    }
                   }}
                 >
                   <SelectTrigger
@@ -1392,11 +1437,19 @@ const AdminEventForm = () => {
           <Textarea
             id="desc"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setDescription(val);
+              setDescError(checkDescription(val));
+            }}
             placeholder="Opis zdarzenia..."
             rows={3}
             aria-label="Opis zdarzenia"
+            className={descError ? 'border-destructive' : ''}
           />
+          {descError && (
+            <p className="text-xs text-destructive mt-1">{descError}</p>
+          )}
         </div>
 
         {/* ---------------------------------------------------------------- */}
@@ -1478,7 +1531,7 @@ const AdminEventForm = () => {
             {(autoExtend || autoClose) && (
               <p className="text-xs text-muted-foreground italic">
                 {autoExtend
-                  ? 'Zdarzenie będzie przedłużane o 1h co 30 min (bez powiadomień).'
+                  ? 'Zdarzenie będzie przedłużane o 1h po minięciu szacowanego czasu zakończenia.'
                   : 'Zdarzenie zostanie automatycznie zamknięte (bez powiadomień).'}
               </p>
             )}
@@ -1563,6 +1616,7 @@ const AdminEventForm = () => {
                   key={item._id}
                   item={item}
                   onRemove={() => removeFromQueue(item._id)}
+                  eventTypesDict={eventTypesDict}
                 />
               ))}
             </div>
@@ -1597,12 +1651,22 @@ const AdminEventForm = () => {
             <Textarea
               id="custom-message"
               value={customMessage}
-              onChange={(e) => { setCustomMessage(e.target.value); setIsMessageEdited(true); }}
+              onChange={(e) => {
+                const val = e.target.value;
+                setCustomMessage(val);
+                setIsMessageEdited(true);
+                setCustomMessageError(checkDescription(val)
+                  ? 'Treść wiadomości zawiera niedozwolone znaki (< > % _ *). Usuń je przed wysłaniem.'
+                  : null);
+              }}
               rows={3}
               placeholder="Treść wiadomości generowana automatycznie — możesz ją zmienić przed zapisem."
               aria-label="Treść powiadomienia SMS/E-mail"
-              className="text-sm resize-none font-mono"
+              className={`text-sm resize-none font-mono${customMessageError ? ' border-destructive' : ''}`}
             />
+            {customMessageError && (
+              <p className="text-xs text-destructive mt-1">{customMessageError}</p>
+            )}
             <p className="text-xs text-muted-foreground">
               {isMessageEdited
                 ? 'Treść zmodyfikowana — zostanie wysłana zamiast automatycznego szablonu.'

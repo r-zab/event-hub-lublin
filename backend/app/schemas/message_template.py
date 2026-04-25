@@ -20,8 +20,9 @@ def _validate_body(v: str) -> str:
         raise ValueError("Treść szablonu nie może być pusta.")
     if len(v) > 2000:
         raise ValueError("Treść szablonu nie może przekraczać 2000 znaków.")
-    if "<" in v or ">" in v:
-        raise ValueError("Treść szablonu zawiera niedozwolone znaki (< >).")
+    # Spójność z event.description — blokujemy te same znaki (XSS + LIKE injection)
+    if any(c in v for c in "<>%_*"):
+        raise ValueError("Treść szablonu zawiera niedozwolone znaki (< > % _ *).")
     return v
 
 

@@ -76,6 +76,8 @@
 | T1.5 | ✅ (W) | **Walidacja Zero Trust dyspozytora** — sanityzacja inputów `description`, `house_number_from/to`, `street_name`. Whitelist regex (cyfry + opcjonalne litery dla numerów: `^\d{1,4}[A-Za-z]?$`). | `schemas/event.py`, `schemas/street.py` | 0.5 dnia |
 | T1.6 | ✅ (K) | **Token registration TTL** — komunikat w UI o ważności 24h. Cleanup cron: `clean_expired_pending_subscribers()` co 1h. | `notification_service.py`, `main.py` (scheduler) | 0.25 dnia |
 | T1.7 | ✅ (W) | **Logowanie operacji dyspozytora** (audit log) — dodawanie/edycja ulicy z poziomu dyspozytora. Reuse `BuildingAuditLog` jako wzorzec → nowy `StreetAuditLog`. | nowy model + migracja | 0.5 dnia |
+| T1.8 | ✅ (U) | **Cloudflare Turnstile w `Register.tsx`** — zastąpiono captchę matematyczną widżetem Turnstile (`@marsidev/react-turnstile`, testowy sitekey). Przycisk „Wyślij kod" zablokowany do uzyskania tokenu. | `frontend/src/pages/Register.tsx`, `frontend/.env` | 0.25 dnia |
+| T1.9 | ✅ (U) | **Cloudflare Turnstile w `Unsubscribe.tsx`** — zastąpiono captchę matematyczną Turnstile na kroku wpisywania tokenu wyrejestrowania. Wejście z linku URL pomija captchę (brak regresji UX). | `frontend/src/pages/Unsubscribe.tsx` | 0.25 dnia |
 
 **Cel końca tygodnia 1:** Bezpieczeństwo na poziomie produkcyjnym MPWiK. System odporny na griefing i SQL/XSS injection po stronie zaufanej.
 
@@ -90,8 +92,8 @@
 | T2.3 | ✅ (K) | **Ukrycie przycisku "Usuń"** + przycisk **"Zakończ"** zmieniający status → `usunieta` (już mamy soft-delete). Zmiana etykiety + ikony (CheckCircle zamiast Trash). | `AdminDashboard.tsx`, `AdminEventForm.tsx` | 0.25 dnia |
 | T2.4 | ✅ (K) | **Czwarty kafelek "Zamknięte zgłoszenia"** + filtr `status_filter='usunieta'` po kliknięciu. Klikalność wszystkich 4 kafelków. | `AdminDashboard.tsx` | 0.5 dnia |
 | T2.5 | ✅ (W) | **Pole `department` na `User`** (`VARCHAR(3)`, NULL ok). Dropdown w `AdminUsers.tsx`: `TSK, TSW, TP` (na razie hardkod, później słownik). Pole `created_by_department` na `Event` (denormalizacja, ustawiana z usera). | `models/user.py`, `models/event.py`, migracja, `AdminUsers.tsx`, `AdminDashboard.tsx` (kolumna + filtr) | 1 dzień |
-| T2.6 | **U** | **Filtr "Dział" na dashboardzie** — dropdown obok istniejących filtrów. | `AdminDashboard.tsx` | 0.25 dnia |
-| T2.7 | **U** | **Prefix telefonu auto-+48** — gdy user wpisze 9 cyfr bez prefiksu → backend dokleja `+48`. Międzynarodowi (z `+`) niezmienieni. (Już istnieje wg cz.2 transkrypcji — **weryfikacja**.) | `schemas/subscriber.py` | 0.25 dnia (weryfikacja) |
+| T2.6 | ✅ (U) | **Filtr "Dział" na dashboardzie** — dropdown obok istniejących filtrów. Zrealizowane w ramach T2.5 (dropdown Dział w toolbarze AdminDashboard + dept_filter na backendzie). | `AdminDashboard.tsx` | 0.25 dnia |
+| T2.7 | ✅ (U) | **Prefix telefonu auto-+48** — `phone_format` field_validator w `schemas/subscriber.py` dodaje `+48` dla 9 cyfr; numery z prefiksem niezmienione. Zweryfikowane. | `backend/app/schemas/subscriber.py` | 0.25 dnia (weryfikacja) |
 
 **Cel końca tygodnia 2:** System gotowy operacyjnie do przekazania MPWiK. Konfigurowalność bez ingerencji programisty.
 
@@ -141,13 +143,13 @@
 | Priorytet | Zadanie | Status | Mapowanie OWASP |
 |---|---|---|---|
 | **K** | Wymuszenie HTTPS + HSTS w nginx config (preprod) | TODO T3.1 | A02:2021 Cryptographic Failures |
-| **K** | Trusted Proxy headers (`X-Forwarded-For`, `X-Real-IP`) — gotowe na WAF | TODO T1.4 | — (kompatybilność infra) |
-| **K** | 2FA rejestracji subskrybenta (token SMS/email) | TODO T1.1 | A07:2021 Auth Failures |
-| **K** | Polityka haseł 12+ znaków admin/dispatcher | TODO T1.3 | A07:2021 Auth Failures |
-| **K** | Zero Trust input validation (regex whitelist na house_number, sanityzacja description) | TODO T1.5 | A03:2021 Injection |
-| **W** | Audit log operacji dyspozytora (StreetAuditLog) | TODO T1.7 | A09:2021 Logging Failures |
-| **W** | Limit liczby adresów per subskrybent (anti-flood) | TODO T1.2 | — (anti-griefing) |
-| **W** | Cleanup expired tokens (Pending subscribers) co 1h | TODO T1.6 | A04:2021 Insecure Design |
+| ✅ | Trusted Proxy headers (`X-Forwarded-For`, `X-Real-IP`) — gotowe na WAF | DONE (T1.4) | — (kompatybilność infra) |
+| ✅ | 2FA rejestracji subskrybenta (token SMS/email) | DONE (T1.1) | A07:2021 Auth Failures |
+| ✅ | Polityka haseł 12+ znaków admin/dispatcher | DONE (T1.3) | A07:2021 Auth Failures |
+| ✅ | Zero Trust input validation (regex whitelist na house_number, sanityzacja description) | DONE (T1.5) | A03:2021 Injection |
+| ✅ | Audit log operacji dyspozytora (StreetAuditLog) | DONE (T1.7) | A09:2021 Logging Failures |
+| ✅ | Limit liczby adresów per subskrybent (anti-flood) | DONE (T1.2) | — (anti-griefing) |
+| ✅ | Cleanup expired tokens (Pending subscribers) co 1h | DONE (T1.6) | A04:2021 Insecure Design |
 | ✅ | RODO masking w `notification_log` + logach app/gateway | DONE (P9) | — |
 | ✅ | Escapowanie LIKE injection w wyszukiwarce | DONE (P11) | A03:2021 Injection |
 | ✅ | RBAC `DELETE /events` (dispatcher/admin) | DONE (P2) | A01:2021 Broken Access Control |
@@ -333,5 +335,13 @@ Zrób <ID> z roadmap_finalna_maj.md zgodnie z sekcją 8 (zasady operacyjne).
 | T2.1-T2.3 testy | 2026-04-25 | Dodano 16 testów pytest: test_event_types.py (8 - seed, RBAC, walidatory code/color, CRUD, 409 dup, integracja z POST /events), test_message_templates.py (7 - auth, RBAC, walidator XSS, CRUD z filtrem event_type_id + uniwersalne, 400 unknown FK), test_event_close.py (1 - PUT status='usunieta' zachowuje rekord, znika z listy aktywnej, dodaje wpis historii). Wspólny helper _auth_helpers.py z cache JWT (workaround na rate-limit /auth/login=5min). Wynik: 16/16 PASS w 2.82s | `backend/tests/test_event_types.py`, `backend/tests/test_message_templates.py`, `backend/tests/test_event_close.py`, `backend/tests/_auth_helpers.py` |
 | T2.4 | 2026-04-25 | Dodano 4. kafelek "Zamknięte zgłoszenia" (icon Archive, count z statusFilter='usunieta'); wszystkie 4 kafelki klikalne z applyCardFilter() (reset filtrów + przełączenie na zakładkę lista); Tabs kontrolowany przez activeTab state; grid 2→4 kolumny | `frontend/src/pages/AdminDashboard.tsx` |
 | T2.5 | 2026-04-25 | Pole department (VARCHAR 3, NULL ok) na User; pole created_by_department (denormalizacja) na Event; migracja Alembic; dropdown TSK/TSW/TP w AdminUsers (tworzenie + edycja) + kolumna Dział w tabeli; dropdown Dział w toolbarze AdminDashboard + kolumna Dział w tabeli zdarzeń; backend: dept_filter w GET /events | `backend/app/models/user.py`, `backend/app/models/event.py`, `backend/alembic/versions/20260425d_add_department_fields.py`, `backend/app/routers/admin.py`, `backend/app/routers/events.py`, `backend/app/schemas/event.py`, `frontend/src/data/mockData.ts`, `frontend/src/hooks/useEvents.ts`, `frontend/src/pages/AdminUsers.tsx`, `frontend/src/pages/AdminDashboard.tsx` |
+| T1.5 (update) | 2026-04-25 | Zaostrzono walidatory Zero Trust: dodano blokadę % _ * (LIKE injection — OWASP A03) w _sanitize_description (event.py) i _validate_body (message_template.py); spójna reguła na backendzie dla obu pól | `backend/app/schemas/event.py`, `backend/app/schemas/message_template.py` |
+| T1.5.1 | 2026-04-25 | Bugfix spójności Pydantic vs React: dodano FORBIDDEN_DESC_RE + checkDescription() na frontendzie; walidacja w onChange i onValueChange szablonu; blokada addToQueue i handleBulkSubmit; komunikat błędu pod Textarea; rozszerzono handle422Error o mapowania description/template | `frontend/src/pages/AdminEventForm.tsx` |
+| T2.2 (bugfix) | 2026-04-25 | Naprawiono wyświetlanie name_pl zamiast kodu technicznego: typeLabel w generatorze wiadomości pobierany z eventTypesDict; QueueCard dostaje prop eventTypesDict i wyświetla name_pl; usunięto hardkodowaną mapę TYPE_LABELS | `frontend/src/pages/AdminEventForm.tsx` |
+| T2.3 (update) | 2026-04-25 | Zmieniono tekst auto-przedłużania na: "Zdarzenie będzie przedłużane o 1h po minięciu szacowanego czasu zakończenia." | `frontend/src/pages/AdminEventForm.tsx` |
+| T2.6 | 2026-04-25 | Zrealizowane w ramach T2.5 — dropdown "Dział" w toolbarze AdminDashboard (stan filtra + dept_filter w GET /events); kolumna Dział w tabeli zdarzeń | `frontend/src/pages/AdminDashboard.tsx`, `backend/app/routers/events.py` |
+| T2.7 | 2026-04-25 | Zweryfikowano: field_validator `phone_format` w SubscriberCreate dodaje +48 dla 9 cyfr, numery z prefiksem +48 lub innym przepuszcza bez zmian; walidacja w schemacie — brak zmian wymaganych | `backend/app/schemas/subscriber.py` |
+| T1.8 | 2026-04-25 | Zainstalowano @marsidev/react-turnstile; zastąpiono captchę matematyczną widżetem Cloudflare Turnstile (testowy sitekey 1x00000000000000000000AA w VITE_TURNSTILE_SITE_KEY); przycisk "Wyślij kod" zablokowany do uzyskania tokenu | `frontend/src/pages/Register.tsx`, `frontend/.env`, `frontend/package.json` |
+| T1.9 | 2026-04-25 | Zastąpiono captchę matematyczną Turnstile w Unsubscribe.tsx na kroku wpisywania tokenu; auto-weryfikacja z URL-a nie wymaga captchy; przycisk "Sprawdź dane" zablokowany do uzyskania tokenu | `frontend/src/pages/Unsubscribe.tsx` |
 
 

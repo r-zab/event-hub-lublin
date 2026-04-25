@@ -10,7 +10,7 @@ import re
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import delete, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,6 +37,11 @@ from app.services.notification_service import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# In-memory store for delete verification codes: token → (code, expires_at)
+# Nie nadaje się dla deploymentów wieloprocesorowych — wystarczy dla jednego workera.
+_delete_codes: dict[str, tuple[str, datetime]] = {}
+_DELETE_CODE_TTL = timedelta(minutes=15)
 
 # Prefiksy usuwane przy normalizacji nazwy ulicy przed wyszukiwaniem w kolumnie name
 _PREFIX_RE = re.compile(
@@ -480,6 +485,71 @@ async def register_subscriber(
     return subscriber
 
 
+@router.post(
+    "/{unsubscribe_token}/send-code",
+    status_code=status.HTTP_200_OK,
+    summary="Wyślij kod 2FA potwierdzający usunięcie konta",
+)
+@limiter.limit("3/minute")
+async def send_delete_code(
+    request: Request,
+    unsubscribe_token: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Wysyła jednorazowy 6-cyfrowy kod (SMS lub e-mail) wymagany do potwierdzenia
+    fizycznego usunięcia konta (RODO). Kod ważny 15 minut.
+    """
+    result = await db.execute(
+        select(Subscriber)
+        .options(selectinload(Subscriber.addresses))
+        .where(Subscriber.unsubscribe_token == unsubscribe_token)
+    )
+    subscriber = result.scalar_one_or_none()
+    if subscriber is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Subskrybent nie istnieje lub token jest nieprawidłowy.",
+        )
+
+    # Wyczyść ewentualnie stary kod
+    _delete_codes.pop(unsubscribe_token, None)
+    # Usuń przy okazji wygasłe wpisy innych tokenów
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    expired = [k for k, (_, exp) in _delete_codes.items() if exp < now]
+    for k in expired:
+        _delete_codes.pop(k, None)
+
+    code = _generate_verification_code()
+    _delete_codes[unsubscribe_token] = (code, now + _DELETE_CODE_TTL)
+
+    sms_text = f"MPWiK Lublin: kod usunięcia konta: {code}. Ważny 15 min. Nie udostępniaj nikomu."
+    email_subject = "[MPWiK Lublin] Kod potwierdzenia usunięcia konta"
+    email_body = (
+        f"Twój kod potwierdzający usunięcie konta: {code}\n\n"
+        "Kod jest ważny 15 minut.\n\n"
+        "Jeśli to nie Ty wysłał(a)ś prośbę o usunięcie, zignoruj tę wiadomość.\n\n"
+        "— MPWiK Lublin"
+    )
+
+    sent = False
+    if subscriber.phone and subscriber.notify_by_sms:
+        sms_gateway = get_sms_gateway()
+        sent = await sms_gateway.send(subscriber.phone, sms_text)
+        logger.info("send_delete_code: SMS do %s…, status=%s", subscriber.phone[:6], "sent" if sent else "failed")
+
+    if not sent and subscriber.email:
+        email_sender = EmailSender()
+        sent = await email_sender.send(subscriber.email, email_subject, email_body)
+        logger.info("send_delete_code: email do %s…, status=%s", subscriber.email[:4], "sent" if sent else "failed")
+
+    if not sent:
+        logger.warning("send_delete_code: nie udało się wysłać kodu (token=%s…)", unsubscribe_token[:8])
+
+    channel = "SMS" if (subscriber.phone and subscriber.notify_by_sms) else "e-mail"
+    return {"detail": f"Kod weryfikacyjny wysłany przez {channel}."}
+
+
 @router.get(
     "/{unsubscribe_token}",
     response_model=SubscriberResponse,
@@ -514,13 +584,14 @@ async def get_subscriber(
 )
 async def delete_subscriber(
     unsubscribe_token: str,
+    code: str | None = Query(default=None, description="Jednorazowy kod 2FA z send-code"),
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """
-    Fizycznie usuń subskrybenta i wszystkie jego adresy z bazy danych.
+    Fizycznie usuwa subskrybenta. Wymaga wcześniejszego wywołania POST /{token}/send-code
+    i podania otrzymanego kodu jako parametru query `code`.
 
-    Wymóg RODO — brak soft delete. Adresy usuwane automatycznie
-    przez `ON DELETE CASCADE`. Endpoint publiczny (token jako autoryzacja).
+    Wymóg RODO — brak soft delete. Adresy usuwane automatycznie przez ON DELETE CASCADE.
     """
     result = await db.execute(
         select(Subscriber).where(Subscriber.unsubscribe_token == unsubscribe_token)
@@ -532,11 +603,32 @@ async def delete_subscriber(
             detail="Subskrybent nie istnieje lub token jest nieprawidłowy.",
         )
 
+    # Weryfikacja kodu 2FA
+    stored = _delete_codes.get(unsubscribe_token)
+    if stored is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Wymagany kod potwierdzenia. Kliknij 'Wyślij kod potwierdzający' i wprowadź otrzymany kod.",
+        )
+    stored_code, expires_at = stored
+    if datetime.now(timezone.utc).replace(tzinfo=None) > expires_at:
+        _delete_codes.pop(unsubscribe_token, None)
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="Kod potwierdzenia wygasł. Wyślij nowy kod.",
+        )
+    if code != stored_code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nieprawidłowy kod potwierdzenia.",
+        )
+
+    _delete_codes.pop(unsubscribe_token, None)
     await db.delete(subscriber)
     await db.commit()
 
     logger.info(
-        "Fizycznie usunięto subskrybenta id=%d (RODO) — token=%s…",
+        "Fizycznie usunięto subskrybenta id=%d (RODO+2FA) — token=%s…",
         subscriber.id,
         unsubscribe_token[:8],
     )
