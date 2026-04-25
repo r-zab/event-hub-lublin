@@ -17,6 +17,7 @@ from sqlalchemy.orm import selectinload
 
 from app.dependencies import get_current_dispatcher_or_admin, get_current_user, get_db
 from app.models.event import Event, EventHistory
+from app.models.event_type import EventType as EventTypeModel
 from app.models.street import Street
 from app.models.user import User
 from app.schemas.event import EventCreate, EventResponse, EventUpdate, PaginatedEventResponse
@@ -134,6 +135,29 @@ async def create_event(
     current_user: User = Depends(get_current_dispatcher_or_admin),
 ) -> EventResponse:
     """Utwórz nowe zdarzenie. Wymaga roli dispatcher lub admin."""
+    has_buildings = bool(
+        data.geojson_segment
+        and isinstance(data.geojson_segment.get("features"), list)
+        and data.geojson_segment["features"]
+    )
+    has_range = bool(data.house_number_from or data.house_number_to)
+    if not has_buildings and not has_range:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Zdarzenie musi dotyczyć co najmniej jednego budynku.",
+        )
+    # T2.1: walidacja kodu typu zdarzenia względem słownika event_types (must be active).
+    type_check = await db.execute(
+        select(EventTypeModel).where(
+            EventTypeModel.code == data.event_type,
+            EventTypeModel.is_active.is_(True),
+        )
+    )
+    if type_check.scalar_one_or_none() is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Nieznany lub nieaktywny typ zdarzenia: '{data.event_type}'.",
+        )
     event = Event(**data.model_dump(), created_by=current_user.id)
     db.add(event)
     await db.commit()

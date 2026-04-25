@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { MapContainer, TileLayer, GeoJSON, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -20,7 +21,24 @@ import { getEvent, updateEvent } from '@/hooks/useEvents';
 import { type Street } from '@/data/mockData';
 import { toUTCISO, streetLabel } from '@/lib/utils';
 import { LUBLIN_BOUNDS, MIN_ZOOM } from '@/lib/mapConfig';
-import { Search, Loader2, MapPin, Plus, X, Send } from 'lucide-react';
+import { Search, Loader2, MapPin, Plus, X, Send, FileText } from 'lucide-react';
+
+interface EventTypeDictItem {
+  id: number;
+  code: string;
+  name_pl: string;
+  default_color_rgb: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+interface MessageTemplateDictItem {
+  id: number;
+  code: string;
+  body: string;
+  event_type_id: number | null;
+  is_active: boolean;
+}
 
 // ---------------------------------------------------------------------------
 // Typy
@@ -296,6 +314,16 @@ const AdminEventForm = () => {
   const isEdit = !!id;
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // --- Słowniki (T2.1, T2.2) ---
+  const { data: eventTypesDict } = useQuery({
+    queryKey: ['event-types-active'],
+    queryFn: () => apiFetch<EventTypeDictItem[]>('/event-types'),
+  });
+  const { data: messageTemplates } = useQuery({
+    queryKey: ['message-templates-active'],
+    queryFn: () => apiFetch<MessageTemplateDictItem[]>('/message-templates'),
+  });
 
   // --- Pola formularza ---
   const [eventType, setEventType] = useState('');
@@ -837,6 +865,15 @@ const AdminEventForm = () => {
       });
       return;
     }
+    const hasScope = selectedBuildingIds.size > 0 || houseFrom.trim() || houseTo.trim() || listInput.trim();
+    if (!hasScope) {
+      toast({
+        title: 'Wybierz przynajmniej jeden budynek',
+        description: 'Zaznacz budynki na mapie, podaj zakres lub listę numerów posesji.',
+        variant: 'destructive',
+      });
+      return;
+    }
     const item = buildCurrentItem();
     setEventsQueue((prev) => [...prev, item]);
     toast({ title: 'Dodano do kolejki', description: `${streetLabel(item.street_type, item.street_name)} — ${item.displayLabel}` });
@@ -882,6 +919,15 @@ const AdminEventForm = () => {
         toast({
           title: 'Błąd daty',
           description: 'Szacowany czas zakończenia nie może być wcześniejszy niż czas rozpoczęcia prac.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      const hasScope = selectedBuildingIds.size > 0 || houseFrom.trim() || houseTo.trim() || listInput.trim();
+      if (!hasScope) {
+        toast({
+          title: 'Wybierz przynajmniej jeden budynek',
+          description: 'Zaznacz budynki na mapie, podaj zakres lub listę numerów posesji.',
           variant: 'destructive',
         });
         return;
@@ -1006,9 +1052,11 @@ const AdminEventForm = () => {
               <SelectValue placeholder="Wybierz typ" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="awaria">Awaria</SelectItem>
-              <SelectItem value="planowane_wylaczenie">Planowane wyłączenie</SelectItem>
-              <SelectItem value="remont">Remont</SelectItem>
+              {(eventTypesDict ?? []).map((t) => (
+                <SelectItem key={t.id} value={t.code}>
+                  {t.name_pl}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -1305,7 +1353,42 @@ const AdminEventForm = () => {
         {/* Opis zdarzenia                                                   */}
         {/* ---------------------------------------------------------------- */}
         <div>
-          <Label htmlFor="desc">Opis</Label>
+          <div className="flex items-end justify-between gap-2 mb-1">
+            <Label htmlFor="desc">Opis</Label>
+            {(() => {
+              const currentTypeId = eventTypesDict?.find((t) => t.code === eventType)?.id ?? null;
+              const filtered = (messageTemplates ?? []).filter(
+                (m) => m.event_type_id === null || m.event_type_id === currentTypeId,
+              );
+              if (filtered.length === 0) return null;
+              return (
+                <Select
+                  value=""
+                  onValueChange={(val) => {
+                    const tpl = filtered.find((m) => String(m.id) === val);
+                    if (tpl) setDescription(tpl.body);
+                  }}
+                >
+                  <SelectTrigger
+                    className="h-8 w-auto min-w-[180px] text-xs"
+                    aria-label="Wstaw szablon komunikatu"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5" />
+                      <SelectValue placeholder="Wstaw szablon" />
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filtered.map((m) => (
+                      <SelectItem key={m.id} value={String(m.id)}>
+                        {m.code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              );
+            })()}
+          </div>
           <Textarea
             id="desc"
             value={description}

@@ -19,6 +19,8 @@ import AdminEventForm from "./pages/AdminEventForm";
 import AdminSubscribers from "./pages/AdminSubscribers";
 import AdminNotifications from "./pages/AdminNotifications";
 import AdminUsers from "./pages/AdminUsers";
+import AdminEventTypes from "./pages/AdminEventTypes";
+import AdminMessageTemplates from "./pages/AdminMessageTemplates";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -76,6 +78,22 @@ const App = () => (
                 element={
                   <AdminOnlyRoute>
                     <AdminUsers />
+                  </AdminOnlyRoute>
+                }
+              />
+              <Route
+                path="/admin/event-types"
+                element={
+                  <AdminOnlyRoute>
+                    <AdminEventTypes />
+                  </AdminOnlyRoute>
+                }
+              />
+              <Route
+                path="/admin/message-templates"
+                element={
+                  <AdminOnlyRoute>
+                    <AdminMessageTemplates />
                   </AdminOnlyRoute>
                 }
               />

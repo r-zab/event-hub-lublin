@@ -24,6 +24,7 @@ from app.config import settings
 from app.database import AsyncSessionLocal
 from app.models.event import Event
 from app.models.notification import NotificationLog
+from app.models.pending_subscriber import PendingSubscriber
 from app.models.subscriber import Subscriber, SubscriberAddress
 from app.services.gateways import EmailSender, get_sms_gateway
 from app.utils.masking import mask_recipient
@@ -1146,3 +1147,30 @@ async def process_morning_queue() -> None:
             )
     except Exception:
         logger.exception("process_morning_queue: nieoczekiwany błąd sesji DB")
+
+
+async def clean_expired_pending_subscribers() -> None:
+    """Usuwa przeterminowane rekordy PendingSubscriber (TTL 24h).
+
+    Uruchamiane co 1h przez APScheduler. Zapobiega rozrostowi tabeli
+    pending_subscribers przez nieukończone rejestracje.
+    """
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(PendingSubscriber).where(PendingSubscriber.expires_at < now)
+            )
+            expired = result.scalars().all()
+            if not expired:
+                logger.debug("clean_expired_pending_subscribers: brak wygasłych rekordów")
+                return
+            for record in expired:
+                await db.delete(record)
+            await db.commit()
+            logger.info(
+                "clean_expired_pending_subscribers: usunięto %d wygasłych rekordów",
+                len(expired),
+            )
+    except Exception:
+        logger.exception("clean_expired_pending_subscribers: nieoczekiwany błąd")

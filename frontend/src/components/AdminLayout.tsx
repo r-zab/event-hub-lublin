@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, LogOut, Droplets, Home, Users, MessageSquare, UserCog, Menu } from 'lucide-react';
+import { LayoutDashboard, LogOut, Droplets, Home, Users, MessageSquare, UserCog, Menu, Tags, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -11,6 +11,8 @@ const allSidebarItems = [
   { to: '/admin/subscribers', label: 'Subskrybenci', icon: Users, adminOnly: true },
   { to: '/admin/notifications', label: 'Logi powiadomień', icon: MessageSquare, adminOnly: true },
   { to: '/admin/users', label: 'Użytkownicy', icon: UserCog, adminOnly: true },
+  { to: '/admin/event-types', label: 'Typy zdarzeń', icon: Tags, adminOnly: true },
+  { to: '/admin/message-templates', label: 'Szablony', icon: FileText, adminOnly: true },
 ];
 
 export function AdminLayout() {

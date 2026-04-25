@@ -1,11 +1,11 @@
 import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search, ChevronDown, ChevronRight, Mail, Loader2, AlertTriangle, Wrench, Calendar, Pencil, Trash2, Timer } from 'lucide-react';
+import { Plus, Search, ChevronDown, ChevronRight, Mail, Loader2, AlertTriangle, Wrench, Calendar, Pencil, CheckCircle, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Badge } from '@/components/ui/badge';
-import { useEvents, deleteEvent } from '@/hooks/useEvents';
+import { useEvents, updateEvent } from '@/hooks/useEvents';
 import {
   type EventStatus,
   type EventType,
@@ -42,8 +42,8 @@ const AdminDashboard = () => {
   const [typeFilter, setTypeFilter] = useState<EventType | ''>('');
   const [page, setPage] = useState(1);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
-  const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [closeId, setCloseId] = useState<number | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
 
   const { events, totalPages, currentPage, isLoading, error, refetch } = useEvents({
     search, statusFilter, typeFilter, page,
@@ -54,18 +54,18 @@ const AdminDashboard = () => {
   const { totalCount: avariaCount } = useEvents({ typeFilter: 'awaria', limit: 1 });
   const { totalCount: planowaneCount } = useEvents({ typeFilter: 'planowane_wylaczenie', limit: 1 });
 
-  const handleDeleteConfirm = async () => {
-    if (deleteId === null) return;
-    setIsDeleting(true);
+  const handleCloseConfirm = async () => {
+    if (closeId === null) return;
+    setIsClosing(true);
     try {
-      await deleteEvent(deleteId);
-      toast({ title: 'Zdarzenie usunięte', description: `Zdarzenie #${deleteId} zostało usunięte.` });
-      setDeleteId(null);
+      await updateEvent(closeId, { status: 'usunieta' });
+      toast({ title: 'Zdarzenie zakończone', description: `Zdarzenie #${closeId} zostało oznaczone jako zakończone.` });
+      setCloseId(null);
       refetch();
-    } catch (err: any) {
-      toast({ title: 'Błąd usuwania', description: err.message || 'Nie udało się usunąć zdarzenia.', variant: 'destructive' });
+    } catch (err) {
+      toast({ title: 'Błąd zakończenia', description: (err as Error).message || 'Nie udało się zakończyć zdarzenia.', variant: 'destructive' });
     } finally {
-      setIsDeleting(false);
+      setIsClosing(false);
     }
   };
 
@@ -286,10 +286,11 @@ const AdminDashboard = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            aria-label={`Usuń zdarzenie ${event.id}`}
-                            onClick={() => setDeleteId(event.id)}
+                            aria-label={`Zakończ zdarzenie ${event.id}`}
+                            onClick={() => setCloseId(event.id)}
+                            disabled={event.status === 'usunieta'}
                           >
-                            <Trash2 className="h-4 w-4 text-destructive" />
+                            <CheckCircle className="h-4 w-4 text-emerald-600" />
                           </Button>
                         </div>
                       </TableCell>
@@ -327,23 +328,23 @@ const AdminDashboard = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Delete confirmation dialog */}
-      <AlertDialog open={deleteId !== null} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
+      {/* Close (soft-delete) confirmation dialog */}
+      <AlertDialog open={closeId !== null} onOpenChange={(open) => { if (!open) setCloseId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Usuń zdarzenie #{deleteId}</AlertDialogTitle>
+            <AlertDialogTitle>Zakończ zdarzenie #{closeId}</AlertDialogTitle>
             <AlertDialogDescription>
-              Ta operacja jest nieodwracalna. Zdarzenie wraz z historią zmian zostanie trwale usunięte z bazy danych.
+              Zdarzenie zostanie oznaczone jako zakończone (status „usunieta") i przeniesione do listy zamkniętych zgłoszeń. Historia i dane zostaną zachowane.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Anuluj</AlertDialogCancel>
+            <AlertDialogCancel disabled={isClosing}>Anuluj</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleCloseConfirm}
+              disabled={isClosing}
+              className="bg-emerald-600 text-white hover:bg-emerald-700"
             >
-              {isDeleting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Usuwanie…</> : 'Usuń zdarzenie'}
+              {isClosing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Zamykanie…</> : 'Zakończ zdarzenie'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

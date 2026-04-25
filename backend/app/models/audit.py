@@ -1,4 +1,4 @@
-"""Audit log dla zmian danych adresowych budynków."""
+"""Audit log dla zmian danych adresowych budynków i ulic."""
 
 from datetime import datetime
 
@@ -18,6 +18,22 @@ class BuildingAuditLog(Base):
     )
     building_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     action: Mapped[str] = mapped_column(String(10), nullable=False)  # create, update, delete
+    old_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    new_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class StreetAuditLog(Base):
+    __tablename__ = "street_audit_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    street_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    action: Mapped[str] = mapped_column(String(10), nullable=False)  # create, update
     old_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     new_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(

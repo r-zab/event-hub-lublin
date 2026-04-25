@@ -18,8 +18,21 @@ from app.middleware import TrustedProxyMiddleware
 
 from app.config import settings
 from app.limiter import limiter
-from app.routers import admin, auth, buildings, events, streets, subscribers
-from app.services.notification_service import auto_extend_overdue_events, process_morning_queue
+from app.routers import (
+    admin,
+    auth,
+    buildings,
+    event_types,
+    events,
+    message_templates,
+    streets,
+    subscribers,
+)
+from app.services.notification_service import (
+    auto_extend_overdue_events,
+    clean_expired_pending_subscribers,
+    process_morning_queue,
+)
 
 # ---------------------------------------------------------------------------
 # Konfiguracja logowania
@@ -80,11 +93,19 @@ async def lifespan(app: FastAPI):
         id="auto_extend_overdue_events",
         replace_existing=True,
     )
+    scheduler.add_job(
+        clean_expired_pending_subscribers,
+        trigger="interval",
+        hours=1,
+        id="clean_expired_pending_subscribers",
+        replace_existing=True,
+    )
     scheduler.start()
     logger.info("Uruchamianie %s v%s", settings.APP_NAME, settings.APP_VERSION)
     logger.info("Trusted proxies (T1.4): %s", settings.TRUSTED_PROXIES)
     logger.info(
-        "APScheduler uruchomiony — poranna kolejka SMS o 06:00, auto-close/extend co 1 min (Europe/Warsaw)"
+        "APScheduler uruchomiony — poranna kolejka SMS o 06:00, auto-close/extend co 1 min,"
+        " cleanup pending subscribers co 1h (Europe/Warsaw)"
     )
     yield
     scheduler.shutdown(wait=False)
@@ -163,5 +184,7 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(streets.router, prefix="/api/v1/streets", tags=["Streets"])
 app.include_router(buildings.router, prefix="/api/v1/buildings", tags=["Buildings"])
 app.include_router(events.router, prefix="/api/v1/events", tags=["Events"])
+app.include_router(event_types.router, prefix="/api/v1/event-types", tags=["EventTypes"])
+app.include_router(message_templates.router, prefix="/api/v1/message-templates", tags=["MessageTemplates"])
 app.include_router(subscribers.router, prefix="/api/v1/subscribers", tags=["Subscribers"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])

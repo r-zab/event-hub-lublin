@@ -1,5 +1,6 @@
 """Schematy Pydantic dla zdarzeń (awarie, wyłączenia, remonty)."""
 
+import re
 from datetime import datetime, timezone
 from typing import Literal
 
@@ -20,8 +21,57 @@ def _utc_iso(dt: datetime | None) -> str | None:
     return dt.isoformat()
 
 
-EventType = Literal["awaria", "planowane_wylaczenie", "remont"]
+# T2.1: typy zdarzeń są teraz dynamiczne (event_types). Walidacja istnienia kodu
+# w tabeli event_types odbywa się w routerze events (FK + dodatkowy check przy create).
+EventType = str
 EventStatus = Literal["zgloszona", "w_naprawie", "usunieta"]
+
+_HOUSE_NUMBER_RE = re.compile(r"^\d{1,4}[A-Za-z]?$")
+_EVENT_TYPE_CODE_RE = re.compile(r"^[a-z][a-z0-9_]{0,29}$")
+# Polskie litery, cyfry, spacje i znaki typowe dla nazw ulic (kropka, myślnik, apostrof)
+_STREET_NAME_RE = re.compile(r"^[A-Za-zĄąĆćĘęŁłŃńÓóŚśŹźŻż0-9\s.\-']+$")
+
+
+def _validate_event_type_code(v: str | None) -> str | None:
+    if v is None:
+        return v
+    v = v.strip().lower()
+    if not _EVENT_TYPE_CODE_RE.match(v):
+        raise ValueError("Kod typu zdarzenia musi pasować do wzorca: małe litery, cyfry, podkreślenia.")
+    return v
+
+
+def _validate_house_number(v: str | None) -> str | None:
+    if v is None:
+        return v
+    v = v.strip()
+    if not _HOUSE_NUMBER_RE.match(v):
+        raise ValueError("Numer budynku: max 4 cyfry z opcjonalną literą (np. '10', '10A').")
+    return v
+
+
+def _sanitize_description(v: str | None) -> str | None:
+    if v is None:
+        return v
+    v = v.strip()
+    if len(v) > 2000:
+        raise ValueError("Opis nie może przekraczać 2000 znaków.")
+    if "<" in v or ">" in v:
+        raise ValueError("Opis zawiera niedozwolone znaki (< >).")
+    return v
+
+
+def _validate_street_name_input(v: str | None) -> str | None:
+    if v is None:
+        return v
+    v = v.strip()
+    if not v:
+        raise ValueError("Nazwa ulicy nie może być pusta.")
+    if len(v) > 200:
+        raise ValueError("Nazwa ulicy nie może przekraczać 200 znaków.")
+    if not _STREET_NAME_RE.match(v):
+        raise ValueError("Nazwa ulicy zawiera niedozwolone znaki.")
+    return v
 
 
 class EventBase(BaseModel):
@@ -81,6 +131,26 @@ def _validate_estimated_end(v: datetime | None) -> datetime | None:
 class EventCreate(EventBase):
     """Dane wymagane do utworzenia nowego zdarzenia."""
 
+    @field_validator("event_type", mode="after")
+    @classmethod
+    def validate_event_type(cls, v: str) -> str:
+        return _validate_event_type_code(v) or ""
+
+    @field_validator("house_number_from", "house_number_to", mode="after")
+    @classmethod
+    def validate_house_numbers(cls, v: str | None) -> str | None:
+        return _validate_house_number(v)
+
+    @field_validator("description", mode="after")
+    @classmethod
+    def sanitize_description(cls, v: str | None) -> str | None:
+        return _sanitize_description(v)
+
+    @field_validator("street_name", mode="after")
+    @classmethod
+    def validate_street_name(cls, v: str) -> str:
+        return _validate_street_name_input(v)
+
     @field_validator("estimated_end", mode="after")
     @classmethod
     def estimated_end_not_in_past(cls, v: datetime | None) -> datetime | None:
@@ -114,6 +184,26 @@ class EventUpdate(BaseModel):
     custom_message: str | None = None
     auto_extend: bool | None = None
     auto_close: bool | None = None
+
+    @field_validator("event_type", mode="after")
+    @classmethod
+    def validate_event_type(cls, v: str | None) -> str | None:
+        return _validate_event_type_code(v)
+
+    @field_validator("house_number_from", "house_number_to", mode="after")
+    @classmethod
+    def validate_house_numbers(cls, v: str | None) -> str | None:
+        return _validate_house_number(v)
+
+    @field_validator("description", mode="after")
+    @classmethod
+    def sanitize_description(cls, v: str | None) -> str | None:
+        return _sanitize_description(v)
+
+    @field_validator("street_name", mode="after")
+    @classmethod
+    def validate_street_name(cls, v: str | None) -> str | None:
+        return _validate_street_name_input(v)
 
     @field_validator("estimated_end", mode="after")
     @classmethod
