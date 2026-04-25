@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertTriangle, Loader2, ShieldCheck } from 'lucide-react';
+import { Turnstile } from '@marsidev/react-turnstile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { apiFetch } from '@/lib/api';
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1';
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string;
+
+// ---------------------------------------------------------------------------
+// Typy
+// ---------------------------------------------------------------------------
 
 interface AddressInfo {
   id: number;
@@ -22,14 +27,29 @@ interface SubscriberInfo {
   addresses: AddressInfo[];
 }
 
+type UnsubStep = 'token' | 'info' | 'code_sent';
+
+// ---------------------------------------------------------------------------
+// Komponent
+// ---------------------------------------------------------------------------
+
 const Unsubscribe = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  const [step, setStep] = useState<UnsubStep>('token');
   const [token, setToken] = useState(searchParams.get('token') ?? '');
   const [subscriber, setSubscriber] = useState<SubscriberInfo | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Turnstile
+  const [turnstileToken, setTurnstileToken] = useState('');
+
+  // 2FA delete code
+  const [deleteCode, setDeleteCode] = useState('');
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const verifyToken = async (t: string) => {
     setLoading(true);
@@ -37,6 +57,7 @@ const Unsubscribe = () => {
     try {
       const data = await apiFetch<SubscriberInfo>(`/subscribers/${t}`);
       setSubscriber(data);
+      setStep('info');
     } catch {
       toast({
         title: 'Nieprawidłowy token',
@@ -48,7 +69,7 @@ const Unsubscribe = () => {
     }
   };
 
-  // Auto-weryfikacja gdy token pochodzi z URL
+  // Auto-weryfikacja gdy token pochodzi z URL (pomijamy captcha dla linków bezpośrednich)
   useEffect(() => {
     const urlToken = searchParams.get('token');
     if (urlToken) {
@@ -58,31 +79,54 @@ const Unsubscribe = () => {
 
   const handleVerify = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!turnstileToken) {
+      toast({
+        title: 'Weryfikacja wymagana',
+        description: 'Zaznacz pole weryfikacji Cloudflare.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const t = token.trim();
     if (t) verifyToken(t);
   };
 
-  const handleDelete = async () => {
-    setLoading(true);
+  const handleSendCode = async () => {
+    setIsSendingCode(true);
     try {
-      const res = await fetch(`${BASE_URL}/subscribers/${token.trim()}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        throw new Error(body || `HTTP ${res.status}`);
-      }
-      toast({
-        title: 'Dane usunięte',
-        description: 'Twoje dane zostały trwale i nieodwracalnie usunięte z systemu.',
-      });
-      navigate('/');
-    } catch {
-      toast({
-        title: 'Błąd usuwania',
-        description: 'Nie udało się usunąć danych. Spróbuj ponownie.',
-        variant: 'destructive',
-      });
+      const result = await apiFetch<{ detail: string }>(`/subscribers/${token.trim()}/send-code`, { method: 'POST' });
+      toast({ title: 'Kod wysłany', description: result?.detail ?? 'Sprawdź SMS lub e-mail.' });
+      setStep('code_sent');
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : '';
+      let description = 'Nie udało się wysłać kodu. Spróbuj ponownie.';
+      try { const p = JSON.parse(raw); if (p?.detail) description = p.detail; } catch { if (raw) description = raw; }
+      toast({ title: 'Błąd wysyłania kodu', description, variant: 'destructive' });
     } finally {
-      setLoading(false);
+      setIsSendingCode(false);
+    }
+  };
+
+  const handleConfirmDelete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (deleteCode.trim().length !== 6) {
+      toast({ title: 'Nieprawidłowy kod', description: 'Kod musi mieć 6 cyfr.', variant: 'destructive' });
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await apiFetch(`/subscribers/${token.trim()}?code=${deleteCode.trim()}`, { method: 'DELETE' });
+      toast({ title: 'Dane usunięte', description: 'Twoje dane zostały trwale i nieodwracalnie usunięte z systemu.' });
+      navigate('/');
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : '';
+      let description = 'Nie udało się usunąć danych. Sprawdź kod i spróbuj ponownie.';
+      try { const p = JSON.parse(raw); if (p?.detail) description = p.detail; } catch { if (raw) description = raw; }
+      toast({ title: 'Błąd usuwania', description, variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -104,8 +148,9 @@ const Unsubscribe = () => {
         </p>
       </div>
 
-      {!subscriber ? (
-        <form onSubmit={handleVerify} className="space-y-4">
+      {/* Krok 1: Wpisz token + captcha */}
+      {step === 'token' && (
+        <form onSubmit={handleVerify} className="space-y-5">
           <div>
             <Label htmlFor="unsub-token">Token wyrejestrowania</Label>
             <Input
@@ -121,7 +166,22 @@ const Unsubscribe = () => {
               Token znajdziesz na ekranie po rejestracji lub w e-mailu potwierdzającym.
             </p>
           </div>
-          <Button type="submit" variant="outline" size="lg" className="w-full" disabled={loading}>
+
+          {/* Weryfikacja Cloudflare Turnstile */}
+          <Turnstile
+            siteKey={TURNSTILE_SITE_KEY}
+            onSuccess={(token) => setTurnstileToken(token)}
+            onExpire={() => setTurnstileToken('')}
+            onError={() => setTurnstileToken('')}
+          />
+
+          <Button
+            type="submit"
+            variant="outline"
+            size="lg"
+            className="w-full"
+            disabled={loading || !turnstileToken}
+          >
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -132,12 +192,15 @@ const Unsubscribe = () => {
             )}
           </Button>
         </form>
-      ) : (
-        <div className="space-y-4">
+      )}
+
+      {/* Krok 2: Pokaż dane subskrybenta + wyślij kod 2FA */}
+      {step === 'info' && subscriber && (
+        <div className="space-y-5">
           <div className="rounded-lg border p-4 space-y-2">
             <p className="text-sm font-semibold">Dane powiązane z tym tokenem:</p>
-            <p className="text-sm text-muted-foreground">E-mail: {subscriber.email}</p>
-            <p className="text-sm text-muted-foreground">Telefon: {subscriber.phone}</p>
+            <p className="text-sm text-muted-foreground">E-mail: {subscriber.email || '—'}</p>
+            <p className="text-sm text-muted-foreground">Telefon: {subscriber.phone || '—'}</p>
             {subscriber.addresses.length > 0 && (
               <div>
                 <p className="text-sm font-medium mt-2">Subskrybowane adresy:</p>
@@ -153,31 +216,101 @@ const Unsubscribe = () => {
             )}
           </div>
 
-          <p className="text-sm text-center text-muted-foreground">
-            Czy na pewno chcesz trwale usunąć powyższe dane?
-          </p>
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 space-y-1.5">
+            <div className="flex items-center gap-2 font-semibold">
+              <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
+              Wymagana weryfikacja tożsamości (2FA)
+            </div>
+            <p className="text-xs text-blue-700">
+              Aby trwale usunąć dane, wyślemy jednorazowy kod potwierdzający na Twój numer telefonu lub adres e-mail.
+              Kod jest ważny 15 minut.
+            </p>
+          </div>
 
           <div className="flex gap-3">
             <Button
               variant="outline"
               size="lg"
               className="flex-1"
-              onClick={() => {
-                setSubscriber(null);
-                setToken('');
-              }}
-              disabled={loading}
+              onClick={() => { setSubscriber(null); setStep('token'); setToken(''); setTurnstileToken(''); }}
+              disabled={isSendingCode}
             >
               Anuluj
             </Button>
             <Button
+              size="lg"
+              className="flex-1 font-semibold"
+              onClick={handleSendCode}
+              disabled={isSendingCode}
+            >
+              {isSendingCode ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Wysyłanie…
+                </>
+              ) : (
+                'Wyślij kod potwierdzający'
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Krok 3: Wpisz kod 2FA i potwierdź usunięcie */}
+      {step === 'code_sent' && (
+        <form onSubmit={handleConfirmDelete} className="space-y-5">
+          <p className="text-sm text-center text-muted-foreground">
+            Wpisz 6-cyfrowy kod wysłany SMS-em lub e-mailem, aby potwierdzić usunięcie danych.
+          </p>
+
+          <div className="space-y-2">
+            <Label htmlFor="delete-code">Kod potwierdzający</Label>
+            <Input
+              id="delete-code"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              value={deleteCode}
+              onChange={(e) => setDeleteCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="000000"
+              autoComplete="one-time-code"
+              className="text-center text-2xl tracking-widest font-mono"
+              required
+              aria-label="Kod potwierdzający usunięcie"
+            />
+            <p className="text-xs text-muted-foreground">
+              Kod jest ważny 15 minut.{' '}
+              <button
+                type="button"
+                className="underline text-primary"
+                onClick={handleSendCode}
+                disabled={isSendingCode}
+              >
+                Wyślij ponownie
+              </button>
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="flex-1"
+              onClick={() => setStep('info')}
+              disabled={isDeleting}
+            >
+              Wróć
+            </Button>
+            <Button
+              type="submit"
               variant="destructive"
               size="lg"
               className="flex-1 font-semibold"
-              onClick={handleDelete}
-              disabled={loading}
+              disabled={isDeleting || deleteCode.length !== 6}
             >
-              {loading ? (
+              {isDeleting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Usuwanie…
@@ -187,7 +320,7 @@ const Unsubscribe = () => {
               )}
             </Button>
           </div>
-        </div>
+        </form>
       )}
     </div>
   );

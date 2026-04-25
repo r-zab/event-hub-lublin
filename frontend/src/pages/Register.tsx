@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { z } from 'zod';
 import { Plus, CheckCircle2, Home, RotateCcw, ArrowLeft } from 'lucide-react';
+import { Turnstile } from '@marsidev/react-turnstile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -49,6 +50,8 @@ const emptyAddress = (): Address => ({
 
 type Step = 'form' | 'verify' | 'success';
 
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string;
+
 const Register = () => {
   const { toast } = useToast();
 
@@ -62,6 +65,9 @@ const Register = () => {
   const [notifyBySms, setNotifyBySms] = useState(false);
   const [houseNumberValidity, setHouseNumberValidity] = useState<boolean[]>([true]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Turnstile
+  const [turnstileToken, setTurnstileToken] = useState('');
 
   // step 2 state
   const [step, setStep] = useState<Step>('form');
@@ -100,6 +106,11 @@ const Register = () => {
 
   const handleSubmitStep1 = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!turnstileToken) {
+      toast({ title: 'Weryfikacja wymagana', description: 'Zaznacz pole weryfikacji Cloudflare.', variant: 'destructive' });
+      return;
+    }
 
     const channelValidation = registerSchema.safeParse({
       notify_by_sms: notifyBySms,
@@ -233,6 +244,7 @@ const Register = () => {
     setNotifyByEmail(false);
     setNotifyBySms(false);
     setHouseNumberValidity([true]);
+    setTurnstileToken('');
   };
 
   if (step === 'success' && unsubscribeToken) {
@@ -479,6 +491,14 @@ const Register = () => {
           )}
         </fieldset>
 
+        {/* Weryfikacja Cloudflare Turnstile */}
+        <Turnstile
+          siteKey={TURNSTILE_SITE_KEY}
+          onSuccess={(token) => setTurnstileToken(token)}
+          onExpire={() => setTurnstileToken('')}
+          onError={() => setTurnstileToken('')}
+        />
+
         {addresses.some((a) => a.street_name.trim() && !a.street_id) && (
           <p className="text-xs text-destructive text-center -mb-2">
             Wybierz ulicę z listy podpowiedzi, aby odblokować rejestrację.
@@ -490,6 +510,7 @@ const Register = () => {
           className="w-full text-base font-semibold"
           disabled={
             isSubmitting ||
+            !turnstileToken ||
             addresses.some((a) => a.street_name.trim() !== '' && a.street_id === null) ||
             houseNumberValidity.some((v) => !v)
           }
