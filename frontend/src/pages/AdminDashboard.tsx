@@ -1,11 +1,15 @@
 import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search, ChevronDown, ChevronRight, Mail, Loader2, AlertTriangle, Wrench, Calendar, Pencil, CheckCircle, Timer } from 'lucide-react';
+import {
+  Plus, Search, ChevronDown, ChevronRight, Mail, Loader2, AlertTriangle,
+  Wrench, Calendar, Pencil, CheckCircle, Timer, Archive, HardHat, X, AlertCircle,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Badge } from '@/components/ui/badge';
 import { useEvents, updateEvent } from '@/hooks/useEvents';
+import { useEventTypes } from '@/hooks/useEventTypes';
 import {
   type EventStatus,
   type EventType,
@@ -22,37 +26,52 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { formatEventNumbers, formatDate, formatDateTime } from '@/lib/utils';
 import { AdminMapView } from '@/components/AdminMapView';
 
+// Ikony dla znanych typów zdarzeń (fallback dla typów spoza DB)
+const TYPE_ICON_MAP: Record<string, { Icon: typeof Wrench; cls: string }> = {
+  awaria: { Icon: Wrench, cls: 'text-red-500' },
+  planowane_wylaczenie: { Icon: Calendar, cls: 'text-blue-500' },
+  remont: { Icon: HardHat, cls: 'text-amber-500' },
+};
+
 const AdminDashboard = () => {
   const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<EventStatus | ''>('');
-  const [typeFilter, setTypeFilter] = useState<EventType | ''>('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [deptFilter, setDeptFilter] = useState('');
   const [page, setPage] = useState(1);
+  const [activeTab, setActiveTab] = useState('lista');
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [closeId, setCloseId] = useState<number | null>(null);
   const [isClosing, setIsClosing] = useState(false);
 
   const { events, totalPages, currentPage, isLoading, error, refetch } = useEvents({
-    search, statusFilter, typeFilter, page,
+    search, statusFilter, typeFilter, deptFilter, page,
   });
 
-  // Statystyki — osobne zapytania bez filtrów (limit=1 wystarczy do uzyskania total_count)
-  const { totalCount: activeCount } = useEvents({ limit: 1 });
-  const { totalCount: avariaCount } = useEvents({ typeFilter: 'awaria', limit: 1 });
-  const { totalCount: planowaneCount } = useEvents({ typeFilter: 'planowane_wylaczenie', limit: 1 });
+  // Liczniki dla kart statusowych — stałe 4, niezależne od typów w DB
+  const { totalCount: activeCount }    = useEvents({ limit: 1 });
+  const { totalCount: zgloszoneCount } = useEvents({ statusFilter: 'zgloszona', limit: 1 });
+  const { totalCount: wNaprawieCount } = useEvents({ statusFilter: 'w_naprawie', limit: 1 });
+  const { totalCount: closedCount }    = useEvents({ statusFilter: 'usunieta', limit: 1 });
+
+  // Typy zdarzeń z bazy — zasilają pill-e filtrowania
+  const { eventTypes } = useEventTypes();
+
+  const applyCardFilter = (sf: EventStatus | '', tf: string) => {
+    setStatusFilter(sf);
+    setTypeFilter(tf);
+    setDeptFilter('');
+    setPage(1);
+    setActiveTab('lista');
+  };
 
   const handleCloseConfirm = async () => {
     if (closeId === null) return;
@@ -69,12 +88,27 @@ const AdminDashboard = () => {
     }
   };
 
+  const cardCls = (active: boolean) =>
+    `cursor-pointer transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring${
+      active ? ' ring-2 ring-primary shadow-sm bg-primary/5' : ''
+    }`;
+
+  const activeTypeDef = typeFilter ? eventTypes.find((t) => t.code === typeFilter) : null;
+  const hasActiveFilter = typeFilter !== '' || deptFilter !== '' || (statusFilter !== '' && statusFilter !== 'all');
+
   const toggleRow = (id: number) => {
     setExpandedRows((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
+
+  const clearFilters = () => {
+    setTypeFilter('');
+    setStatusFilter('');
+    setDeptFilter('');
+    setPage(1);
   };
 
   return (
@@ -90,39 +124,120 @@ const AdminDashboard = () => {
         </Button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 min-w-0">
-        <Card>
-          <CardContent className="flex items-center gap-3 pt-6">
-            <AlertTriangle className="h-8 w-8 text-status-reported" />
-            <div>
-              <p className="text-2xl font-bold">{activeCount}</p>
-              <p className="text-sm text-muted-foreground">Aktywne zdarzenia</p>
+      {/* Karty statusowe — zawsze 4, niezależne od liczby typów */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Card
+          className={cardCls(statusFilter === '' && typeFilter === '')}
+          role="button" tabIndex={0}
+          aria-label="Pokaż wszystkie aktywne zdarzenia"
+          onClick={() => applyCardFilter('', '')}
+          onKeyDown={(e) => e.key === 'Enter' && applyCardFilter('', '')}
+        >
+          <CardContent className="flex items-center gap-3 pt-5 pb-5">
+            <AlertTriangle className="h-7 w-7 text-orange-500 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-2xl font-bold leading-none">{activeCount}</p>
+              <p className="text-xs text-muted-foreground mt-1 leading-tight">Wszystkie aktywne</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="flex items-center gap-3 pt-6">
-            <Wrench className="h-8 w-8 text-status-repairing" />
-            <div>
-              <p className="text-2xl font-bold">{avariaCount}</p>
-              <p className="text-sm text-muted-foreground">Awarie</p>
+        <Card
+          className={cardCls(statusFilter === 'zgloszona' && typeFilter === '')}
+          role="button" tabIndex={0}
+          aria-label="Filtruj: zgłoszone"
+          onClick={() => applyCardFilter('zgloszona', '')}
+          onKeyDown={(e) => e.key === 'Enter' && applyCardFilter('zgloszona', '')}
+        >
+          <CardContent className="flex items-center gap-3 pt-5 pb-5">
+            <AlertCircle className="h-7 w-7 text-red-500 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-2xl font-bold leading-none">{zgloszoneCount}</p>
+              <p className="text-xs text-muted-foreground mt-1 leading-tight">Zgłoszone</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="flex items-center gap-3 pt-6">
-            <Calendar className="h-8 w-8 text-status-planned" />
-            <div>
-              <p className="text-2xl font-bold">{planowaneCount}</p>
-              <p className="text-sm text-muted-foreground">Planowane wyłączenia</p>
+        <Card
+          className={cardCls(statusFilter === 'w_naprawie' && typeFilter === '')}
+          role="button" tabIndex={0}
+          aria-label="Filtruj: w naprawie"
+          onClick={() => applyCardFilter('w_naprawie', '')}
+          onKeyDown={(e) => e.key === 'Enter' && applyCardFilter('w_naprawie', '')}
+        >
+          <CardContent className="flex items-center gap-3 pt-5 pb-5">
+            <Wrench className="h-7 w-7 text-amber-500 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-2xl font-bold leading-none">{wNaprawieCount}</p>
+              <p className="text-xs text-muted-foreground mt-1 leading-tight">W naprawie</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cardCls(statusFilter === 'usunieta' && typeFilter === '')}
+          role="button" tabIndex={0}
+          aria-label="Filtruj: zamknięte zgłoszenia"
+          onClick={() => applyCardFilter('usunieta', '')}
+          onKeyDown={(e) => e.key === 'Enter' && applyCardFilter('usunieta', '')}
+        >
+          <CardContent className="flex items-center gap-3 pt-5 pb-5">
+            <Archive className="h-7 w-7 text-slate-400 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-2xl font-bold leading-none">{closedCount}</p>
+              <p className="text-xs text-muted-foreground mt-1 leading-tight">Zamknięte</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Pill-e typów zdarzeń — dynamiczne z bazy, scrollowalne poziomo */}
+      {eventTypes.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+            Filtruj według typu zdarzenia
+          </p>
+          <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Filtrowanie po typie zdarzenia">
+            <button
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                typeFilter === ''
+                  ? 'bg-foreground text-background border-foreground'
+                  : 'bg-background text-muted-foreground border-border hover:border-foreground hover:text-foreground'
+              }`}
+              onClick={() => { setTypeFilter(''); setPage(1); setActiveTab('lista'); }}
+              aria-pressed={typeFilter === ''}
+            >
+              Wszystkie typy
+            </button>
+            {eventTypes.map((t) => {
+              const isActive = typeFilter === t.code;
+              return (
+                <button
+                  key={t.code}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    isActive
+                      ? 'text-white border-transparent'
+                      : 'bg-background text-muted-foreground border-border hover:text-foreground'
+                  }`}
+                  style={isActive
+                    ? { backgroundColor: t.default_color_rgb, borderColor: t.default_color_rgb }
+                    : { '--hover-color': t.default_color_rgb } as React.CSSProperties
+                  }
+                  onClick={() => { setTypeFilter(isActive ? '' : t.code); setStatusFilter(''); setPage(1); setActiveTab('lista'); }}
+                  aria-pressed={isActive}
+                >
+                  <span
+                    className="h-2.5 w-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: isActive ? 'white' : t.default_color_rgb }}
+                    aria-hidden="true"
+                  />
+                  {t.name_pl}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Zakładki: Lista zdarzeń | Mapa budynków */}
-      <Tabs defaultValue="lista">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="lista">Lista zdarzeń</TabsTrigger>
           <TabsTrigger value="mapa">Mapa budynków</TabsTrigger>
@@ -132,209 +247,265 @@ const AdminDashboard = () => {
           <AdminMapView />
         </TabsContent>
 
-        <TabsContent value="lista" className="mt-4 space-y-6">
+        <TabsContent value="lista" className="mt-4 space-y-4">
 
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Szukaj po nazwie ulicy…"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="pl-9"
-          />
-        </div>
-        <Select
-          value={typeFilter}
-          onValueChange={(v) => { setTypeFilter(v as EventType | ''); setPage(1); }}
-        >
-          <SelectTrigger className="w-full sm:w-48" aria-label="Wybierz typ zdarzenia">
-            <SelectValue placeholder="Typ zdarzenia" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Wszystkie typy</SelectItem>
-            {(Object.entries(TYPE_LABELS) as [EventType, string][]).map(([k, v]) => (
-              <SelectItem key={k} value={k}>{v}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => { setStatusFilter(v as EventStatus | ''); setPage(1); }}
-        >
-          <SelectTrigger className="w-full sm:w-48" aria-label="Wybierz status zdarzenia">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Wszystkie statusy</SelectItem>
-            {(Object.entries(STATUS_LABELS) as [EventStatus, string][]).map(([k, v]) => (
-              <SelectItem key={k} value={k}>{v}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+          {/* Toolbar — wyszukiwarka + filtr statusu (typ obsługują pill-e powyżej) */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Szukaj po nazwie ulicy…"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                className="pl-9"
+              />
+            </div>
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => { setStatusFilter(v as EventStatus | ''); setPage(1); }}
+            >
+              <SelectTrigger className="w-full sm:w-44" aria-label="Wybierz status zdarzenia">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Wszystkie statusy</SelectItem>
+                {(Object.entries(STATUS_LABELS) as [EventStatus, string][]).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={deptFilter}
+              onValueChange={(v) => { setDeptFilter(v === 'all' ? '' : v); setPage(1); }}
+            >
+              <SelectTrigger className="w-full sm:w-32" aria-label="Wybierz dział">
+                <SelectValue placeholder="Dział" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Wszystkie działy</SelectItem>
+                <SelectItem value="TSK">TSK</SelectItem>
+                <SelectItem value="TSW">TSW</SelectItem>
+                <SelectItem value="TP">TP</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-      {/* Error */}
-      {error && (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {error}
-        </div>
-      )}
+          {/* Baner aktywnego filtrowania */}
+          {hasActiveFilter && (
+            <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-sm">
+              <span className="text-muted-foreground">Widok:</span>
+              {activeTypeDef && (
+                <span className="inline-flex items-center gap-1.5 font-medium">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: activeTypeDef.default_color_rgb }}
+                    aria-hidden="true"
+                  />
+                  {activeTypeDef.name_pl}
+                </span>
+              )}
+              {activeTypeDef && statusFilter && statusFilter !== 'all' && (
+                <span className="text-muted-foreground">•</span>
+              )}
+              {statusFilter && statusFilter !== 'all' && (
+                <span className="font-medium">
+                  {STATUS_LABELS[statusFilter as EventStatus] ?? statusFilter}
+                </span>
+              )}
+              <button
+                className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
+                aria-label="Wyczyść filtry"
+                onClick={clearFilters}
+              >
+                <X className="h-3.5 w-3.5" />
+                Wyczyść
+              </button>
+            </div>
+          )}
 
-      {/* Table */}
-      <div className="rounded-lg border border-border/60 overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10" />
-              <TableHead className="w-16">ID</TableHead>
-              <TableHead>Ulica</TableHead>
-              <TableHead>Numery</TableHead>
-              <TableHead>Typ</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Źródło</TableHead>
-              <TableHead>Powiadomienia</TableHead>
-              <TableHead>Utworzono</TableHead>
-              <TableHead className="w-24">Akcje</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={10} className="h-32 text-center">
-                  <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
-                </TableCell>
-              </TableRow>
-            ) : events.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={10} className="h-32 text-center text-muted-foreground">
-                  Brak zdarzeń spełniających kryteria.
-                </TableCell>
-              </TableRow>
-            ) : (
-              events.map((event) => {
-                const isOpen = expandedRows.has(event.id);
-                const numbersStr = formatEventNumbers(event);
-                let displayNums = numbersStr;
-                let hiddenNumsCount = 0;
-                if (numbersStr) {
-                  const numList = numbersStr.split(',').map((n) => n.trim());
-                  if (numList.length > 10) {
-                    displayNums = numList.slice(0, 10).join(', ');
-                    hiddenNumsCount = numList.length - 10;
-                  }
-                }
-                return (
-                  <Fragment key={event.id}>
-                    <TableRow className="group hover:bg-muted/40" onClick={() => toggleRow(event.id)}>
-                      <TableCell>
-                        <button
-                          className="p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
-                          aria-label={isOpen ? 'Zwiń szczegóły' : 'Rozwiń szczegóły'}
-                          aria-expanded={isOpen}
-                          onClick={(e) => { e.stopPropagation(); toggleRow(event.id); }}
-                        >
-                          {isOpen
-                            ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                            : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                        </button>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">{event.id}</TableCell>
-                      <TableCell className="font-medium">{event.street_name}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="line-clamp-2 text-sm max-w-[250px]">{displayNums || '–'}</span>
-                          {hiddenNumsCount > 0 && (
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
-                              +{hiddenNumsCount}
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">{TYPE_LABELS[event.event_type]}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <StatusBadge status={event.status} />
-                          {(event.auto_extend || event.auto_close) && (
-                            <span
-                              title={event.auto_extend ? 'Auto-extend: przedłużanie o 1h' : 'Auto-close: automatyczne zamknięcie'}
-                              className="text-muted-foreground"
+          {/* Error */}
+          {error && (
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+
+          {/* Tabela */}
+          <div className="rounded-lg border border-border/60 overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10" />
+                  <TableHead className="w-16">ID</TableHead>
+                  <TableHead>Ulica</TableHead>
+                  <TableHead>Numery</TableHead>
+                  <TableHead>Typ</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Dział</TableHead>
+                  <TableHead>Powiadomienia</TableHead>
+                  <TableHead>Utworzono</TableHead>
+                  <TableHead className="w-24">Akcje</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className="h-32 text-center">
+                      <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+                    </TableCell>
+                  </TableRow>
+                ) : events.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className="h-32 text-center text-muted-foreground">
+                      Brak zdarzeń spełniających kryteria.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  events.map((event) => {
+                    const isOpen = expandedRows.has(event.id);
+                    const typeConfig = TYPE_ICON_MAP[event.event_type];
+                    const TypeIcon = typeConfig?.Icon;
+                    const typeLabel =
+                      eventTypes.find((t) => t.code === event.event_type)?.name_pl
+                      ?? TYPE_LABELS[event.event_type as EventType]
+                      ?? event.event_type;
+                    const typeColor = eventTypes.find((t) => t.code === event.event_type)?.default_color_rgb;
+                    const numbersStr = formatEventNumbers(event);
+                    let displayNums = numbersStr;
+                    let hiddenNumsCount = 0;
+                    if (numbersStr) {
+                      const numList = numbersStr.split(',').map((n) => n.trim());
+                      if (numList.length > 10) {
+                        displayNums = numList.slice(0, 10).join(', ');
+                        hiddenNumsCount = numList.length - 10;
+                      }
+                    }
+                    return (
+                      <Fragment key={event.id}>
+                        <TableRow className="group hover:bg-muted/40" onClick={() => toggleRow(event.id)}>
+                          <TableCell>
+                            <button
+                              className="p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                              aria-label={isOpen ? 'Zwiń szczegóły' : 'Rozwiń szczegóły'}
+                              aria-expanded={isOpen}
+                              onClick={(e) => { e.stopPropagation(); toggleRow(event.id); }}
                             >
-                              <Timer className="h-3.5 w-3.5" aria-label={event.auto_extend ? 'Auto-extend aktywny' : 'Auto-close aktywny'} />
+                              {isOpen
+                                ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                            </button>
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">{event.id}</TableCell>
+                          <TableCell className="font-medium">{event.street_name}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="line-clamp-2 text-sm max-w-[250px]">{displayNums || '–'}</span>
+                              {hiddenNumsCount > 0 && (
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+                                  +{hiddenNumsCount}
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            <span className="inline-flex items-center gap-1.5">
+                              {TypeIcon
+                                ? <TypeIcon className={`h-3.5 w-3.5 flex-shrink-0 ${typeConfig.cls}`} aria-hidden="true" />
+                                : typeColor && (
+                                  <span
+                                    className="h-2.5 w-2.5 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: typeColor }}
+                                    aria-hidden="true"
+                                  />
+                                )
+                              }
+                              {typeLabel}
                             </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-slate-600">{event.source || 'mpwik'}</TableCell>
-                      <TableCell>
-                        <span className="inline-flex items-center gap-1.5 text-sm text-slate-600">
-                          <Mail className="h-3.5 w-3.5" />
-                          {event.notified_count ?? '–'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm text-slate-600">
-                        {event.created_at ? formatDate(event.created_at) : '–'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                          <Button asChild variant="ghost" size="sm" aria-label={`Edytuj zdarzenie ${event.id}`}>
-                            <Link to={`/admin/events/edit/${event.id}`}>
-                              <Pencil className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            aria-label={`Zakończ zdarzenie ${event.id}`}
-                            onClick={() => setCloseId(event.id)}
-                            disabled={event.status === 'usunieta'}
-                          >
-                            <CheckCircle className="h-4 w-4 text-emerald-600" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    {isOpen && (
-                      <TableRow className="bg-muted/20 hover:bg-muted/20">
-                        <TableCell colSpan={10} className="py-4 px-8">
-                          <HistoryTimeline history={event.history} />
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </Fragment>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1.5">
+                              <StatusBadge status={event.status} />
+                              {(event.auto_extend || event.auto_close) && (
+                                <span
+                                  title={event.auto_extend ? 'Auto-extend: przedłużanie o 1h' : 'Auto-close: automatyczne zamknięcie'}
+                                  className="text-muted-foreground"
+                                >
+                                  <Timer className="h-3.5 w-3.5" aria-label={event.auto_extend ? 'Auto-extend aktywny' : 'Auto-close aktywny'} />
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm font-mono">
+                            {event.created_by_department ?? <span className="text-muted-foreground">—</span>}
+                          </TableCell>
+                          <TableCell>
+                            <span className="inline-flex items-center gap-1.5 text-sm text-slate-600">
+                              <Mail className="h-3.5 w-3.5" />
+                              {event.notified_count ?? '–'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-sm text-slate-600">
+                            {event.created_at ? formatDate(event.created_at) : '–'}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                              <Button asChild variant="ghost" size="sm" aria-label={`Edytuj zdarzenie ${event.id}`}>
+                                <Link to={`/admin/events/edit/${event.id}`}>
+                                  <Pencil className="h-4 w-4" />
+                                </Link>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                aria-label={`Zakończ zdarzenie ${event.id}`}
+                                onClick={() => setCloseId(event.id)}
+                                disabled={event.status === 'usunieta'}
+                              >
+                                <CheckCircle className="h-4 w-4 text-emerald-600" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {isOpen && (
+                          <TableRow className="bg-muted/20 hover:bg-muted/20">
+                            <TableCell colSpan={10} className="py-4 px-8">
+                              <HistoryTimeline history={event.history} />
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Strona {currentPage} z {totalPages}
-        </p>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setPage((p) => p - 1)}>
-            Poprzednia
-          </Button>
-          <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setPage((p) => p + 1)}>
-            Następna
-          </Button>
-        </div>
-      </div>
+          {/* Paginacja */}
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Strona {currentPage} z {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setPage((p) => p - 1)}>
+                Poprzednia
+              </Button>
+              <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setPage((p) => p + 1)}>
+                Następna
+              </Button>
+            </div>
+          </div>
 
         </TabsContent>
       </Tabs>
 
-      {/* Close (soft-delete) confirmation dialog */}
+      {/* Dialog potwierdzenia zakończenia zdarzenia */}
       <AlertDialog open={closeId !== null} onOpenChange={(open) => { if (!open) setCloseId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Zakończ zdarzenie #{closeId}</AlertDialogTitle>
             <AlertDialogDescription>
-              Zdarzenie zostanie oznaczone jako zakończone (status „usunieta") i przeniesione do listy zamkniętych zgłoszeń. Historia i dane zostaną zachowane.
+              Zdarzenie zostanie oznaczone jako zakończone i przeniesione do listy zamkniętych zgłoszeń. Historia i dane zostaną zachowane.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -357,7 +528,6 @@ function HistoryTimeline({ history }: { history: StatusChange[] }) {
   if (!history.length) {
     return <p className="text-sm text-muted-foreground">Brak historii zmian.</p>;
   }
-
   return (
     <ol className="relative border-l-2 border-border ml-2 space-y-4">
       {history.map((h, i) => (

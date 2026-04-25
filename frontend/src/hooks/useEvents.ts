@@ -23,6 +23,7 @@ interface UseEventsOptions {
   search?: string;
   statusFilter?: string;
   typeFilter?: string;
+  deptFilter?: string;
   page?: number;
   limit?: number;
   refetchInterval?: number;
@@ -47,6 +48,7 @@ export function useEvents({
   search = '',
   statusFilter = '',
   typeFilter = '',
+  deptFilter = '',
   page = 1,
   limit = PAGE_SIZE,
   refetchInterval,
@@ -69,6 +71,7 @@ export function useEvents({
     if (search) params.set('search', search);
     if (statusFilter && statusFilter !== 'all') params.set('status_filter', statusFilter);
     if (typeFilter && typeFilter !== 'all') params.set('type_filter', typeFilter);
+    if (deptFilter && deptFilter !== 'all') params.set('dept_filter', deptFilter);
 
     apiFetch<PaginatedResponse>(`/events?${params.toString()}`)
       .then((res) => {
@@ -85,7 +88,7 @@ export function useEvents({
       });
 
     return () => { cancelled = true; };
-  }, [tick, page, search, statusFilter, typeFilter, limit]);
+  }, [tick, page, search, statusFilter, typeFilter, deptFilter, limit]);
 
   useEffect(() => {
     if (!refetchInterval) return;

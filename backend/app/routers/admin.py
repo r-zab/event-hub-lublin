@@ -105,6 +105,7 @@ class UserItem(BaseModel):
     username: str
     full_name: str | None
     role: str
+    department: str | None
     is_active: bool
     created_at: datetime
 
@@ -125,6 +126,7 @@ class CreateUserBody(BaseModel):
     password: str = Field(min_length=12, max_length=128)
     full_name: str | None = None
     role: Literal["admin", "dispatcher"] = "dispatcher"
+    department: Literal["TSK", "TSW", "TP"] | None = None
 
     @field_validator("password")
     @classmethod
@@ -144,6 +146,7 @@ class UpdateUserBody(BaseModel):
     role: Literal["admin", "dispatcher"] | None = None
     is_active: bool | None = None
     full_name: str | None = None
+    department: Literal["TSK", "TSW", "TP"] | None = None
     new_password: str | None = None
 
     @field_validator("new_password")
@@ -293,6 +296,7 @@ async def create_user(
         password_hash=hash_password(body.password),
         full_name=body.full_name,
         role=body.role,
+        department=body.department,
         is_active=True,
     )
     db.add(new_user)
@@ -344,6 +348,9 @@ async def update_user(
 
     if "full_name" in body.model_fields_set:
         user.full_name = body.full_name or None
+
+    if "department" in body.model_fields_set:
+        user.department = body.department
 
     if body.new_password is not None:
         user.password_hash = hash_password(body.new_password)

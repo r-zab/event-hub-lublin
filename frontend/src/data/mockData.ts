@@ -34,6 +34,7 @@ export interface EventItem {
   geojson_segment: [number, number][] | GeoJsonFeatureCollection | null;
   street_geojson?: { type: string; coordinates: [number, number] } | null;
   created_by: number | string;
+  created_by_department?: string | null;
   created_at?: string;
   updated_at?: string;
   notified_count?: number;

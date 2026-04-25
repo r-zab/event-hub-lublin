@@ -243,6 +243,7 @@ class EventResponse(EventBase):
 
     id: int
     created_by: int | None
+    created_by_department: str | None = None
     created_at: datetime
     updated_at: datetime
     history: list[EventHistoryResponse] = []

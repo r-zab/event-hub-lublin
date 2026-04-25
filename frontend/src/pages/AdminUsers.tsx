@@ -51,6 +51,7 @@ interface UserItem {
   username: string;
   full_name: string | null;
   role: string;
+  department: string | null;
   is_active: boolean;
   created_at: string;
 }
@@ -65,6 +66,7 @@ interface CreateUserBody {
   password: string;
   full_name?: string;
   role: 'admin' | 'dispatcher';
+  department?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -98,7 +100,7 @@ async function toggleUserActive(userId: number, is_active: boolean): Promise<Use
 
 async function updateUserDetails(
   userId: number,
-  body: { full_name?: string | null; new_password?: string },
+  body: { full_name?: string | null; new_password?: string; department?: string | null },
 ): Promise<UserItem> {
   return apiFetch<UserItem>(`/admin/users/${userId}`, {
     method: 'PATCH',
@@ -123,11 +125,13 @@ export default function AdminUsers() {
   const [newPassword, setNewPassword] = useState('');
   const [newFullName, setNewFullName] = useState('');
   const [newRole, setNewRole] = useState<'admin' | 'dispatcher'>('dispatcher');
+  const [newDept, setNewDept] = useState<string>('none');
   const [showNewPassword, setShowNewPassword] = useState(false);
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editUser, setEditUser] = useState<UserItem | null>(null);
   const [editFullName, setEditFullName] = useState('');
+  const [editDept, setEditDept] = useState<string>('none');
   const [editPassword, setEditPassword] = useState('');
   const [showEditPassword, setShowEditPassword] = useState(false);
 
@@ -147,6 +151,7 @@ export default function AdminUsers() {
       setNewPassword('');
       setNewFullName('');
       setNewRole('dispatcher');
+      setNewDept('none');
       invalidate();
     },
     onError: (err: Error) => {
@@ -190,7 +195,7 @@ export default function AdminUsers() {
   });
 
   const editMutation = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: { full_name?: string | null; new_password?: string } }) =>
+    mutationFn: ({ id, body }: { id: number; body: { full_name?: string | null; new_password?: string; department?: string | null } }) =>
       updateUserDetails(id, body),
     onSuccess: (user) => {
       toast({ title: 'Dane zaktualizowane', description: `Konto „${user.username}" zostało zaktualizowane.` });
@@ -207,6 +212,7 @@ export default function AdminUsers() {
   const openEditDialog = (user: UserItem) => {
     setEditUser(user);
     setEditFullName(user.full_name ?? '');
+    setEditDept(user.department ?? 'none');
     setEditPassword('');
     setShowEditPassword(false);
     setEditDialogOpen(true);
@@ -230,8 +236,9 @@ export default function AdminUsers() {
       toast({ title: 'Hasło musi zawierać co najmniej jedną cyfrę', variant: 'destructive' });
       return;
     }
-    const body: { full_name?: string | null; new_password?: string } = {
+    const body: { full_name?: string | null; new_password?: string; department?: string | null } = {
       full_name: editFullName.trim() || null,
+      department: editDept === 'none' ? null : editDept,
     };
     if (editPassword) body.new_password = editPassword;
     editMutation.mutate({ id: editUser.id, body });
@@ -280,6 +287,7 @@ export default function AdminUsers() {
       password: newPassword,
       full_name: newFullName.trim() || undefined,
       role: newRole,
+      department: newDept === 'none' ? undefined : newDept,
     });
   };
 
@@ -377,6 +385,20 @@ export default function AdminUsers() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1.5">
+                <Label>Dział (opcjonalnie)</Label>
+                <Select value={newDept} onValueChange={setNewDept}>
+                  <SelectTrigger aria-label="Wybierz dział">
+                    <SelectValue placeholder="Brak" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Brak</SelectItem>
+                    <SelectItem value="TSK">TSK</SelectItem>
+                    <SelectItem value="TSW">TSW</SelectItem>
+                    <SelectItem value="TP">TP</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setAddDialogOpen(false)} disabled={createMutation.isPending}>
@@ -409,6 +431,20 @@ export default function AdminUsers() {
                 value={editFullName}
                 onChange={(e) => setEditFullName(e.target.value)}
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Dział</Label>
+              <Select value={editDept} onValueChange={setEditDept}>
+                <SelectTrigger aria-label="Wybierz dział">
+                  <SelectValue placeholder="Brak" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Brak</SelectItem>
+                  <SelectItem value="TSK">TSK</SelectItem>
+                  <SelectItem value="TSW">TSW</SelectItem>
+                  <SelectItem value="TP">TP</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="edit-password">Nowe hasło (zostaw puste, aby nie zmieniać)</Label>
@@ -494,6 +530,7 @@ export default function AdminUsers() {
                   <TableHead>Login</TableHead>
                   <TableHead>Imię i nazwisko</TableHead>
                   <TableHead>Rola</TableHead>
+                  <TableHead>Dział</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Data utworzenia</TableHead>
                   <TableHead className="text-right">Akcje</TableHead>
@@ -516,6 +553,9 @@ export default function AdminUsers() {
                         )}
                         {user.role === 'admin' ? 'Administrator' : 'Dyspozytor'}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm font-mono">
+                      {user.department ?? <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell>
                       <Badge variant={user.is_active ? 'outline' : 'destructive'}>
@@ -606,7 +646,7 @@ export default function AdminUsers() {
                 ))}
                 {data.items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       Brak użytkowników.
                     </TableCell>
                   </TableRow>

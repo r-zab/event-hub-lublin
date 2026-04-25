@@ -45,19 +45,24 @@ async def list_events(
     search: str | None = Query(None, description="Szukaj po nazwie ulicy lub opisie"),
     status_filter: str | None = Query(None, description="Filtruj po statusie"),
     type_filter: str | None = Query(None, description="Filtruj po typie zdarzenia"),
+    dept_filter: str | None = Query(None, description="Filtruj po dziale (TSK/TSW/TP)"),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Zwróć paginowaną listę aktywnych zdarzeń (status != 'usunieta'). Endpoint publiczny."""
-    filters = [Event.status != "usunieta"]
+    """Zwróć paginowaną listę zdarzeń. Bez status_filter domyślnie wyklucza 'usunieta'."""
+    filters = []
+    if status_filter and status_filter != "all":
+        filters.append(Event.status == status_filter)
+    else:
+        filters.append(Event.status != "usunieta")
     if search:
         pattern = f"%{search}%"
         filters.append(
             or_(Event.street_name.ilike(pattern), Event.description.ilike(pattern))
         )
-    if status_filter and status_filter != "all":
-        filters.append(Event.status == status_filter)
     if type_filter and type_filter != "all":
         filters.append(Event.event_type == type_filter)
+    if dept_filter and dept_filter != "all":
+        filters.append(Event.created_by_department == dept_filter)
 
     count_result = await db.execute(select(func.count(Event.id)).where(*filters))
     total_count: int = count_result.scalar_one()
@@ -158,7 +163,7 @@ async def create_event(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Nieznany lub nieaktywny typ zdarzenia: '{data.event_type}'.",
         )
-    event = Event(**data.model_dump(), created_by=current_user.id)
+    event = Event(**data.model_dump(), created_by=current_user.id, created_by_department=current_user.department)
     db.add(event)
     await db.commit()
     await db.refresh(event)
