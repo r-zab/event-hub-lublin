@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Badge } from '@/components/ui/badge';
 import { useEvents, updateEvent } from '@/hooks/useEvents';
 import { useEventTypes } from '@/hooks/useEventTypes';
+import { useDepartments } from '@/hooks/useDepartments';
 import {
   type EventStatus,
   type EventType,
@@ -64,6 +65,7 @@ const AdminDashboard = () => {
 
   // Typy zdarzeń z bazy — zasilają pill-e filtrowania
   const { eventTypes } = useEventTypes();
+  const { departments } = useDepartments();
 
   const applyCardFilter = (sf: EventStatus | '', tf: string) => {
     setStatusFilter(sf);
@@ -125,7 +127,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Karty statusowe — zawsze 4, niezależne od liczby typów */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card
           className={cardCls(statusFilter === '' && typeFilter === '')}
           role="button" tabIndex={0}
@@ -133,12 +135,19 @@ const AdminDashboard = () => {
           onClick={() => applyCardFilter('', '')}
           onKeyDown={(e) => e.key === 'Enter' && applyCardFilter('', '')}
         >
-          <CardContent className="flex items-center gap-3 pt-5 pb-5">
-            <AlertTriangle className="h-7 w-7 text-orange-500 flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-2xl font-bold leading-none">{activeCount}</p>
-              <p className="text-xs text-muted-foreground mt-1 leading-tight">Wszystkie aktywne</p>
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide leading-none">
+                Wszystkie aktywne
+              </p>
+              <div className="h-9 w-9 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-4.5 w-4.5 text-orange-500" aria-hidden="true" />
+              </div>
             </div>
+            <p className="text-3xl font-bold tabular-nums text-foreground leading-none">
+              {activeCount ?? '—'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">Kliknij, aby wyświetlić</p>
           </CardContent>
         </Card>
         <Card
@@ -148,12 +157,19 @@ const AdminDashboard = () => {
           onClick={() => applyCardFilter('zgloszona', '')}
           onKeyDown={(e) => e.key === 'Enter' && applyCardFilter('zgloszona', '')}
         >
-          <CardContent className="flex items-center gap-3 pt-5 pb-5">
-            <AlertCircle className="h-7 w-7 text-red-500 flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-2xl font-bold leading-none">{zgloszoneCount}</p>
-              <p className="text-xs text-muted-foreground mt-1 leading-tight">Zgłoszone</p>
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide leading-none">
+                Zgłoszone
+              </p>
+              <div className="h-9 w-9 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                <AlertCircle className="h-4.5 w-4.5 text-red-500" aria-hidden="true" />
+              </div>
             </div>
+            <p className="text-3xl font-bold tabular-nums text-foreground leading-none">
+              {zgloszoneCount ?? '—'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">Oczekują na potwierdzenie</p>
           </CardContent>
         </Card>
         <Card
@@ -163,12 +179,19 @@ const AdminDashboard = () => {
           onClick={() => applyCardFilter('w_naprawie', '')}
           onKeyDown={(e) => e.key === 'Enter' && applyCardFilter('w_naprawie', '')}
         >
-          <CardContent className="flex items-center gap-3 pt-5 pb-5">
-            <Wrench className="h-7 w-7 text-amber-500 flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-2xl font-bold leading-none">{wNaprawieCount}</p>
-              <p className="text-xs text-muted-foreground mt-1 leading-tight">W naprawie</p>
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide leading-none">
+                W naprawie
+              </p>
+              <div className="h-9 w-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                <Wrench className="h-4.5 w-4.5 text-amber-500" aria-hidden="true" />
+              </div>
             </div>
+            <p className="text-3xl font-bold tabular-nums text-foreground leading-none">
+              {wNaprawieCount ?? '—'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">Trwają prace serwisowe</p>
           </CardContent>
         </Card>
         <Card
@@ -178,12 +201,19 @@ const AdminDashboard = () => {
           onClick={() => applyCardFilter('usunieta', '')}
           onKeyDown={(e) => e.key === 'Enter' && applyCardFilter('usunieta', '')}
         >
-          <CardContent className="flex items-center gap-3 pt-5 pb-5">
-            <Archive className="h-7 w-7 text-slate-400 flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-2xl font-bold leading-none">{closedCount}</p>
-              <p className="text-xs text-muted-foreground mt-1 leading-tight">Zamknięte</p>
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide leading-none">
+                Zamknięte
+              </p>
+              <div className="h-9 w-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
+                <Archive className="h-4.5 w-4.5 text-slate-400" aria-hidden="true" />
+              </div>
             </div>
+            <p className="text-3xl font-bold tabular-nums text-foreground leading-none">
+              {closedCount ?? '—'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">Historia zdarzeń</p>
           </CardContent>
         </Card>
       </div>
@@ -283,9 +313,9 @@ const AdminDashboard = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Wszystkie działy</SelectItem>
-                <SelectItem value="TSK">TSK</SelectItem>
-                <SelectItem value="TSW">TSW</SelectItem>
-                <SelectItem value="TP">TP</SelectItem>
+                {departments.map((d) => (
+                  <SelectItem key={d.code} value={d.code}>{d.code}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

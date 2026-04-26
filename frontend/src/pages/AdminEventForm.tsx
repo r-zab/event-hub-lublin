@@ -21,7 +21,8 @@ import { getEvent, updateEvent } from '@/hooks/useEvents';
 import { type Street } from '@/data/mockData';
 import { toUTCISO, streetLabel } from '@/lib/utils';
 import { LUBLIN_BOUNDS, MIN_ZOOM } from '@/lib/mapConfig';
-import { Search, Loader2, MapPin, Plus, X, Send, FileText } from 'lucide-react';
+import { Search, Loader2, MapPin, Plus, X, Send, FileText, Pencil } from 'lucide-react';
+import { useDepartments } from '@/hooks/useDepartments';
 
 interface EventTypeDictItem {
   id: number;
@@ -275,7 +276,12 @@ function checkDescription(val: string): string | null {
   return null;
 }
 
-function QueueCard({ item, onRemove, eventTypesDict }: { item: QueueItem; onRemove: () => void; eventTypesDict?: EventTypeDictItem[] }) {
+function QueueCard({ item, onRemove, onEdit, eventTypesDict }: {
+  item: QueueItem;
+  onRemove: () => void;
+  onEdit: () => void;
+  eventTypesDict?: EventTypeDictItem[];
+}) {
   return (
     <div className="flex items-start justify-between rounded-md bg-card border border-border px-3 py-2.5 text-sm gap-3">
       <div className="flex items-start gap-2 min-w-0">
@@ -292,16 +298,28 @@ function QueueCard({ item, onRemove, eventTypesDict }: { item: QueueItem; onRemo
           )}
         </div>
       </div>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-        onClick={onRemove}
-        aria-label="Usuń z kolejki"
-      >
-        <X className="h-4 w-4" />
-      </Button>
+      <div className="flex gap-1 shrink-0">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-primary"
+          onClick={onEdit}
+          aria-label="Edytuj zgłoszenie z kolejki"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+          onClick={onRemove}
+          aria-label="Usuń z kolejki"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }
@@ -327,9 +345,11 @@ const AdminEventForm = () => {
     queryKey: ['message-templates-active'],
     queryFn: () => apiFetch<MessageTemplateDictItem[]>('/message-templates'),
   });
+  const { departments } = useDepartments();
 
   // --- Pola formularza ---
   const [eventType, setEventType] = useState('');
+  const [department, setDepartment] = useState('');
   const [selectedStreet, setSelectedStreet] = useState<Street | null>(null);
   const [streetQuery, setStreetQuery] = useState('');
   const [description, setDescription] = useState('');
@@ -860,6 +880,10 @@ const AdminEventForm = () => {
   // ---------------------------------------------------------------------------
 
   const addToQueue = () => {
+    if (!department) {
+      toast({ title: 'Wybierz dział', description: 'Wskaż dział odpowiedzialny za zdarzenie.', variant: 'destructive' });
+      return;
+    }
     if (!selectedStreet) {
       toast({ title: 'Wybierz ulicę', description: 'Wpisz min. 3 znaki i wybierz ulicę z listy.', variant: 'destructive' });
       return;
@@ -924,6 +948,41 @@ const AdminEventForm = () => {
     setEventsQueue((prev) => prev.filter((item) => item._id !== qId));
   };
 
+  const restoreFromQueue = useCallback((item: QueueItem) => {
+    setEventType(item.event_type);
+    setSelectedStreet({
+      id: item.street_id,
+      name: item.street_name,
+      full_name: item.street_name,
+      teryt_sym_ul: '',
+      street_type: item.street_type,
+      city: 'Lublin',
+    });
+    setStreetQuery(streetLabel(item.street_type, item.street_name));
+    setHouseFrom(item.house_number_from);
+    setHouseTo(item.house_number_to);
+    setDescription(item.description);
+    setStatus(item.status || 'zgloszona');
+    setStartTime(item.start_time ? cleanDateForInput(item.start_time) : '');
+    setEstimatedEnd(item.estimated_end ? cleanDateForInput(item.estimated_end) : '');
+    setAutoExtend(item.auto_extend);
+    setAutoClose(item.auto_close);
+    setCustomMessage(item.custom_message);
+    setIsMessageEdited(!!item.custom_message);
+    // Przywróć zaznaczenie budynków z geojson_segment
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const seg = item.geojson_segment as any;
+    if (seg?.type === 'FeatureCollection' && Array.isArray(seg.features)) {
+      const ids = seg.features
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((f: any) => f?.properties?.id)
+        .filter((x: unknown): x is number => typeof x === 'number');
+      if (ids.length > 0) pendingRestoreIdsRef.current = ids;
+    }
+    setEventsQueue((prev) => prev.filter((q) => q._id !== item._id));
+    toast({ title: 'Wczytano do edycji', description: `${streetLabel(item.street_type, item.street_name)} — ${item.displayLabel}` });
+  }, [toast]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ---------------------------------------------------------------------------
   // Submit
   // ---------------------------------------------------------------------------
@@ -931,6 +990,10 @@ const AdminEventForm = () => {
   // Właściwa logika wysyłki — wywoływana z przycisku type="button",
   // żeby HTML5 required nie blokował akcji gdy roboczy formularz jest pusty.
   const handleBulkSubmit = async () => {
+    if (!isEdit && !department) {
+      toast({ title: 'Wybierz dział', description: 'Wskaż dział odpowiedzialny za zdarzenie.', variant: 'destructive' });
+      return;
+    }
     // Zbuduj finalną listę: kolejka + bieżący formularz (jeśli ulica jest wybrana)
     const allItems = [...eventsQueue];
     if (selectedStreet) {
@@ -1025,6 +1088,7 @@ const AdminEventForm = () => {
                 custom_message: item.custom_message || null,
                 auto_extend: item.auto_extend,
                 auto_close: item.auto_close,
+                created_by_department: department || null,
               }),
             }),
           ),
@@ -1083,6 +1147,32 @@ const AdminEventForm = () => {
       </h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Dział odpowiedzialny (T2.5) — wymagany przy tworzeniu           */}
+        {/* ---------------------------------------------------------------- */}
+        {!isEdit && (
+          <div>
+            <Label>
+              Dział odpowiedzialny *{' '}
+              <span className="text-xs text-muted-foreground font-normal">
+                (widoczny tylko w panelu admina)
+              </span>
+            </Label>
+            <Select value={department} onValueChange={setDepartment} required>
+              <SelectTrigger aria-label="Dział odpowiedzialny" className={!department ? 'border-dashed' : ''}>
+                <SelectValue placeholder="Wybierz dział…" />
+              </SelectTrigger>
+              <SelectContent>
+                {departments.map((d) => (
+                  <SelectItem key={d.code} value={d.code}>
+                    {d.code} — {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* ---------------------------------------------------------------- */}
         {/* Typ zdarzenia                                                    */}
@@ -1616,6 +1706,7 @@ const AdminEventForm = () => {
                   key={item._id}
                   item={item}
                   onRemove={() => removeFromQueue(item._id)}
+                  onEdit={() => restoreFromQueue(item)}
                   eventTypesDict={eventTypesDict}
                 />
               ))}

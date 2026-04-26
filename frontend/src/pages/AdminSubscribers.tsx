@@ -52,23 +52,24 @@ interface SubscribersResponse {
   total_count: number;
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE_OPTIONS = [20, 30, 40, 50] as const;
 
 const AdminSubscribers = () => {
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(20);
   const [searchQuery, setSearchQuery] = useState('');
   const [streetFilter, setStreetFilter] = useState('all');
   const [channelFilter, setChannelFilter] = useState<'all' | 'sms' | 'email'>('all');
   const [nightOnly, setNightOnly] = useState(false);
-  const skip = (page - 1) * PAGE_SIZE;
+  const skip = (page - 1) * pageSize;
 
   const { data, isLoading, error } = useQuery<SubscribersResponse>({
-    queryKey: ['admin-subscribers', page],
+    queryKey: ['admin-subscribers', page, pageSize],
     queryFn: () =>
-      apiFetch<SubscribersResponse>(`/admin/subscribers?skip=${skip}&limit=${PAGE_SIZE}`),
+      apiFetch<SubscribersResponse>(`/admin/subscribers?skip=${skip}&limit=${pageSize}`),
   });
 
-  const totalPages = data ? Math.ceil(data.total_count / PAGE_SIZE) : 1;
+  const totalPages = data ? Math.ceil(data.total_count / pageSize) : 1;
 
   const uniqueStreets = useMemo(() => {
     const names = new Set<string>();
@@ -190,12 +191,27 @@ const AdminSubscribers = () => {
           </Label>
         </div>
 
-        {/* Licznik */}
-        <span className="ml-auto text-sm font-medium whitespace-nowrap">
-          Znaleziono:{' '}
-          <span className="text-foreground">{filteredItems.length}</span>{' '}
-          <span className="text-muted-foreground">subskrybentów</span>
-        </span>
+        {/* Selektor liczby rekordów na stronę */}
+        <div className="flex items-center gap-2 ml-auto">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Na stronę:</span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}
+          >
+            <SelectTrigger className="w-20 h-9 bg-background" aria-label="Liczba rekordów na stronę">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((n) => (
+                <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-sm font-medium whitespace-nowrap">
+            <span className="text-foreground">{filteredItems.length}</span>{' '}
+            <span className="text-muted-foreground">subskrybentów</span>
+          </span>
+        </div>
       </div>
 
       <div className="rounded-md border">

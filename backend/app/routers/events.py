@@ -163,7 +163,9 @@ async def create_event(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Nieznany lub nieaktywny typ zdarzenia: '{data.event_type}'.",
         )
-    event = Event(**data.model_dump(), created_by=current_user.id, created_by_department=current_user.department)
+    dept = data.created_by_department or current_user.department
+    event_data = data.model_dump(exclude={"created_by_department"})
+    event = Event(**event_data, created_by=current_user.id, created_by_department=dept)
     db.add(event)
     await db.commit()
     await db.refresh(event)

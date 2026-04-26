@@ -143,6 +143,8 @@ def _validate_estimated_end(v: datetime | None) -> datetime | None:
 class EventCreate(EventBase):
     """Dane wymagane do utworzenia nowego zdarzenia."""
 
+    created_by_department: str | None = None
+
     @field_validator("event_type", mode="after")
     @classmethod
     def validate_event_type(cls, v: str) -> str:
