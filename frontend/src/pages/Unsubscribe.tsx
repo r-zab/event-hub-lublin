@@ -168,12 +168,15 @@ const Unsubscribe = () => {
           </div>
 
           {/* Weryfikacja Cloudflare Turnstile */}
-          <Turnstile
-            siteKey={TURNSTILE_SITE_KEY}
-            onSuccess={(token) => setTurnstileToken(token)}
-            onExpire={() => setTurnstileToken('')}
-            onError={() => setTurnstileToken('')}
-          />
+          <div className="flex justify-center w-full my-4">
+            <Turnstile
+              siteKey={TURNSTILE_SITE_KEY}
+              options={{ theme: 'auto' }}
+              onSuccess={(token) => setTurnstileToken(token)}
+              onExpire={() => setTurnstileToken('')}
+              onError={() => setTurnstileToken('')}
+            />
+          </div>
 
           <Button
             type="submit"

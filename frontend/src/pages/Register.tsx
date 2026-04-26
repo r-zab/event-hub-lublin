@@ -492,12 +492,15 @@ const Register = () => {
         </fieldset>
 
         {/* Weryfikacja Cloudflare Turnstile */}
-        <Turnstile
-          siteKey={TURNSTILE_SITE_KEY}
-          onSuccess={(token) => setTurnstileToken(token)}
-          onExpire={() => setTurnstileToken('')}
-          onError={() => setTurnstileToken('')}
-        />
+        <div className="flex justify-center w-full my-4">
+          <Turnstile
+            siteKey={TURNSTILE_SITE_KEY}
+            options={{ theme: 'auto' }}
+            onSuccess={(token) => setTurnstileToken(token)}
+            onExpire={() => setTurnstileToken('')}
+            onError={() => setTurnstileToken('')}
+          />
+        </div>
 
         {addresses.some((a) => a.street_name.trim() && !a.street_id) && (
           <p className="text-xs text-destructive text-center -mb-2">
