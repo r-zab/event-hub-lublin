@@ -9,7 +9,7 @@ import re
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,8 +17,9 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import get_current_admin
+from app.models.audit import BuildingAuditLog, StreetAuditLog
 from app.models.department import Department
-from app.models.event import Event
+from app.models.event import Event, EventHistory
 from app.models.notification import NotificationLog
 from app.models.subscriber import Subscriber
 from app.models.user import User
@@ -443,3 +444,143 @@ async def delete_user(
     await db.commit()
 
     logger.info("Admin id=%d usunął konto id=%d (username=%s)", current_admin.id, user_id, user.username)
+
+
+# ---------------------------------------------------------------------------
+# Audit log — połączenie BuildingAuditLog + StreetAuditLog + EventHistory
+# ---------------------------------------------------------------------------
+
+_MAX_AUDIT_PER_SOURCE = 2000
+
+
+class AuditLogItem(BaseModel):
+    """Pojedynczy wpis ujednoliconego logu operacji."""
+
+    id: int
+    source: str  # 'building' | 'street' | 'event'
+    entity_id: int
+    action: str
+    user_id: int | None
+    username: str | None
+    full_name: str | None
+    timestamp: datetime
+    old_data: dict | None
+    new_data: dict | None
+    note: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class AuditLogList(BaseModel):
+    items: list[AuditLogItem]
+    total_count: int
+
+
+@router.get("/audit-logs", response_model=AuditLogList)
+async def list_audit_logs(
+    skip: int = 0,
+    limit: int = 20,
+    source: str | None = Query(None, pattern="^(building|street|event)$"),
+    user_filter: str | None = None,
+    action_filter: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin),
+) -> AuditLogList:
+    """Ujednolicony log audytowy: operacje na budynkach, ulicach i zmiany statusów zdarzeń. TYLKO admin."""
+    items: list[AuditLogItem] = []
+
+    # Wstępna filtracja user_id z username, jeśli podany
+    filtered_user_ids: set[int] | None = None
+    if user_filter:
+        uf_escaped = user_filter.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        ur = await db.execute(
+            select(User.id).where(User.username.ilike(f"%{uf_escaped}%", escape="\\"))
+        )
+        filtered_user_ids = {row[0] for row in ur.all()}
+
+    # --- Building audit log ---
+    if source in (None, "building"):
+        stmt = (
+            select(BuildingAuditLog, User.username, User.full_name)
+            .outerjoin(User, BuildingAuditLog.user_id == User.id)
+            .order_by(BuildingAuditLog.timestamp.desc())
+            .limit(_MAX_AUDIT_PER_SOURCE)
+        )
+        if action_filter:
+            stmt = stmt.where(BuildingAuditLog.action == action_filter)
+        if filtered_user_ids is not None:
+            stmt = stmt.where(BuildingAuditLog.user_id.in_(filtered_user_ids))
+        result = await db.execute(stmt)
+        for log, username, full_name in result.all():
+            items.append(AuditLogItem(
+                id=log.id,
+                source="building",
+                entity_id=log.building_id,
+                action=log.action,
+                user_id=log.user_id,
+                username=username,
+                full_name=full_name,
+                timestamp=log.timestamp,
+                old_data=log.old_data,
+                new_data=log.new_data,
+            ))
+
+    # --- Street audit log ---
+    if source in (None, "street"):
+        stmt = (
+            select(StreetAuditLog, User.username, User.full_name)
+            .outerjoin(User, StreetAuditLog.user_id == User.id)
+            .order_by(StreetAuditLog.timestamp.desc())
+            .limit(_MAX_AUDIT_PER_SOURCE)
+        )
+        if action_filter:
+            stmt = stmt.where(StreetAuditLog.action == action_filter)
+        if filtered_user_ids is not None:
+            stmt = stmt.where(StreetAuditLog.user_id.in_(filtered_user_ids))
+        result = await db.execute(stmt)
+        for log, username, full_name in result.all():
+            items.append(AuditLogItem(
+                id=log.id,
+                source="street",
+                entity_id=log.street_id,
+                action=log.action,
+                user_id=log.user_id,
+                username=username,
+                full_name=full_name,
+                timestamp=log.timestamp,
+                old_data=log.old_data,
+                new_data=log.new_data,
+            ))
+
+    # --- Event history (zmiany statusów) ---
+    if source in (None, "event"):
+        if action_filter is None or action_filter == "status_change":
+            stmt = (
+                select(EventHistory, User.username, User.full_name)
+                .outerjoin(User, EventHistory.changed_by == User.id)
+                .order_by(EventHistory.changed_at.desc())
+                .limit(_MAX_AUDIT_PER_SOURCE)
+            )
+            if filtered_user_ids is not None:
+                stmt = stmt.where(EventHistory.changed_by.in_(filtered_user_ids))
+            result = await db.execute(stmt)
+            for log, username, full_name in result.all():
+                items.append(AuditLogItem(
+                    id=log.id,
+                    source="event",
+                    entity_id=log.event_id,
+                    action="status_change",
+                    user_id=log.changed_by,
+                    username=username,
+                    full_name=full_name,
+                    timestamp=log.changed_at,
+                    old_data={"status": log.old_status} if log.old_status else None,
+                    new_data={"status": log.new_status} if log.new_status else None,
+                    note=log.note,
+                ))
+
+    items.sort(key=lambda x: x.timestamp, reverse=True)
+    total_count = len(items)
+
+    logger.debug("Audit log: %d wpisów łącznie (source=%s, user_filter=%s)", total_count, source, user_filter)
+    return AuditLogList(items=items[skip: skip + limit], total_count=total_count)

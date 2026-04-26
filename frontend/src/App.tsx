@@ -22,6 +22,8 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminEventTypes from "./pages/AdminEventTypes";
 import AdminMessageTemplates from "./pages/AdminMessageTemplates";
 import AdminDepartments from "./pages/AdminDepartments";
+import AdminAuditLogs from "./pages/AdminAuditLogs";
+import AdminStreetsDatabase from "./pages/AdminStreetsDatabase";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -106,6 +108,16 @@ const App = () => (
                   </AdminOnlyRoute>
                 }
               />
+              <Route
+                path="/admin/logs"
+                element={
+                  <AdminOnlyRoute>
+                    <AdminAuditLogs />
+                  </AdminOnlyRoute>
+                }
+              />
+              {/* /admin/streets — admin i dyspozytor (brak AdminOnlyRoute) */}
+              <Route path="/admin/streets" element={<AdminStreetsDatabase />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />

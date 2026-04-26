@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, LogOut, Droplets, Home, Users, MessageSquare, UserCog, Menu, Tags, FileText, Building2 } from 'lucide-react';
+import { LayoutDashboard, LogOut, Droplets, Home, Users, MessageSquare, UserCog, Menu, Tags, FileText, Building2, History, Map } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -8,8 +8,10 @@ import { Button } from '@/components/ui/button';
 
 const allSidebarItems = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
+  { to: '/admin/streets', label: 'Baza Ulic', icon: Map, adminOnly: false },
   { to: '/admin/subscribers', label: 'Subskrybenci', icon: Users, adminOnly: true },
   { to: '/admin/notifications', label: 'Logi powiadomień', icon: MessageSquare, adminOnly: true },
+  { to: '/admin/logs', label: 'Logi dyspozytorów', icon: History, adminOnly: true },
   { to: '/admin/users', label: 'Użytkownicy', icon: UserCog, adminOnly: true },
   { to: '/admin/event-types', label: 'Typy zdarzeń', icon: Tags, adminOnly: true },
   { to: '/admin/message-templates', label: 'Szablony', icon: FileText, adminOnly: true },
@@ -59,7 +61,7 @@ export function AdminLayout() {
           </Link>
         ))}
       </nav>
-      <div className="p-3 border-t border-water-700/50 space-y-1">
+      <div className="p-3 pb-6 border-t border-water-700/50 space-y-1">
         <Link
           to="/"
           onClick={onNavigate}
@@ -80,13 +82,13 @@ export function AdminLayout() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row">
+    <div className="h-screen flex flex-col lg:flex-row overflow-hidden">
       {/* Desktop sidebar — ukryty poniżej lg */}
-      <aside className="hidden lg:flex w-64 shrink-0 bg-water-900 text-water-100 flex-col" aria-label="Panel administracyjny">
+      <aside className="hidden lg:flex w-64 shrink-0 bg-water-900 text-water-100 flex-col h-screen sticky top-0" aria-label="Panel administracyjny">
         <SidebarNav />
       </aside>
 
-      <div className="flex-1 flex flex-col bg-background min-w-0">
+      <div className="flex-1 flex flex-col bg-background min-w-0 overflow-hidden">
         {/* Mobile header — widoczny tylko poniżej lg */}
         <header className="lg:hidden flex items-center gap-3 px-4 py-3 border-b border-border bg-water-900 text-water-100 shrink-0">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -112,7 +114,7 @@ export function AdminLayout() {
           </Link>
         </header>
 
-        <main className="flex-1 p-4 lg:p-6 min-w-0 overflow-x-auto">
+        <main className="flex-1 p-4 lg:p-6 min-w-0 overflow-y-auto">
           <Outlet />
         </main>
       </div>

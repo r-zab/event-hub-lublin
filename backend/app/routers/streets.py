@@ -3,10 +3,10 @@ Router: Streets — autocomplete ulic TERYT + obrysy budynków + zarządzanie ul
 """
 
 import logging
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select
+from sqlalchemy import asc, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_dispatcher_or_admin, get_db
@@ -16,11 +16,16 @@ from app.models.building import Building
 from app.models.street import Street
 from app.models.user import User
 from app.schemas.building import BuildingResponse
-from app.schemas.street import StreetCreate, StreetResponse, StreetUpdate
+from app.schemas.street import StreetAdminItem, StreetCreate, StreetPageResponse, StreetResponse, StreetUpdate
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+_SORT_COLUMNS: dict[str, object] = {
+    "teryt_id": Street.teryt_sym_ul,
+    "name": Street.full_name,
+}
 
 
 @router.get("", response_model=list[StreetResponse], summary="Autocomplete ulic")
@@ -39,6 +44,64 @@ async def search_streets(
     streets = result.scalars().all()
     logger.debug("Autocomplete '%s' → %d wynikow", q, len(streets))
     return streets
+
+
+@router.get(
+    "/manage",
+    response_model=StreetPageResponse,
+    summary="Paginowana lista ulic (dyspozytor/admin)",
+)
+async def list_streets_admin(
+    skip: int = 0,
+    limit: int = 20,
+    q: str | None = None,
+    sort_by: Literal["teryt_id", "name"] = "name",
+    sort_dir: Literal["asc", "desc"] = "asc",
+    is_geocoded: bool | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_dispatcher_or_admin),
+) -> StreetPageResponse:
+    """Paginowana lista ulic z sortowaniem i filtrowaniem. Wymaga roli dispatcher lub admin."""
+    base_stmt = select(Street)
+
+    if q and len(q) >= 2:
+        q_escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        base_stmt = base_stmt.where(Street.full_name.ilike(f"%{q_escaped}%", escape="\\"))
+
+    # Geokodowana = ma geojson z trasą OSM
+    if is_geocoded is True:
+        base_stmt = base_stmt.where(Street.geojson.is_not(None))
+    elif is_geocoded is False:
+        base_stmt = base_stmt.where(Street.geojson.is_(None))
+
+    count_result = await db.execute(select(func.count()).select_from(base_stmt.subquery()))
+    total_count: int = count_result.scalar_one()
+
+    sort_col = _SORT_COLUMNS.get(sort_by, Street.full_name)
+    order_expr = asc(sort_col) if sort_dir == "asc" else desc(sort_col)
+
+    streets_result = await db.execute(
+        base_stmt.order_by(order_expr).offset(skip).limit(limit)
+    )
+    streets = list(streets_result.scalars().all())
+
+    items = [
+        StreetAdminItem(
+            id=s.id,
+            teryt_sym_ul=s.teryt_sym_ul,
+            name=s.name,
+            full_name=s.full_name,
+            street_type=s.street_type,
+            city=s.city,
+            geocoded=s.geojson is not None,
+        )
+        for s in streets
+    ]
+    logger.debug(
+        "Streets manage: total=%d skip=%d limit=%d q=%r sort=%s/%s geocoded=%s user=%d",
+        total_count, skip, limit, q, sort_by, sort_dir, is_geocoded, current_user.id,
+    )
+    return StreetPageResponse(items=items, total_count=total_count)
 
 
 @router.get(
@@ -118,9 +181,14 @@ async def update_street(
     if street is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ulica nie istnieje")
 
-    old_data = {"name": street.name, "street_type": street.street_type, "city": street.city}
+    old_data = {
+        "name": street.name,
+        "street_type": street.street_type,
+        "city": street.city,
+        "teryt_sym_ul": street.teryt_sym_ul,
+    }
 
-    update_fields = data.model_dump(exclude_none=True)
+    update_fields = data.model_dump(exclude_unset=True)
     for field, value in update_fields.items():
         setattr(street, field, value)
 
@@ -138,7 +206,12 @@ async def update_street(
         street_id=street.id,
         action="update",
         old_data=old_data,
-        new_data={"name": street.name, "street_type": street.street_type, "city": street.city},
+        new_data={
+            "name": street.name,
+            "street_type": street.street_type,
+            "city": street.city,
+            "teryt_sym_ul": street.teryt_sym_ul,
+        },
     )
     db.add(audit)
     await db.commit()

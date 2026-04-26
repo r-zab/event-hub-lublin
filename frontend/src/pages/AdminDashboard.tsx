@@ -67,9 +67,8 @@ const AdminDashboard = () => {
   const { eventTypes } = useEventTypes();
   const { departments } = useDepartments();
 
-  const applyCardFilter = (sf: EventStatus | '', tf: string) => {
+  const applyCardFilter = (sf: EventStatus | '') => {
     setStatusFilter(sf);
-    setTypeFilter(tf);
     setDeptFilter('');
     setPage(1);
     setActiveTab('lista');
@@ -129,11 +128,11 @@ const AdminDashboard = () => {
       {/* Karty statusowe — zawsze 4, niezależne od liczby typów */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card
-          className={cardCls(statusFilter === '' && typeFilter === '')}
+          className={cardCls(statusFilter === '')}
           role="button" tabIndex={0}
           aria-label="Pokaż wszystkie aktywne zdarzenia"
-          onClick={() => applyCardFilter('', '')}
-          onKeyDown={(e) => e.key === 'Enter' && applyCardFilter('', '')}
+          onClick={() => applyCardFilter('')}
+          onKeyDown={(e) => e.key === 'Enter' && applyCardFilter('')}
         >
           <CardContent className="p-5">
             <div className="flex items-start justify-between gap-2 mb-3">
@@ -151,11 +150,11 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
         <Card
-          className={cardCls(statusFilter === 'zgloszona' && typeFilter === '')}
+          className={cardCls(statusFilter === 'zgloszona')}
           role="button" tabIndex={0}
           aria-label="Filtruj: zgłoszone"
-          onClick={() => applyCardFilter('zgloszona', '')}
-          onKeyDown={(e) => e.key === 'Enter' && applyCardFilter('zgloszona', '')}
+          onClick={() => applyCardFilter('zgloszona')}
+          onKeyDown={(e) => e.key === 'Enter' && applyCardFilter('zgloszona')}
         >
           <CardContent className="p-5">
             <div className="flex items-start justify-between gap-2 mb-3">
@@ -173,11 +172,11 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
         <Card
-          className={cardCls(statusFilter === 'w_naprawie' && typeFilter === '')}
+          className={cardCls(statusFilter === 'w_naprawie')}
           role="button" tabIndex={0}
           aria-label="Filtruj: w naprawie"
-          onClick={() => applyCardFilter('w_naprawie', '')}
-          onKeyDown={(e) => e.key === 'Enter' && applyCardFilter('w_naprawie', '')}
+          onClick={() => applyCardFilter('w_naprawie')}
+          onKeyDown={(e) => e.key === 'Enter' && applyCardFilter('w_naprawie')}
         >
           <CardContent className="p-5">
             <div className="flex items-start justify-between gap-2 mb-3">
@@ -195,11 +194,11 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
         <Card
-          className={cardCls(statusFilter === 'usunieta' && typeFilter === '')}
+          className={cardCls(statusFilter === 'usunieta')}
           role="button" tabIndex={0}
           aria-label="Filtruj: zamknięte zgłoszenia"
-          onClick={() => applyCardFilter('usunieta', '')}
-          onKeyDown={(e) => e.key === 'Enter' && applyCardFilter('usunieta', '')}
+          onClick={() => applyCardFilter('usunieta')}
+          onKeyDown={(e) => e.key === 'Enter' && applyCardFilter('usunieta')}
         >
           <CardContent className="p-5">
             <div className="flex items-start justify-between gap-2 mb-3">
@@ -217,6 +216,7 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
 
       {/* Pill-e typów zdarzeń — dynamiczne z bazy, scrollowalne poziomo */}
       {eventTypes.length > 0 && (
@@ -250,7 +250,7 @@ const AdminDashboard = () => {
                     ? { backgroundColor: t.default_color_rgb, borderColor: t.default_color_rgb }
                     : { '--hover-color': t.default_color_rgb } as React.CSSProperties
                   }
-                  onClick={() => { setTypeFilter(isActive ? '' : t.code); setStatusFilter(''); setPage(1); setActiveTab('lista'); }}
+                  onClick={() => { setTypeFilter(isActive ? '' : t.code); setPage(1); setActiveTab('lista'); }}
                   aria-pressed={isActive}
                 >
                   <span
@@ -279,7 +279,7 @@ const AdminDashboard = () => {
 
         <TabsContent value="lista" className="mt-4 space-y-4">
 
-          {/* Toolbar — wyszukiwarka + filtr statusu (typ obsługują pill-e powyżej) */}
+          {/* Toolbar — wyszukiwarka + dział */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -290,20 +290,6 @@ const AdminDashboard = () => {
                 className="pl-9"
               />
             </div>
-            <Select
-              value={statusFilter}
-              onValueChange={(v) => { setStatusFilter(v as EventStatus | ''); setPage(1); }}
-            >
-              <SelectTrigger className="w-full sm:w-44" aria-label="Wybierz status zdarzenia">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Wszystkie statusy</SelectItem>
-                {(Object.entries(STATUS_LABELS) as [EventStatus, string][]).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>{v}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             <Select
               value={deptFilter}
               onValueChange={(v) => { setDeptFilter(v === 'all' ? '' : v); setPage(1); }}

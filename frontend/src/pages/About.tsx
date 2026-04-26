@@ -6,6 +6,9 @@ import {
   Moon,
   UserMinus,
   Info,
+  Zap,
+  Code2,
+  GraduationCap,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -36,27 +39,27 @@ const About = () => (
         </p>
       </div>
 
-      {/* 1. O systemie i zasięgu */}
+      {/* 1. Misja — Szybkie powiadamianie */}
       <section className="space-y-4">
         <h2 className="font-heading text-xl font-semibold flex items-center gap-2">
-          <MapPin className="h-5 w-5 text-primary" aria-hidden="true" />
-          O systemie i zasięgu
+          <Zap className="h-5 w-5 text-primary" aria-hidden="true" />
+          Misja
         </h2>
-
         <Card>
           <CardContent className="pt-6 space-y-4 text-sm text-muted-foreground">
-            <p>
-              System Powiadomień MPWiK Lublin to oficjalne narzędzie Miejskiego
-              Przedsiębiorstwa Wodociągów i Kanalizacji w Lublinie do informowania
-              mieszkańców o bieżącym stanie sieci wodociągowej. Platforma umożliwia
-              natychmiastowe powiadamianie o awariach, planowanych wyłączeniach
-              i pracach remontowych dotyczących konkretnych adresów.
+            <p className="text-foreground font-medium">
+              Szybkie, precyzyjne powiadamianie — tylko do tych, których to dotyczy.
             </p>
             <p>
-              System opiera się na oficjalnych rejestrach danych przestrzennych —
-              każde zdarzenie przypisane jest do precyzyjnego odcinka ulicy
-              z zakresem numerów posesji, co eliminuje fałszywe alarmy dla
-              niezainteresowanych mieszkańców.
+              System eliminuje problem masowych i niecelnych komunikatów. Powiadomienie
+              trafia wyłącznie do mieszkańców, których zarejestrowany adres znajduje się
+              w dokładnym zakresie numerów posesji objętych zdarzeniem — nie do całej ulicy,
+              nie do całego osiedla.
+            </p>
+            <p>
+              Każde zdarzenie przypisane jest do precyzyjnego odcinka sieci wodociągowej.
+              Dyspozytor wybiera budynki na interaktywnej mapie, a system automatycznie
+              dopasowuje subskrybentów i wysyła powiadomienia w ciągu sekund.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
@@ -99,7 +102,7 @@ const About = () => (
         </Card>
       </section>
 
-      {/* 2. Legenda kolorów i oznaczeń */}
+      {/* 2. Legenda kolorów */}
       <section className="space-y-4">
         <h2 className="font-heading text-xl font-semibold flex items-center gap-2">
           <span className="h-5 w-5 rounded-sm bg-gradient-to-br from-red-500 via-blue-500 to-yellow-500" aria-hidden="true" />
@@ -144,43 +147,83 @@ const About = () => (
         </Card>
       </section>
 
-      {/* 3. Jak działają powiadomienia? */}
+      {/* 3. RODO i Prywatność */}
       <section className="space-y-4">
         <h2 className="font-heading text-xl font-semibold flex items-center gap-2">
-          <Bell className="h-5 w-5 text-primary" aria-hidden="true" />
-          Jak działają powiadomienia?
+          <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
+          RODO i ochrona prywatności
         </h2>
 
-        <Accordion type="single" collapsible defaultValue="registration" className="w-full">
+        <Card>
+          <CardContent className="pt-6 space-y-4 text-sm text-muted-foreground">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                {
+                  icon: <ShieldCheck className="h-4 w-4 text-green-600 shrink-0" aria-hidden="true" />,
+                  title: 'Zero spamu',
+                  text: 'Powiadomienia trafiają wyłącznie do adresów objętych zdarzeniem. System nigdy nie wysyła masowych komunikatów do wszystkich subskrybentów.',
+                },
+                {
+                  icon: <Moon className="h-4 w-4 text-indigo-600 shrink-0" aria-hidden="true" />,
+                  title: 'Nocne SMS-y za zgodą',
+                  text: 'SMS-y między 22:00 a 06:00 są wstrzymywane i wysyłane rano o 06:00 — chyba że subskrybent wyraził zgodę na nocne powiadomienia.',
+                },
+                {
+                  icon: <UserMinus className="h-4 w-4 text-red-600 shrink-0" aria-hidden="true" />,
+                  title: 'Prawo do bycia zapomnianym',
+                  text: 'Wyrejestrowanie usuwa wszystkie Twoje dane fizycznie z bazy (hard delete). Brak możliwości odtworzenia — art. 17 RODO.',
+                },
+                {
+                  icon: <ShieldCheck className="h-4 w-4 text-green-600 shrink-0" aria-hidden="true" />,
+                  title: 'Maskowanie w logach',
+                  text: <>Dane kontaktowe przechowywane w logach w postaci skróconej: <code className="bg-muted px-1 rounded text-xs">+48 123 *** 89</code>, <code className="bg-muted px-1 rounded text-xs">m***k@lublin.eu</code>.</>,
+                },
+              ].map((item, i) => (
+                <div key={i} className="flex gap-3 p-3 rounded-md bg-muted/30 border border-border/50">
+                  <div className="mt-0.5">{item.icon}</div>
+                  <div>
+                    <p className="font-medium text-foreground text-sm">{item.title}</p>
+                    <p className="text-xs mt-0.5 leading-relaxed">{item.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs pt-2 border-t border-border/50">
+              Podstawa prawna: art. 6 ust. 1 lit. a RODO (zgoda) oraz art. 17 RODO
+              (prawo do bycia zapomnianym). Administratorem danych jest MPWiK Lublin Sp. z o.o.
+            </p>
+          </CardContent>
+        </Card>
 
+        {/* Accordion rejestracji */}
+        <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="registration">
             <AccordionTrigger className="text-sm font-medium">
               <span className="flex items-center gap-2">
                 <Bell className="h-4 w-4 text-primary flex-shrink-0" aria-hidden="true" />
-                Rejestracja i wybór kanału
+                Jak się zarejestrować?
               </span>
             </AccordionTrigger>
             <AccordionContent className="text-sm text-muted-foreground space-y-3 leading-relaxed">
               <p>
-                Aby otrzymywać powiadomienia, przejdź do zakładki <strong>„Zarejestruj się"</strong>.
-                Wypełnij formularz w trzech krokach:
+                Przejdź do zakładki <strong>„Zarejestruj się"</strong>. Formularz prowadzi przez trzy kroki:
               </p>
               <ol className="space-y-2 list-none">
                 {[
                   {
                     n: '1',
                     title: 'Wybierz kanał powiadomień',
-                    text: 'Zaznacz SMS, E-mail lub oba kanały. Dla SMS podaj numer w formacie +48 600 000 000.',
+                    text: 'Zaznacz SMS, E-mail lub oba. Dla SMS podaj numer w formacie +48 600 000 000.',
                   },
                   {
                     n: '2',
                     title: 'Wskaż swój adres',
-                    text: 'Wpisz nazwę ulicy (min. 3 znaki) i wybierz ją z listy podpowiedzi opartej na oficjalnym rejestrze TERYT. Następnie wybierz numer budynku z oficjalnego spisu budynków GIS. Możesz dodać więcej niż jeden adres.',
+                    text: 'Wpisz nazwę ulicy (min. 3 znaki) i wybierz numer budynku z rejestru GIS. Możesz dodać do 5 adresów.',
                   },
                   {
                     n: '3',
                     title: 'Zaakceptuj zgodę RODO i potwierdź',
-                    text: 'Po wysłaniu formularza system prześle Ci Kod wyrejestrowania przez wybrany kanał. Zachowaj go — jest niezbędny do usunięcia danych.',
+                    text: 'System prześle Ci jednorazowy Kod wyrejestrowania. Zachowaj go — pozwala usunąć Twoje dane w każdej chwili.',
                   },
                 ].map(({ n, title, text }) => (
                   <li key={n} className="flex gap-3">
@@ -197,135 +240,108 @@ const About = () => (
             </AccordionContent>
           </AccordionItem>
 
-          <AccordionItem value="night">
-            <AccordionTrigger className="text-sm font-medium">
-              <span className="flex items-center gap-2">
-                <Moon className="h-4 w-4 text-primary flex-shrink-0" aria-hidden="true" />
-                Zasada ciszy nocnej (22:00 – 06:00)
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="text-sm text-muted-foreground leading-relaxed space-y-3">
-              <p>
-                Powiadomienia SMS o awariach zgłoszonych między godz.{' '}
-                <strong>22:00 a 06:00</strong> nie są wysyłane natychmiast — trafiają
-                do kolejki i zostają dostarczone o <strong>06:00 rano</strong>. Dzięki
-                temu mieszkańcy nie są budzeni w środku nocy.
-              </p>
-              <p>
-                Powiadomienia e-mail są wysyłane natychmiast niezależnie od pory doby.
-                Jeśli chcesz otrzymywać SMS-y również w godzinach nocnych, zaznacz
-                odpowiednią zgodę podczas rejestracji.
-              </p>
-              <div className="rounded-md bg-muted/60 border border-border/50 p-3 text-xs">
-                <strong>Godziny ciszy nocnej:</strong> 22:00 – 06:00 (czas warszawski, CET/CEST)
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-
           <AccordionItem value="unsubscribe">
             <AccordionTrigger className="text-sm font-medium">
               <span className="flex items-center gap-2">
                 <UserMinus className="h-4 w-4 text-primary flex-shrink-0" aria-hidden="true" />
-                Kod wyrejestrowania (RODO)
+                Kod wyrejestrowania
               </span>
             </AccordionTrigger>
             <AccordionContent className="text-sm text-muted-foreground leading-relaxed space-y-3">
               <p>
-                Po pomyślnej rejestracji system generuje unikalny{' '}
-                <strong>Kod wyrejestrowania</strong> i przesyła go wybranym kanałem
-                (SMS lub e-mail). Kod ten pozwala na natychmiastowe i trwałe usunięcie
-                wszystkich Twoich danych z systemu.
-              </p>
-              <p>
-                Aby wyrejestrować się, przejdź do zakładki <strong>„Wyrejestruj"</strong>{' '}
-                w menu nawigacyjnym, wklej swój Kod i kliknij „Usuń moje dane".
-                Operacja jest <strong>nieodwracalna</strong> — dane zostają fizycznie
-                usunięte z bazy zgodnie z art. 17 RODO (prawo do bycia zapomnianym).
+                Po rejestracji system wysyła <strong>Kod wyrejestrowania</strong> wybranym kanałem.
+                Aby usunąć dane, przejdź do zakładki <strong>„Wyrejestruj"</strong>, wklej kod
+                i kliknij „Usuń moje dane". Operacja jest <strong>nieodwracalna</strong>.
               </p>
               <div className="rounded-md bg-destructive/5 border border-destructive/20 p-3 text-xs">
-                Jeśli zgubiłeś kod — skontaktuj się z BOK MPWiK Lublin:{' '}
+                Zgubiłeś kod? Skontaktuj się z BOK MPWiK Lublin:{' '}
                 <strong>tel. 81 532-42-81</strong>
               </div>
             </AccordionContent>
           </AccordionItem>
-
         </Accordion>
       </section>
 
-      {/* 4. Bezpieczeństwo danych i precyzja */}
+      {/* 4. Technologia */}
       <section className="space-y-4">
         <h2 className="font-heading text-xl font-semibold flex items-center gap-2">
-          <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
-          Bezpieczeństwo danych i precyzja
+          <Code2 className="h-5 w-5 text-primary" aria-hidden="true" />
+          Technologia
         </h2>
-
         <Card>
-          <CardContent className="pt-6 space-y-3 text-sm text-muted-foreground">
-            <p>
-              Ochrona danych osobowych i dokładność powiadomień to fundamenty
-              Systemu Powiadomień MPWiK Lublin:
-            </p>
-            <ul className="space-y-3">
+          <CardContent className="pt-6 space-y-4 text-sm text-muted-foreground">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[
                 {
-                  icon: <ShieldCheck className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" aria-hidden="true" />,
-                  text: (
-                    <>
-                      <strong>Twarda walidacja adresów</strong> — system akceptuje wyłącznie
-                      numery posesji istniejące w oficjalnym rejestrze budynków MPWiK.
-                      Podanie fikcyjnego lub nieistniejącego adresu jest niemożliwe.
-                    </>
-                  ),
+                  title: 'Rejestr TERYT',
+                  desc: '1 378 ulic z Krajowego Rejestru Urzędowego Podziału Terytorialnego Kraju. Unikatowe kody sym_ul gwarantują spójność danych z rejestrami państwowymi.',
+                  icon: <MapPin className="h-4 w-4 text-primary" />,
                 },
                 {
-                  icon: <ShieldCheck className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" aria-hidden="true" />,
-                  text: (
-                    <>
-                      <strong>Maskowanie danych w logach</strong> — dane kontaktowe są
-                      automatycznie maskowane w logach systemowych i bazach danych.
-                      Numery telefonów i adresy e-mail przechowywane są w postaci
-                      skróconej (np.{' '}
-                      <code className="bg-muted px-1 py-0.5 rounded text-xs text-slate-700">+48 123 *** 89</code>
-                      {', '}
-                      <code className="bg-muted px-1 py-0.5 rounded text-xs text-slate-700">m***k@lublin.eu</code>
-                      ). Żaden administrator systemu nie ma dostępu do pełnych danych
-                      kontaktowych w plikach logów.
-                    </>
-                  ),
+                  title: 'GIS PostGIS 16',
+                  desc: '51 000+ budynków z baz BDOT10k, PRG i OSM. Przestrzenny indeks GIST umożliwia błyskawiczne dopasowanie adresów do odcinków sieci.',
+                  icon: <MapPin className="h-4 w-4 text-primary" />,
                 },
                 {
-                  icon: <ShieldCheck className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" aria-hidden="true" />,
-                  text: (
-                    <>
-                      <strong>Precyzja GIS</strong> — powiadomienie trafia wyłącznie
-                      do mieszkańców, których zarejestrowany adres mieści się
-                      w zakresie numerów posesji objętych danym zdarzeniem.
-                      System obsługuje numery alfanumeryczne (np. 10A, 10B).
-                    </>
-                  ),
+                  title: 'FastAPI + asyncpg',
+                  desc: 'Backend oparty na pełnej asynchroniczności. Powiadomienia wysyłane w tle bez blokowania interfejsu dyspozytora.',
+                  icon: <Zap className="h-4 w-4 text-primary" />,
                 },
                 {
-                  icon: <ShieldCheck className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" aria-hidden="true" />,
-                  text: (
-                    <>
-                      <strong>Fizyczne usunięcie danych</strong> — system stosuje wyłącznie
-                      twarde usunięcie (hard delete). Po wyrejestrowaniu dane znikają
-                      ze wszystkich tabel bazy bez możliwości odtworzenia,
-                      zgodnie z art. 17 RODO.
-                    </>
-                  ),
+                  title: 'Ochrona przed nadużyciami',
+                  desc: 'Weryfikacja 2FA, ograniczenia rate-limit, walidacja Zero Trust po stronie backendu — 7 warstw obrony (Defense in Depth).',
+                  icon: <ShieldCheck className="h-4 w-4 text-primary" />,
                 },
-              ].map((item, i) => (
-                <li key={i} className="flex gap-2.5">
-                  {item.icon}
-                  <span>{item.text}</span>
-                </li>
+              ].map((item) => (
+                <div key={item.title} className="flex gap-3 p-3 rounded-md bg-muted/30 border border-border/50">
+                  <div className="mt-0.5 shrink-0">{item.icon}</div>
+                  <div>
+                    <p className="font-semibold text-foreground">{item.title}</p>
+                    <p className="text-xs mt-0.5 leading-relaxed">{item.desc}</p>
+                  </div>
+                </div>
               ))}
-            </ul>
-            <p className="text-xs pt-2 border-t border-border/50">
-              Podstawa prawna: art. 6 ust. 1 lit. a RODO (zgoda) oraz art. 17 RODO
-              (prawo do bycia zapomnianym). Administratorem danych jest MPWiK Lublin Sp. z o.o.
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* 5. Twórcy */}
+      <section className="space-y-4">
+        <h2 className="font-heading text-xl font-semibold flex items-center gap-2">
+          <GraduationCap className="h-5 w-5 text-primary" aria-hidden="true" />
+          Twórcy
+        </h2>
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              System zaprojektowany i zrealizowany jako projekt inżynierski we współpracy
+              z Miejskim Przedsiębiorstwem Wodociągów i Kanalizacji w Lublinie.
             </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                { name: 'Rafał', role: 'Backend & Infrastruktura' },
+                { name: 'Jakub', role: 'Fullstack & GIS' },
+                { name: 'Mateusz', role: 'Frontend & UX' },
+              ].map(({ name, role }) => (
+                <div
+                  key={name}
+                  className="flex flex-col items-center text-center p-4 rounded-md border bg-muted/20 hover:bg-muted/40 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                    <span className="text-primary font-bold text-base">{name[0]}</span>
+                  </div>
+                  <p className="font-semibold text-sm">{name}</p>
+                  <p className="text-xs text-muted-foreground">{role}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+              <GraduationCap className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+              <p className="text-xs text-muted-foreground">
+                Politechnika Lubelska — projekt realizowany w ramach współpracy z MPWiK Lublin Sp. z o.o.
+              </p>
+            </div>
           </CardContent>
         </Card>
       </section>
