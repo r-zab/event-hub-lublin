@@ -36,31 +36,35 @@ interface Props {
 export function BuildingAddressModal({ building, onClose, onSaved }: Props) {
   const { toast } = useToast();
   const { role } = useAuth();
-  const isAdmin = role === 'admin';
 
   const [streetQuery, setStreetQuery] = useState('');
   const [selectedStreet, setSelectedStreet] = useState<Street | null>(null);
   const [houseNumber, setHouseNumber] = useState('');
+  const [houseNumberError, setHouseNumberError] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const { streets, isLoading: streetsLoading } = useStreets(streetQuery);
+  // Wiodące cyfry+spacje (kody TERYT, np. "1 Lipowa") są usuwane przed wysłaniem do API
+  const apiQuery = streetQuery.replace(/^\d+\s*/, '').trim();
+  const { streets, isLoading: streetsLoading } = useStreets(apiQuery);
 
-  const isEditMode = isAdmin && (building?.has_address ?? false);
+  // Tryb edycji gdy budynek ma już adres; admin i dispatcher mają identyczne uprawnienia
+  const isEditMode = (role === 'admin' || role === 'dispatcher') && (building?.has_address ?? false);
 
   useEffect(() => {
     if (building) {
       setStreetQuery(building.street_name ?? '');
       setSelectedStreet(null);
       setHouseNumber(building.house_number ?? '');
+      setHouseNumberError('');
       setShowSuggestions(false);
     }
   }, [building]);
 
   const handleSelectStreet = (street: Street) => {
     setSelectedStreet(street);
-    setStreetQuery(street.full_name);
+    setStreetQuery(street.name);  // czysta nazwa bez prefiksu/kodu
     setShowSuggestions(false);
   };
 
@@ -76,11 +80,7 @@ export function BuildingAddressModal({ building, onClose, onSaved }: Props) {
       return;
     }
     if (!houseNumber.trim()) {
-      toast({
-        title: 'Brak numeru',
-        description: 'Podaj numer budynku.',
-        variant: 'destructive',
-      });
+      setHouseNumberError('Numer budynku musi składać się z max 5 znaków (tylko cyfry i duże litery)');
       return;
     }
 
@@ -150,10 +150,10 @@ export function BuildingAddressModal({ building, onClose, onSaved }: Props) {
                 onChange={(e) => {
                   setStreetQuery(e.target.value);
                   setSelectedStreet(null);
-                  if (e.target.value.length >= 3) setShowSuggestions(true);
-                  else setShowSuggestions(false);
+                  const q = e.target.value.replace(/^\d+\s*/, '').trim();
+                  setShowSuggestions(q.length >= 3);
                 }}
-                onFocus={() => streetQuery.length >= 3 && setShowSuggestions(true)}
+                onFocus={() => apiQuery.length >= 3 && setShowSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                 autoComplete="off"
               />
@@ -169,7 +169,7 @@ export function BuildingAddressModal({ building, onClose, onSaved }: Props) {
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => handleSelectStreet(s)}
                     >
-                      <span className="font-medium">{s.street_type} {s.full_name}</span>
+                      <span className="font-medium">{s.name}</span>
                     </li>
                   ))}
                 </ul>
@@ -184,14 +184,22 @@ export function BuildingAddressModal({ building, onClose, onSaved }: Props) {
               id="house-number-input"
               placeholder="np. 12A"
               value={houseNumber}
-              onChange={(e) => setHouseNumber(e.target.value)}
+              maxLength={5}
+              onChange={(e) => {
+                const cleaned = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+                setHouseNumber(cleaned);
+                setHouseNumberError('');
+              }}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
             />
+            {houseNumberError && (
+              <p className="text-xs text-destructive">{houseNumberError}</p>
+            )}
           </div>
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
-          {/* Przycisk usunięcia adresu — tylko admin w trybie edycji */}
+          {/* Przycisk usunięcia adresu — admin lub dispatcher w trybie edycji */}
           {isEditMode && (
             <AlertDialog>
               <AlertDialogTrigger asChild>

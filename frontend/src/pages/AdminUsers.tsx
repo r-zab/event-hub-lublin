@@ -41,6 +41,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Plus, Trash2, ShieldCheck, Wrench, Eye, EyeOff, Pencil } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { useDepartments } from '@/hooks/useDepartments';
 
 // ---------------------------------------------------------------------------
 // Typy
@@ -134,6 +135,8 @@ export default function AdminUsers() {
   const [editDept, setEditDept] = useState<string>('none');
   const [editPassword, setEditPassword] = useState('');
   const [showEditPassword, setShowEditPassword] = useState(false);
+
+  const { departments } = useDepartments(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-users'],
@@ -393,9 +396,9 @@ export default function AdminUsers() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Brak</SelectItem>
-                    <SelectItem value="TSK">TSK</SelectItem>
-                    <SelectItem value="TSW">TSW</SelectItem>
-                    <SelectItem value="TP">TP</SelectItem>
+                    {departments.map((d) => (
+                      <SelectItem key={d.code} value={d.code}>{d.code} — {d.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -440,9 +443,9 @@ export default function AdminUsers() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Brak</SelectItem>
-                  <SelectItem value="TSK">TSK</SelectItem>
-                  <SelectItem value="TSW">TSW</SelectItem>
-                  <SelectItem value="TP">TP</SelectItem>
+                  {departments.map((d) => (
+                    <SelectItem key={d.code} value={d.code}>{d.code} — {d.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

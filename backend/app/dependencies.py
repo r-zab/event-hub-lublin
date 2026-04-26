@@ -50,6 +50,7 @@ async def get_current_user(
 
     if user is None:
         raise credentials_exception
+    logger.debug("JWT Sub: %s | DB User: %s (ID: %d)", username, user.username, user.id)
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

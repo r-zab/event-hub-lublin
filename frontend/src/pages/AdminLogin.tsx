@@ -26,7 +26,8 @@ const AdminLogin = () => {
     const success = await login(loginValue, password);
     setIsSubmitting(false);
     if (success) {
-      navigate('/admin/dashboard');
+      // Hard reload flushes React Query cache — prevents stale admin/dispatcher data cross-contamination
+      window.location.href = '/admin/dashboard';
     } else {
       toast({ title: 'Błąd', description: 'Nieprawidłowe dane logowania.', variant: 'destructive' });
     }

@@ -18,7 +18,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[str | None] = mapped_column(String(100))
     role: Mapped[str] = mapped_column(String(20), server_default="dispatcher")
-    department: Mapped[str | None] = mapped_column(String(3))
+    department: Mapped[str | None] = mapped_column(String(5))
     is_active: Mapped[bool] = mapped_column(Boolean, server_default="true")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 

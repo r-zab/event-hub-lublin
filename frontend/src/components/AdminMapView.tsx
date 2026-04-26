@@ -188,7 +188,7 @@ function BuildingsLayer({ buildings, onBuildingClick, isAdmin }: BuildingsLayerP
 
 export function AdminMapView() {
   const { role } = useAuth();
-  const isAdmin = role === 'admin';
+  const isAdmin = role === 'admin' || role === 'dispatcher';
 
   const [bounds, setBounds] = useState<BoundsState | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(null);

@@ -26,11 +26,11 @@ function parseJwtRole(token: string): UserRole {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return !!localStorage.getItem('mpwik_token');
+    return !!sessionStorage.getItem('mpwik_token');
   });
 
   const [role, setRole] = useState<UserRole>(() => {
-    const token = localStorage.getItem('mpwik_token');
+    const token = sessionStorage.getItem('mpwik_token');
     return token ? parseJwtRole(token) : null;
   });
 
@@ -51,9 +51,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data: { access_token?: string; refresh_token?: string } = await res.json();
       const token = data.access_token;
       if (!token) return false;
-      localStorage.setItem('mpwik_token', token);
+      // Purge stale session before writing new credentials — prevents cross-account token bleed
+      sessionStorage.removeItem('mpwik_token');
+      sessionStorage.removeItem('mpwik_refresh_token');
+      sessionStorage.setItem('mpwik_token', token);
       if (data.refresh_token) {
-        localStorage.setItem('mpwik_refresh_token', data.refresh_token);
+        sessionStorage.setItem('mpwik_refresh_token', data.refresh_token);
       }
       setIsAuthenticated(true);
       setRole(parseJwtRole(token));
@@ -64,8 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('mpwik_token');
-    localStorage.removeItem('mpwik_refresh_token');
+    sessionStorage.removeItem('mpwik_token');
+    sessionStorage.removeItem('mpwik_refresh_token');
     setIsAuthenticated(false);
     setRole(null);
   }, []);

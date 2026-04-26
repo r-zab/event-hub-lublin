@@ -21,6 +21,7 @@ import AdminNotifications from "./pages/AdminNotifications";
 import AdminUsers from "./pages/AdminUsers";
 import AdminEventTypes from "./pages/AdminEventTypes";
 import AdminMessageTemplates from "./pages/AdminMessageTemplates";
+import AdminDepartments from "./pages/AdminDepartments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -94,6 +95,14 @@ const App = () => (
                 element={
                   <AdminOnlyRoute>
                     <AdminMessageTemplates />
+                  </AdminOnlyRoute>
+                }
+              />
+              <Route
+                path="/admin/departments"
+                element={
+                  <AdminOnlyRoute>
+                    <AdminDepartments />
                   </AdminOnlyRoute>
                 }
               />

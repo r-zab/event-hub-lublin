@@ -17,6 +17,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import get_current_admin
+from app.models.department import Department
 from app.models.event import Event
 from app.models.notification import NotificationLog
 from app.models.subscriber import Subscriber
@@ -119,6 +120,18 @@ class UserListResponse(BaseModel):
     total_count: int
 
 
+_DEPT_CODE_RE = re.compile(r"^[A-Z][A-Z0-9]{0,4}$")
+
+
+def _validate_dept_format(v: str | None) -> str | None:
+    if v is None:
+        return v
+    v = v.strip().upper()
+    if not _DEPT_CODE_RE.match(v):
+        raise ValueError("Kod działu: wielkie litery i cyfry, max 5 znaków, musi zaczynać się od litery.")
+    return v
+
+
 class CreateUserBody(BaseModel):
     """Dane do tworzenia nowego konta użytkownika."""
 
@@ -126,7 +139,12 @@ class CreateUserBody(BaseModel):
     password: str = Field(min_length=12, max_length=128)
     full_name: str | None = None
     role: Literal["admin", "dispatcher"] = "dispatcher"
-    department: Literal["TSK", "TSW", "TP"] | None = None
+    department: str | None = Field(default=None, max_length=5)
+
+    @field_validator("department", mode="after")
+    @classmethod
+    def validate_dept_format(cls, v: str | None) -> str | None:
+        return _validate_dept_format(v)
 
     @field_validator("password")
     @classmethod
@@ -146,8 +164,13 @@ class UpdateUserBody(BaseModel):
     role: Literal["admin", "dispatcher"] | None = None
     is_active: bool | None = None
     full_name: str | None = None
-    department: Literal["TSK", "TSW", "TP"] | None = None
+    department: str | None = Field(default=None, max_length=5)
     new_password: str | None = None
+
+    @field_validator("department", mode="after")
+    @classmethod
+    def validate_dept_format(cls, v: str | None) -> str | None:
+        return _validate_dept_format(v)
 
     @field_validator("new_password")
     @classmethod
@@ -163,6 +186,26 @@ class UpdateUserBody(BaseModel):
         if not re.search(r"\d", v):
             raise ValueError("Hasło musi zawierać co najmniej jedną cyfrę (0-9)")
         return v
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+async def _resolve_department(code: str | None, db: AsyncSession) -> str | None:
+    """Zwraca code jeśli dział istnieje w DB, rzuca 422 gdy nie."""
+    if code is None:
+        return None
+    result = await db.execute(select(Department).where(Department.code == code))
+    dept = result.scalar_one_or_none()
+    if dept is None:
+        logger.error("Nieznany kod działu: %r — brak w tabeli departments", code)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Dział o kodzie '{code}' nie istnieje. Dodaj go najpierw w zakładce Działy.",
+        )
+    return code
 
 
 # ---------------------------------------------------------------------------
@@ -291,19 +334,21 @@ async def create_user(
             detail="Użytkownik o tej nazwie już istnieje",
         )
 
+    dept_code = await _resolve_department(body.department, db)
+
     new_user = User(
         username=body.username,
         password_hash=hash_password(body.password),
         full_name=body.full_name,
         role=body.role,
-        department=body.department,
+        department=dept_code,
         is_active=True,
     )
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
 
-    logger.info("Utworzono nowego użytkownika: %s (rola=%s)", new_user.username, new_user.role)
+    logger.info("Utworzono nowego użytkownika: %s (rola=%s, dział=%s)", new_user.username, new_user.role, new_user.department)
     return UserItem.model_validate(new_user)
 
 
@@ -350,7 +395,7 @@ async def update_user(
         user.full_name = body.full_name or None
 
     if "department" in body.model_fields_set:
-        user.department = body.department
+        user.department = await _resolve_department(body.department, db)
 
     if body.new_password is not None:
         user.password_hash = hash_password(body.new_password)

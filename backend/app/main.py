@@ -22,6 +22,7 @@ from app.routers import (
     admin,
     auth,
     buildings,
+    departments,
     event_types,
     events,
     message_templates,
@@ -185,6 +186,7 @@ app.include_router(streets.router, prefix="/api/v1/streets", tags=["Streets"])
 app.include_router(buildings.router, prefix="/api/v1/buildings", tags=["Buildings"])
 app.include_router(events.router, prefix="/api/v1/events", tags=["Events"])
 app.include_router(event_types.router, prefix="/api/v1/event-types", tags=["EventTypes"])
+app.include_router(departments.router, prefix="/api/v1/departments", tags=["Departments"])
 app.include_router(message_templates.router, prefix="/api/v1/message-templates", tags=["MessageTemplates"])
 app.include_router(subscribers.router, prefix="/api/v1/subscribers", tags=["Subscribers"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])

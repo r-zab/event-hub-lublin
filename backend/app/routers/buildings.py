@@ -3,7 +3,7 @@
 Prefix: /api/v1/buildings
 Auth:
   GET         — publiczny (brak tokenu)
-  PATCH/DELETE — Bearer JWT + rola 'admin'
+  PATCH/DELETE — Bearer JWT + rola 'admin' lub 'dispatcher'
 """
 
 import logging
@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from geoalchemy2.functions import ST_Intersects, ST_MakeEnvelope
 
 from app.database import get_db
-from app.dependencies import get_current_admin
+from app.dependencies import get_current_dispatcher_or_admin
 from app.models.audit import BuildingAuditLog
 from app.models.building import Building
 from app.models.user import User
@@ -77,15 +77,15 @@ async def get_buildings_in_bbox(
 @router.patch(
     "/{building_id}",
     response_model=BuildingBboxResponse,
-    summary="Aktualizuj adres budynku (admin)",
+    summary="Aktualizuj adres budynku (admin/dispatcher)",
 )
 async def update_building_address(
     building_id: int,
     data: BuildingUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_admin),
+    current_user: User = Depends(get_current_dispatcher_or_admin),
 ) -> BuildingBboxResponse:
-    """Ręcznie przypisuje lub poprawia adres budynku. Wymaga roli admin."""
+    """Ręcznie przypisuje lub poprawia adres budynku. Wymaga roli admin lub dispatcher."""
     result = await db.execute(select(Building).where(Building.id == building_id))
     building = result.scalar_one_or_none()
     if building is None:
@@ -116,6 +116,11 @@ async def update_building_address(
         "house_number": building.house_number,
     }
 
+    logger.debug(
+        "Tworzenie wpisu audytu dla użytkownika: %s (ID: %d, Rola: %s)",
+        current_user.username, current_user.id, current_user.role,
+    )
+
     audit = BuildingAuditLog(
         user_id=current_user.id,
         building_id=building_id,
@@ -129,8 +134,8 @@ async def update_building_address(
     await db.refresh(building)
 
     logger.info(
-        "Admin id=%d zaktualizował adres budynku id=%d: %s → %s",
-        current_user.id, building_id, old_data, new_data,
+        "%s id=%d zaktualizował adres budynku id=%d: %s → %s",
+        current_user.role.capitalize(), current_user.id, building_id, old_data, new_data,
     )
     return BuildingBboxResponse.model_validate(building)
 
@@ -138,12 +143,12 @@ async def update_building_address(
 @router.delete(
     "/{building_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Usuń adres budynku (admin)",
+    summary="Usuń adres budynku (admin/dispatcher)",
 )
 async def delete_building_address(
     building_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_admin),
+    current_user: User = Depends(get_current_dispatcher_or_admin),
 ) -> None:
     """Usuwa dane adresowe z budynku (street_id, street_name, house_number → NULL).
 
@@ -168,6 +173,11 @@ async def delete_building_address(
     building.street_name = None
     building.house_number = None
 
+    logger.debug(
+        "Tworzenie wpisu audytu dla użytkownika: %s (ID: %d, Rola: %s)",
+        current_user.username, current_user.id, current_user.role,
+    )
+
     audit = BuildingAuditLog(
         user_id=current_user.id,
         building_id=building_id,
@@ -180,6 +190,6 @@ async def delete_building_address(
     await db.commit()
 
     logger.info(
-        "Admin id=%d usunął adres budynku id=%d (było: %s)",
-        current_user.id, building_id, old_data,
+        "%s id=%d usunął adres budynku id=%d (było: %s)",
+        current_user.role.capitalize(), current_user.id, building_id, old_data,
     )

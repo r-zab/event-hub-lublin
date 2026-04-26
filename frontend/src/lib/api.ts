@@ -5,13 +5,13 @@ const defaultHeaders: Record<string, string> = {
 };
 
 function getAuthHeaders(): Record<string, string> {
-  const token = localStorage.getItem('mpwik_token');
+  const token = sessionStorage.getItem('mpwik_token');
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 function clearSessionAndRedirect() {
-  localStorage.removeItem('mpwik_token');
-  localStorage.removeItem('mpwik_refresh_token');
+  sessionStorage.removeItem('mpwik_token');
+  sessionStorage.removeItem('mpwik_refresh_token');
   window.location.href = '/sys-panel/login';
 }
 
@@ -20,7 +20,7 @@ let refreshPromise: Promise<string | null> | null = null;
 async function tryRefreshToken(): Promise<string | null> {
   if (refreshPromise) return refreshPromise;
   refreshPromise = (async () => {
-    const refreshToken = localStorage.getItem('mpwik_refresh_token');
+    const refreshToken = sessionStorage.getItem('mpwik_refresh_token');
     if (!refreshToken) return null;
     try {
       const res = await fetch(`${BASE_URL}/auth/refresh`, {
@@ -31,9 +31,9 @@ async function tryRefreshToken(): Promise<string | null> {
       if (!res.ok) return null;
       const data: { access_token?: string; refresh_token?: string } = await res.json();
       if (!data.access_token) return null;
-      localStorage.setItem('mpwik_token', data.access_token);
+      sessionStorage.setItem('mpwik_token', data.access_token);
       if (data.refresh_token) {
-        localStorage.setItem('mpwik_refresh_token', data.refresh_token);
+        sessionStorage.setItem('mpwik_refresh_token', data.refresh_token);
       }
       return data.access_token;
     } catch {

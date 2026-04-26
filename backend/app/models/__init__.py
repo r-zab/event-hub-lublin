@@ -1,6 +1,7 @@
 from app.models.api_key import ApiKey
 from app.models.audit import BuildingAuditLog, StreetAuditLog
 from app.models.building import Building
+from app.models.department import Department
 from app.models.event import Event, EventHistory
 from app.models.event_type import EventType
 from app.models.message_template import MessageTemplate
@@ -12,6 +13,7 @@ from app.models.user import User
 
 __all__ = [
     "User",
+    "Department",
     "Street",
     "Building",
     "BuildingAuditLog",

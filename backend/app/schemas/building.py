@@ -1,6 +1,10 @@
 """Schematy Pydantic dla budynków (obrysy GeoJSON)."""
 
-from pydantic import BaseModel, computed_field
+import re
+
+from pydantic import BaseModel, computed_field, field_validator
+
+_HOUSE_NUMBER_RE = re.compile(r'^[0-9][A-Z0-9]{0,4}$')
 
 
 class BuildingResponse(BaseModel):
@@ -41,3 +45,14 @@ class BuildingUpdate(BaseModel):
     street_id: int | None = None
     street_name: str | None = None
     house_number: str | None = None
+
+    @field_validator('house_number')
+    @classmethod
+    def validate_house_number(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not _HOUSE_NUMBER_RE.match(v):
+            raise ValueError(
+                "Numer budynku musi zaczynać się od cyfry i mieć max 5 znaków"
+            )
+        return v
