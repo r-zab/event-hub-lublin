@@ -108,6 +108,14 @@
     @apply border-border;
   }
 
+  /* Prevent browser-level scroll — each layout manages its own scroll container */
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body);

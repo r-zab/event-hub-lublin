@@ -84,7 +84,7 @@ export function AdminLayout() {
   return (
     <div className="h-screen flex flex-col lg:flex-row overflow-hidden">
       {/* Desktop sidebar — ukryty poniżej lg */}
-      <aside className="hidden lg:flex w-64 shrink-0 bg-water-900 text-water-100 flex-col h-screen sticky top-0" aria-label="Panel administracyjny">
+      <aside className="hidden lg:flex w-64 shrink-0 bg-water-900 text-water-100 flex-col overflow-y-auto" aria-label="Panel administracyjny">
         <SidebarNav />
       </aside>
 

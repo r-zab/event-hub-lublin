@@ -13,7 +13,7 @@ export function PublicLayout() {
   const { pathname } = useLocation();
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="h-full overflow-y-auto flex flex-col">
       <header className="sticky top-0 z-50 border-b border-border/60 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
         <div className="container flex h-16 items-center justify-between">
           <Link to="/" className="flex items-center gap-2 font-heading font-bold text-lg text-primary" aria-label="Strona główna — System Powiadomień MPWiK Lublin">
