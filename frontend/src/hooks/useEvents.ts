@@ -96,6 +96,12 @@ export function useEvents({
     return () => clearInterval(id);
   }, [refetchInterval]);
 
+  useEffect(() => {
+    const handler = () => setTick((t) => t + 1);
+    window.addEventListener('mpwik:events:invalidate', handler);
+    return () => window.removeEventListener('mpwik:events:invalidate', handler);
+  }, []);
+
   const totalPages = Math.max(1, Math.ceil(data.total_count / limit));
 
   return {

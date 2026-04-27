@@ -8,7 +8,7 @@ import logging.config
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -18,6 +18,7 @@ from app.middleware import TrustedProxyMiddleware
 
 from app.config import settings
 from app.limiter import limiter
+from app.ws_manager import ws_manager
 from app.routers import (
     admin,
     auth,
@@ -179,6 +180,16 @@ async def health_check():
         "version": settings.APP_VERSION,
     }
 
+
+@app.websocket("/api/v1/ws")
+async def websocket_endpoint(websocket: WebSocket) -> None:
+    """Endpoint WebSocket — utrzymuje połączenie i odbiera komunikaty klientów."""
+    await ws_manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket)
 
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])

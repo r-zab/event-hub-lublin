@@ -22,6 +22,7 @@ from app.models.street import Street
 from app.models.user import User
 from app.schemas.event import EventCreate, EventResponse, EventUpdate, PaginatedEventResponse
 from app.services.notification_service import notify_event
+from app.ws_manager import ws_manager
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +174,7 @@ async def create_event(
     await db.execute(select(Event).options(selectinload(Event.history)).where(Event.id == event.id))
     event.notified_count = 0
     logger.info("Utworzono zdarzenie id=%d typ=%r przez user=%d", event.id, event.event_type, current_user.id)
+    await ws_manager.broadcast({"entity": "events", "action": "update"})
     task = asyncio.create_task(notify_event(event.id))
     task.add_done_callback(_log_task_exception)
     return event
@@ -215,6 +217,7 @@ async def delete_event(
         await db.commit()
 
     logger.info("Usunięto zdarzenie id=%d przez user=%d (admin)", event_id, current_user.id)
+    await ws_manager.broadcast({"entity": "events", "action": "update"})
 
 
 @router.put("/{event_id}", response_model=EventResponse, summary="Aktualizuj zdarzenie")
@@ -289,4 +292,5 @@ async def update_event(
             )
         )
         task.add_done_callback(_log_task_exception)
+    await ws_manager.broadcast({"entity": "events", "action": "update"})
     return event
