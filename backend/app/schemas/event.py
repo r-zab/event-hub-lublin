@@ -50,18 +50,27 @@ def _validate_house_number(v: str | None) -> str | None:
     return v
 
 
-_FORBIDDEN_CHARS = frozenset("<>%_*")
+# Whitelist: polskie i łacińskie litery, cyfry, spacje, newline, podstawowa interpunkcja.
+# Blokuje XSS, Template Injection i SQL-injection (OWASP A03).
+_ALLOWED_TEXT_RE = re.compile(
+    r"""[A-Za-zĄąĆćĘęŁłŃńÓóŚśŹźŻż0-9 \t\r\n.,!?\-()"'/%:]+"""
+)
 
 
 def _sanitize_text(v: str | None, field_label: str, max_len: int = 2000) -> str | None:
-    """Wspólna sanityzacja pól tekstowych: XSS + LIKE injection (OWASP A03)."""
+    """Walidacja pól tekstowych przez whitelistę dozwolonych znaków (OWASP A03)."""
     if v is None:
         return v
     v = v.strip()
+    if not v:
+        return v
     if len(v) > max_len:
         raise ValueError(f"{field_label} nie może przekraczać {max_len} znaków.")
-    if _FORBIDDEN_CHARS & set(v):
-        raise ValueError(f"{field_label} zawiera niedozwolone znaki (< > % _ *).")
+    if not _ALLOWED_TEXT_RE.fullmatch(v):
+        raise ValueError(
+            f"{field_label} zawiera niedozwolone znaki. "
+            r"Dozwolone: litery, cyfry, spacje i interpunkcja (.,!?-()\"'/%:)."
+        )
     return v
 
 
@@ -143,6 +152,8 @@ def _validate_estimated_end(v: datetime | None) -> datetime | None:
 class EventCreate(EventBase):
     """Dane wymagane do utworzenia nowego zdarzenia."""
 
+    # estimated_end jest obowiązkowe przy tworzeniu (nadpisuje Optional z EventBase)
+    estimated_end: datetime
     created_by_department: str | None = None
 
     @field_validator("event_type", mode="after")
@@ -172,8 +183,18 @@ class EventCreate(EventBase):
 
     @field_validator("estimated_end", mode="after")
     @classmethod
-    def estimated_end_not_in_past(cls, v: datetime | None) -> datetime | None:
-        return _validate_estimated_end(v)
+    def estimated_end_not_in_past(cls, v: datetime) -> datetime:
+        result = _validate_estimated_end(v)
+        assert result is not None
+        return result
+
+    @model_validator(mode="after")
+    def planned_requires_both_times(self) -> "EventCreate":
+        if self.event_type == "planowane_wylaczenie" and self.start_time is None:
+            raise ValueError(
+                "Planowane wyłączenie wymaga podania czasu rozpoczęcia (start_time)."
+            )
+        return self
 
     @model_validator(mode="after")
     def start_time_not_in_past_for_planned(self) -> "EventCreate":

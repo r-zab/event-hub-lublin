@@ -4,6 +4,8 @@ Frontend nie wywołuje już DELETE — zamiast tego soft-delete przez PUT zachow
 Ten test weryfikuje backendową ścieżkę używaną przez nowy przycisk.
 """
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from tests._auth_helpers import get_token as _token
@@ -32,6 +34,8 @@ async def test_put_status_usunieta_soft_close_preserves_event(async_client):
     street_id = streets[0]["id"]
     street_name = streets[0]["name"]
 
+    future_end = (datetime.now(timezone.utc) + timedelta(hours=4)).isoformat()
+
     # CREATE event (typ 'awaria' z seed)
     res = await async_client.post(
         EVENTS_URL,
@@ -42,6 +46,7 @@ async def test_put_status_usunieta_soft_close_preserves_event(async_client):
             "house_number_from": "1",
             "house_number_to": "10",
             "description": "Test soft-close T2.3",
+            "estimated_end": future_end,
         },
         headers=headers,
     )

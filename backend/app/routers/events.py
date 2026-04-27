@@ -3,14 +3,17 @@ Router: Events — CRUD dla zdarzeń (awarie, wyłączenia, remonty).
 """
 
 import asyncio
+import csv
+import io
 import logging
 from asyncio import Task
+from datetime import date, timezone
 from typing import Annotated
 
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, StreamingResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -115,6 +118,108 @@ async def events_feed(db: AsyncSession = Depends(get_db)) -> str:
     return "\n".join(lines)
 
 
+def _fmt_dt_warsaw(dt: object) -> str:
+    """Formatuj datetime jako czas warszawski (YYYY-MM-DD HH:MM) lub pusty string."""
+    if dt is None:
+        return ""
+    from datetime import datetime as _dt
+    if not isinstance(dt, _dt):
+        return str(dt)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(ZoneInfo("Europe/Warsaw")).strftime("%Y-%m-%d %H:%M")
+
+
+def _extract_numbers_from_geojson(geojson: dict | None) -> list[str]:
+    """Wyciąg numerów budynków z geojson_segment.features[].properties.house_number."""
+    if not isinstance(geojson, dict):
+        return []
+    features = geojson.get("features")
+    if not isinstance(features, list):
+        return []
+    numbers: list[str] = []
+    for feat in features:
+        if not isinstance(feat, dict):
+            continue
+        props = feat.get("properties") or {}
+        hn = props.get("house_number")
+        if hn:
+            numbers.append(str(hn))
+    return numbers
+
+
+@router.get("/export.csv", summary="Eksport CSV zdarzeń")
+async def export_events_csv(
+    search: str | None = Query(None),
+    status_filter: str | None = Query(None),
+    type_filter: str | None = Query(None),
+    dept_filter: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_dispatcher_or_admin),
+) -> StreamingResponse:
+    """Eksportuj zdarzenia do CSV z aktualnymi filtrami (maks. 5000 rekordów). Wymaga dispatcher/admin."""
+    filters = []
+    if status_filter and status_filter != "all":
+        filters.append(Event.status == status_filter)
+    else:
+        filters.append(Event.status != "usunieta")
+    if search:
+        pattern = f"%{search}%"
+        filters.append(or_(Event.street_name.ilike(pattern), Event.description.ilike(pattern)))
+    if type_filter and type_filter != "all":
+        filters.append(Event.event_type == type_filter)
+    if dept_filter and dept_filter != "all":
+        filters.append(Event.created_by_department == dept_filter)
+
+    result = await db.execute(
+        select(Event)
+        .where(*filters)
+        .order_by(Event.created_at.desc())
+        .limit(5000)
+    )
+    events = result.scalars().all()
+
+    output = io.StringIO()
+    writer = csv.writer(output, quoting=csv.QUOTE_ALL)
+    writer.writerow(["ID", "Typ", "Status", "Ulica", "Numery budynków", "Dział", "Opis", "Zgłoszono", "Szacowane zakończenie"])
+    for event in events:
+        geojson_nums = _extract_numbers_from_geojson(event.geojson_segment)
+        if geojson_nums:
+            numbers_str = ", ".join(geojson_nums)
+        elif event.house_number_from and event.house_number_to:
+            numbers_str = f"{event.house_number_from}–{event.house_number_to}"
+        elif event.house_number_from:
+            numbers_str = event.house_number_from
+        elif event.house_number_to:
+            numbers_str = event.house_number_to
+        else:
+            numbers_str = ""
+        writer.writerow([
+            event.id,
+            event.event_type,
+            event.status,
+            event.street_name or "",
+            numbers_str,
+            event.created_by_department or "",
+            event.description or "",
+            _fmt_dt_warsaw(event.created_at),
+            _fmt_dt_warsaw(event.estimated_end),
+        ])
+
+    csv_bytes = output.getvalue().encode("utf-8-sig")  # BOM dla kompatybilności z Excel
+    output.close()
+    filename = f"zdarzenia_eksport_{date.today().strftime('%Y-%m-%d')}.csv"
+    logger.info(
+        "Eksport CSV: user=%d wierszy=%d filtry=search:%r status:%r type:%r dept:%r",
+        current_user.id, len(events), search, status_filter, type_filter, dept_filter,
+    )
+    return StreamingResponse(
+        io.BytesIO(csv_bytes),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.get("/{event_id}", response_model=EventResponse, summary="Szczegóły zdarzenia")
 async def get_event(
     event_id: int,
@@ -164,13 +269,26 @@ async def create_event(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Nieznany lub nieaktywny typ zdarzenia: '{data.event_type}'.",
         )
-    dept = data.created_by_department or current_user.department
+    # Dispatcher nie może przypisać zdarzenia do innego działu niż własny
+    if current_user.role != "admin" and current_user.department:
+        dept = current_user.department
+    else:
+        dept = data.created_by_department or current_user.department
     event_data = data.model_dump(exclude={"created_by_department"})
     event = Event(**event_data, created_by=current_user.id, created_by_department=dept)
     db.add(event)
+    await db.flush()  # przypisuje event.id przed commitem
+
+    history_entry = EventHistory(
+        event_id=event.id,
+        old_status=None,
+        new_status=event.status,
+        changed_by=current_user.id,
+    )
+    db.add(history_entry)
     await db.commit()
     await db.refresh(event)
-    # Załaduj relacje (puste przy tworzeniu)
+    # Załaduj relacje po commicie
     await db.execute(select(Event).options(selectinload(Event.history)).where(Event.id == event.id))
     event.notified_count = 0
     logger.info("Utworzono zdarzenie id=%d typ=%r przez user=%d", event.id, event.event_type, current_user.id)
@@ -260,6 +378,10 @@ async def update_event(
 
     for field, value in update_data.items():
         setattr(event, field, value)
+
+    # Dispatcher nie może zmienić przypisania działu zdarzenia
+    if current_user.role != "admin" and current_user.department:
+        event.created_by_department = current_user.department
 
     db.add(event)
     await db.commit()

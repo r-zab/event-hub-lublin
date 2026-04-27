@@ -4,12 +4,17 @@ Prefix: /api/v1/admin
 Auth:   Bearer JWT + rola 'admin' (get_current_admin)
 """
 
+import csv
+import io
 import logging
 import re
-from datetime import datetime
+from datetime import date, datetime, timezone
 from typing import Literal
 
+from zoneinfo import ZoneInfo
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -584,3 +589,193 @@ async def list_audit_logs(
 
     logger.debug("Audit log: %d wpisów łącznie (source=%s, user_filter=%s)", total_count, source, user_filter)
     return AuditLogList(items=items[skip: skip + limit], total_count=total_count)
+
+
+# ---------------------------------------------------------------------------
+# Eksport CSV
+# ---------------------------------------------------------------------------
+
+
+def _fmt_admin_dt(dt: datetime | None) -> str:
+    """Formatuj datetime jako czas warszawski (YYYY-MM-DD HH:MM)."""
+    if dt is None:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(ZoneInfo("Europe/Warsaw")).strftime("%Y-%m-%d %H:%M")
+
+
+@router.get("/subscribers/export.csv", summary="Eksport CSV subskrybentów")
+async def export_subscribers_csv(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin),
+) -> StreamingResponse:
+    """Eksportuj wszystkich subskrybentów do CSV (maks. 10 000). TYLKO admin."""
+    result = await db.execute(
+        select(Subscriber)
+        .options(selectinload(Subscriber.addresses))
+        .order_by(Subscriber.created_at.desc())
+        .limit(10000)
+    )
+    subscribers = list(result.scalars().all())
+
+    output = io.StringIO()
+    writer = csv.writer(output, quoting=csv.QUOTE_ALL)
+    writer.writerow(["ID", "E-mail", "Telefon", "E-mail", "SMS", "RODO", "SMS nocny", "Adresy", "Data rejestracji"])
+    for s in subscribers:
+        addresses = "; ".join(
+            f"{a.street_name} {a.house_number}" + (f"/{a.flat_number}" if a.flat_number else "")
+            for a in s.addresses
+        )
+        writer.writerow([
+            s.id,
+            s.email or "",
+            s.phone or "",
+            "Tak" if s.notify_by_email else "Nie",
+            "Tak" if s.notify_by_sms else "Nie",
+            "Tak" if s.rodo_consent else "Nie",
+            "Tak" if s.night_sms_consent else "Nie",
+            addresses,
+            _fmt_admin_dt(s.created_at),
+        ])
+
+    csv_bytes = output.getvalue().encode("utf-8-sig")
+    output.close()
+    filename = f"subskrybenci_eksport_{date.today().strftime('%Y-%m-%d')}.csv"
+    logger.info("Eksport CSV subskrybentów: %d rekordów", len(subscribers))
+    return StreamingResponse(
+        io.BytesIO(csv_bytes),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/notifications/export.csv", summary="Eksport CSV logów powiadomień")
+async def export_notifications_csv(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin),
+) -> StreamingResponse:
+    """Eksportuj log powiadomień do CSV (maks. 10 000, od najnowszych). TYLKO admin."""
+    result = await db.execute(
+        select(NotificationLog)
+        .order_by(NotificationLog.sent_at.desc())
+        .limit(10000)
+    )
+    notifications = list(result.scalars().all())
+
+    output = io.StringIO()
+    writer = csv.writer(output, quoting=csv.QUOTE_ALL)
+    writer.writerow(["ID", "Data wysyłki", "Kanał", "Odbiorca", "Status", "Zdarzenie ID", "Subskrybent ID", "Treść", "Błąd"])
+    for n in notifications:
+        writer.writerow([
+            n.id,
+            _fmt_admin_dt(n.sent_at),
+            n.channel,
+            n.recipient,
+            n.status,
+            n.event_id if n.event_id is not None else "",
+            n.subscriber_id if n.subscriber_id is not None else "",
+            n.message_text or "",
+            n.error_message or "",
+        ])
+
+    csv_bytes = output.getvalue().encode("utf-8-sig")
+    output.close()
+    filename = f"powiadomienia_eksport_{date.today().strftime('%Y-%m-%d')}.csv"
+    logger.info("Eksport CSV powiadomień: %d rekordów", len(notifications))
+    return StreamingResponse(
+        io.BytesIO(csv_bytes),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/audit-logs/export.csv", summary="Eksport CSV logów audytowych")
+async def export_audit_logs_csv(
+    source: str | None = Query(None, pattern="^(building|street|event)$"),
+    action_filter: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin),
+) -> StreamingResponse:
+    """Eksportuj logi audytowe do CSV (maks. 2000 na źródło). TYLKO admin."""
+    items: list[AuditLogItem] = []
+
+    if source in (None, "building"):
+        stmt = (
+            select(BuildingAuditLog, User.username, User.full_name)
+            .outerjoin(User, BuildingAuditLog.user_id == User.id)
+            .order_by(BuildingAuditLog.timestamp.desc())
+            .limit(_MAX_AUDIT_PER_SOURCE)
+        )
+        if action_filter:
+            stmt = stmt.where(BuildingAuditLog.action == action_filter)
+        result = await db.execute(stmt)
+        for log, username, full_name in result.all():
+            items.append(AuditLogItem(
+                id=log.id, source="building", entity_id=log.building_id,
+                action=log.action, user_id=log.user_id, username=username, full_name=full_name,
+                timestamp=log.timestamp, old_data=log.old_data, new_data=log.new_data,
+            ))
+
+    if source in (None, "street"):
+        stmt = (
+            select(StreetAuditLog, User.username, User.full_name)
+            .outerjoin(User, StreetAuditLog.user_id == User.id)
+            .order_by(StreetAuditLog.timestamp.desc())
+            .limit(_MAX_AUDIT_PER_SOURCE)
+        )
+        if action_filter:
+            stmt = stmt.where(StreetAuditLog.action == action_filter)
+        result = await db.execute(stmt)
+        for log, username, full_name in result.all():
+            items.append(AuditLogItem(
+                id=log.id, source="street", entity_id=log.street_id,
+                action=log.action, user_id=log.user_id, username=username, full_name=full_name,
+                timestamp=log.timestamp, old_data=log.old_data, new_data=log.new_data,
+            ))
+
+    if source in (None, "event"):
+        if action_filter is None or action_filter == "status_change":
+            stmt = (
+                select(EventHistory, User.username, User.full_name)
+                .outerjoin(User, EventHistory.changed_by == User.id)
+                .order_by(EventHistory.changed_at.desc())
+                .limit(_MAX_AUDIT_PER_SOURCE)
+            )
+            result = await db.execute(stmt)
+            for log, username, full_name in result.all():
+                items.append(AuditLogItem(
+                    id=log.id, source="event", entity_id=log.event_id,
+                    action="status_change", user_id=log.changed_by, username=username, full_name=full_name,
+                    timestamp=log.changed_at,
+                    old_data={"status": log.old_status} if log.old_status else None,
+                    new_data={"status": log.new_status} if log.new_status else None,
+                    note=log.note,
+                ))
+
+    items.sort(key=lambda x: x.timestamp, reverse=True)
+
+    output = io.StringIO()
+    writer = csv.writer(output, quoting=csv.QUOTE_ALL)
+    writer.writerow(["ID", "Data", "Źródło", "Akcja", "ID obiektu", "Użytkownik", "Imię i nazwisko", "Notatka"])
+    for item in items:
+        writer.writerow([
+            item.id,
+            _fmt_admin_dt(item.timestamp),
+            item.source,
+            item.action,
+            item.entity_id,
+            item.username or "",
+            item.full_name or "",
+            item.note or "",
+        ])
+
+    csv_bytes = output.getvalue().encode("utf-8-sig")
+    output.close()
+    filename = f"logi_audytowe_eksport_{date.today().strftime('%Y-%m-%d')}.csv"
+    logger.info("Eksport CSV logów audytowych: %d rekordów (source=%s)", len(items), source)
+    return StreamingResponse(
+        io.BytesIO(csv_bytes),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

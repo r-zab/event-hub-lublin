@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Loader2, Search, ShieldCheck } from 'lucide-react';
+import { Loader2, Search, ShieldCheck, Download } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Tooltip,
@@ -52,11 +54,12 @@ interface SubscribersResponse {
   total_count: number;
 }
 
-const PAGE_SIZE_OPTIONS = [20, 30, 40, 50] as const;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250] as const;
 
 const AdminSubscribers = () => {
+  const { toast } = useToast();
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(20);
+  const [pageSize, setPageSize] = useState<number>(50);
   const [searchQuery, setSearchQuery] = useState('');
   const [streetFilter, setStreetFilter] = useState('all');
   const [channelFilter, setChannelFilter] = useState<'all' | 'sms' | 'email'>('all');
@@ -69,7 +72,7 @@ const AdminSubscribers = () => {
       apiFetch<SubscribersResponse>(`/admin/subscribers?skip=${skip}&limit=${pageSize}`),
   });
 
-  const totalPages = data ? Math.ceil(data.total_count / pageSize) : 1;
+  const totalPages = data ? Math.max(1, Math.ceil(data.total_count / pageSize)) : 1;
 
   const uniqueStreets = useMemo(() => {
     const names = new Set<string>();
@@ -112,6 +115,29 @@ const AdminSubscribers = () => {
 
   const hasFilters = searchQuery || streetFilter !== 'all' || channelFilter !== 'all' || nightOnly;
 
+  const handleExportCsv = async () => {
+    const base = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1';
+    const token = sessionStorage.getItem('mpwik_token');
+    try {
+      const res = await fetch(`${base}/admin/subscribers/export.csv`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Eksport nieudany');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dateStr = new Date().toISOString().split('T')[0];
+      a.download = `subskrybenci_eksport_${dateStr}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: 'Błąd eksportu CSV', variant: 'destructive' });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -149,13 +175,13 @@ const AdminSubscribers = () => {
           <Input
             placeholder="E-mail lub telefon..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
             className="pl-9 h-9 bg-background"
           />
         </div>
 
         {/* Dropdown ulicy */}
-        <Select value={streetFilter} onValueChange={setStreetFilter}>
+        <Select value={streetFilter} onValueChange={(v) => { setStreetFilter(v); setPage(1); }}>
           <SelectTrigger className="w-44 h-9 bg-background" aria-label="Filtr ulicy">
             <SelectValue placeholder="Ulica" />
           </SelectTrigger>
@@ -168,7 +194,7 @@ const AdminSubscribers = () => {
         </Select>
 
         {/* Dropdown kanału */}
-        <Select value={channelFilter} onValueChange={(v) => setChannelFilter(v as typeof channelFilter)}>
+        <Select value={channelFilter} onValueChange={(v) => { setChannelFilter(v as typeof channelFilter); setPage(1); }}>
           <SelectTrigger className="w-36 h-9 bg-background" aria-label="Filtr kanału">
             <SelectValue placeholder="Kanał" />
           </SelectTrigger>
@@ -184,14 +210,14 @@ const AdminSubscribers = () => {
           <Switch
             id="night-filter"
             checked={nightOnly}
-            onCheckedChange={setNightOnly}
+            onCheckedChange={(v) => { setNightOnly(v); setPage(1); }}
           />
           <Label htmlFor="night-filter" className="text-sm cursor-pointer whitespace-nowrap">
             Zgoda nocna
           </Label>
         </div>
 
-        {/* Selektor liczby rekordów na stronę */}
+        {/* Selektor liczby rekordów na stronę + eksport */}
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-sm text-muted-foreground whitespace-nowrap">Na stronę:</span>
           <Select
@@ -211,6 +237,16 @@ const AdminSubscribers = () => {
             <span className="text-foreground">{filteredItems.length}</span>{' '}
             <span className="text-muted-foreground">subskrybentów</span>
           </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 shrink-0"
+            onClick={handleExportCsv}
+            aria-label="Eksportuj do CSV"
+          >
+            <Download className="h-4 w-4" />
+            Eksport CSV
+          </Button>
         </div>
       </div>
 
@@ -324,7 +360,7 @@ const AdminSubscribers = () => {
           </span>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
+            disabled={page >= totalPages}
             className="px-3 py-1 rounded border text-sm disabled:opacity-40"
           >
             Następna

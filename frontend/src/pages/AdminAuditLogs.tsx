@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { History, Search, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { History, Search, ChevronLeft, ChevronRight, Eye, Download, Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { formatDateTime } from '@/lib/utils';
@@ -19,7 +19,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -27,7 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface AuditLogItem {
   id: number;
@@ -48,7 +47,7 @@ interface AuditLogList {
   total_count: number;
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250] as const;
 
 const SOURCE_LABELS: Record<string, string> = {
   building: 'Budynek',
@@ -117,29 +116,35 @@ function DiffView({ old_data, new_data }: { old_data: Record<string, unknown> | 
 }
 
 const AdminAuditLogs = () => {
+  const { toast } = useToast();
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(50);
   const [sourceFilter, setSourceFilter] = useState('all');
   const [actionFilter, setActionFilter] = useState('all');
   const [userSearch, setUserSearch] = useState('');
   const [debouncedUser, setDebouncedUser] = useState('');
   const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null);
 
-  const skip = (page - 1) * PAGE_SIZE;
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedUser]);
+
+  const skip = (page - 1) * pageSize;
 
   const params = new URLSearchParams({
     skip: String(skip),
-    limit: String(PAGE_SIZE),
+    limit: String(pageSize),
   });
   if (sourceFilter !== 'all') params.set('source', sourceFilter);
   if (actionFilter !== 'all') params.set('action_filter', actionFilter);
   if (debouncedUser) params.set('user_filter', debouncedUser);
 
   const { data, isLoading, error } = useQuery<AuditLogList>({
-    queryKey: ['audit-logs', page, sourceFilter, actionFilter, debouncedUser],
+    queryKey: ['audit-logs', page, pageSize, sourceFilter, actionFilter, debouncedUser],
     queryFn: () => apiFetch<AuditLogList>(`/admin/audit-logs?${params.toString()}`),
   });
 
-  const totalPages = data ? Math.ceil(data.total_count / PAGE_SIZE) : 1;
+  const totalPages = data ? Math.max(1, Math.ceil(data.total_count / pageSize)) : 1;
 
   const availableActions = useMemo(() => {
     if (sourceFilter === 'event') return ['status_change'];
@@ -154,6 +159,32 @@ const AdminAuditLogs = () => {
       setDebouncedUser(v);
       setPage(1);
     }, 400);
+  };
+
+  const handleExportCsv = async () => {
+    const exportParams = new URLSearchParams();
+    if (sourceFilter !== 'all') exportParams.set('source', sourceFilter);
+    if (actionFilter !== 'all') exportParams.set('action_filter', actionFilter);
+    const base = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1';
+    const token = sessionStorage.getItem('mpwik_token');
+    try {
+      const res = await fetch(`${base}/admin/audit-logs/export.csv?${exportParams.toString()}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Eksport nieudany');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dateStr = new Date().toISOString().split('T')[0];
+      a.download = `logi_audytowe_eksport_${dateStr}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: 'Błąd eksportu CSV', variant: 'destructive' });
+    }
   };
 
   if (isLoading) {
@@ -232,6 +263,33 @@ const AdminAuditLogs = () => {
             ))}
           </SelectContent>
         </Select>
+
+        <div className="flex items-center gap-2 ml-auto">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Na stronę:</span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}
+          >
+            <SelectTrigger className="w-20 h-9 bg-background" aria-label="Liczba rekordów na stronę">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((n) => (
+                <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 shrink-0"
+            onClick={handleExportCsv}
+            aria-label="Eksportuj do CSV"
+          >
+            <Download className="h-4 w-4" />
+            Eksport CSV
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-md border overflow-x-auto">
@@ -318,7 +376,7 @@ const AdminAuditLogs = () => {
             variant="outline"
             size="sm"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
+            disabled={page >= totalPages}
           >
             Następna
             <ChevronRight className="h-4 w-4 ml-1" />

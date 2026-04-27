@@ -5,7 +5,7 @@ import { useEvents } from '@/hooks/useEvents';
 import { useStreets } from '@/hooks/useStreets';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Droplets, Search, CheckCircle2 } from 'lucide-react';
+import { Loader2, Droplets, Search, CheckCircle2, X } from 'lucide-react';
 import { type Street } from '@/data/mockData';
 import { formatEventNumbers, streetLabel } from '@/lib/utils';
 
@@ -63,13 +63,22 @@ const Index = () => {
     const val = e.target.value;
     setStreetQuery(val);
     setSelectedStreet(null);
+    setSubmittedStreet(null);  // Resetuj wyniki gdy użytkownik modyfikuje pole
     setShowStreetSuggestions(val.length >= 3);
-    if (!val) setSubmittedStreet(null);
   };
 
   const selectStreet = useCallback((street: Street) => {
     setSelectedStreet(street);
     setStreetQuery(street.full_name);
+    setShowStreetSuggestions(false);
+    // Auto-wyszukiwanie po wyborze z listy
+    setSubmittedStreet({ name: street.full_name, id: street.id });
+  }, []);
+
+  const clearStreet = useCallback(() => {
+    setStreetQuery('');
+    setSelectedStreet(null);
+    setSubmittedStreet(null);
     setShowStreetSuggestions(false);
   }, []);
 
@@ -78,18 +87,17 @@ const Index = () => {
   };
 
   // ---------------------------------------------------------------------------
-  // Wyszukiwanie / reset
+  // Wyszukiwanie — wymaga wyboru z listy
   // ---------------------------------------------------------------------------
 
   const handleSearch = useCallback(() => {
-    const q = streetQuery.trim();
-    if (!q) return;
-    setSubmittedStreet({ name: q, id: selectedStreet?.id ?? null });
+    if (!selectedStreet) return;
+    setSubmittedStreet({ name: selectedStreet.full_name, id: selectedStreet.id });
     setShowStreetSuggestions(false);
-  }, [streetQuery, selectedStreet]);
+  }, [selectedStreet]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleSearch();
+    if (e.key === 'Enter' && selectedStreet) handleSearch();
     if (e.key === 'Escape') setShowStreetSuggestions(false);
   };
 
@@ -142,62 +150,89 @@ const Index = () => {
           </p>
 
           {/* Pasek wyszukiwania: ulica */}
-          <div ref={containerRef} className="flex flex-col sm:flex-row gap-2 max-w-2xl mx-auto">
+          <div ref={containerRef} className="flex flex-col gap-1.5 max-w-2xl mx-auto w-full">
+            <div className="flex flex-col sm:flex-row gap-2">
 
-            {/* Pole ulicy */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
-              <Input
-                placeholder="Wpisz nazwę ulicy..."
-                value={streetQuery}
-                onChange={handleStreetInputChange}
-                onFocus={() => streetQuery.length >= 3 && suggestions.length > 0 && setShowStreetSuggestions(true)}
-                onKeyDown={handleKeyDown}
-                onBlur={handleStreetBlur}
-                className="bg-white text-foreground placeholder:text-muted-foreground border-0 h-12 text-base pl-9"
-                aria-label="Szukaj ulicy"
-                role="combobox"
-                aria-haspopup="listbox"
-                aria-autocomplete="list"
-                aria-expanded={showStreetSuggestions}
-                aria-controls="street-suggestions-listbox"
-              />
-              {streetsLoading && (
-                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-              )}
-              {showStreetSuggestions && suggestions.length > 0 && (
-                <ul
-                  id="street-suggestions-listbox"
-                  className="absolute z-50 left-0 right-0 mt-1 bg-white border border-border rounded-md shadow-lg max-h-52 overflow-y-auto text-left"
-                  role="listbox"
-                >
-                  {suggestions.map((s) => (
-                    <li
-                      key={s.id}
-                      role="option"
-                      aria-selected={selectedStreet?.id === s.id}
-                      className="px-3 py-2 text-sm cursor-pointer hover:bg-accent transition-colors"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => selectStreet(s)}
-                    >
-                      <span className="font-medium text-foreground">
-                        {streetLabel(s.street_type, s.full_name)}
-                      </span>
-                      <span className="text-muted-foreground ml-2 text-xs">{s.city}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {/* Pole ulicy */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
+                <Input
+                  placeholder="Wpisz nazwę ulicy..."
+                  value={streetQuery}
+                  onChange={handleStreetInputChange}
+                  onFocus={() => streetQuery.length >= 3 && setShowStreetSuggestions(true)}
+                  onKeyDown={handleKeyDown}
+                  onBlur={handleStreetBlur}
+                  className={`bg-white text-foreground placeholder:text-muted-foreground border-0 h-12 text-base pl-9 pr-9 transition-shadow ${
+                    selectedStreet ? 'ring-2 ring-green-400' : ''
+                  }`}
+                  aria-label="Szukaj ulicy"
+                  role="combobox"
+                  aria-haspopup="listbox"
+                  aria-autocomplete="list"
+                  aria-expanded={showStreetSuggestions}
+                  aria-controls="street-suggestions-listbox"
+                />
+                {streetsLoading ? (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                ) : streetQuery ? (
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 z-10 p-0.5 text-muted-foreground hover:text-foreground focus:outline-none"
+                    onClick={clearStreet}
+                    aria-label="Wyczyść wyszukiwanie"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+                {showStreetSuggestions && (
+                  <ul
+                    id="street-suggestions-listbox"
+                    className="absolute z-50 left-0 right-0 mt-1 bg-white border border-border rounded-md shadow-lg max-h-52 overflow-y-auto text-left"
+                    role="listbox"
+                  >
+                    {suggestions.length > 0 ? (
+                      suggestions.map((s) => (
+                        <li
+                          key={s.id}
+                          role="option"
+                          aria-selected={selectedStreet?.id === s.id}
+                          className="px-3 py-2 text-sm cursor-pointer hover:bg-accent transition-colors"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => selectStreet(s)}
+                        >
+                          <span className="font-medium text-foreground">
+                            {streetLabel(s.street_type, s.full_name)}
+                          </span>
+                          <span className="text-muted-foreground ml-2 text-xs">{s.city}</span>
+                        </li>
+                      ))
+                    ) : !streetsLoading && (
+                      <li className="px-3 py-2 text-sm text-muted-foreground">
+                        Nie znaleziono ulicy o podanej nazwie
+                      </li>
+                    )}
+                  </ul>
+                )}
+              </div>
+
+              <Button
+                onClick={handleSearch}
+                size="lg"
+                disabled={!selectedStreet}
+                className="bg-white text-primary hover:bg-secondary h-12 px-6 font-semibold shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Search className="h-4 w-4 mr-2" />
+                Sprawdź
+              </Button>
             </div>
 
-            <Button
-              onClick={handleSearch}
-              size="lg"
-              className="bg-white text-primary hover:bg-secondary h-12 px-6 font-semibold shrink-0"
-            >
-              <Search className="h-4 w-4 mr-2" />
-              Sprawdź
-            </Button>
+            {/* Stała wysokość min-h-4 = brak layout shift przy pojawianiu/znikaniu hintu */}
+            <p className="min-h-4 text-white/70 text-xs text-center sm:text-left">
+              {streetQuery.trim().length >= 3 && !selectedStreet && !streetsLoading
+                ? 'Wybierz ulicę z listy podpowiedzi, aby zobaczyć zdarzenia.'
+                : ''}
+            </p>
           </div>
 
           {noResultsForQuery && (

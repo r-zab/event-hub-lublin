@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Loader2, Search, ShieldCheck } from 'lucide-react';
+import { Loader2, Search, ShieldCheck, Download } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { formatDateTime } from '@/lib/utils';
@@ -24,6 +24,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 interface NotificationItem {
   id: number;
@@ -42,7 +44,7 @@ interface NotificationsResponse {
   total_count: number;
 }
 
-const PAGE_SIZE_OPTIONS = [20, 30, 40, 50] as const;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250] as const;
 
 const CHANNEL_LABELS: Record<string, string> = {
   sms: 'SMS',
@@ -77,8 +79,9 @@ function isLast7Days(dateStr: string): boolean {
 }
 
 const AdminNotifications = () => {
+  const { toast } = useToast();
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(20);
+  const [pageSize, setPageSize] = useState<number>(50);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const toggleExpand = useCallback((id: number) => {
     setExpandedIds((prev) => {
@@ -100,7 +103,7 @@ const AdminNotifications = () => {
       apiFetch<NotificationsResponse>(`/admin/notifications?skip=${skip}&limit=${pageSize}`),
   });
 
-  const totalPages = data ? Math.ceil(data.total_count / pageSize) : 1;
+  const totalPages = data ? Math.max(1, Math.ceil(data.total_count / pageSize)) : 1;
 
   const filteredItems = useMemo(() => {
     let items = data?.items ?? [];
@@ -140,6 +143,29 @@ const AdminNotifications = () => {
 
   const hasFilters =
     searchQuery || channelFilter !== 'all' || statusFilter !== 'all' || periodFilter !== 'all';
+
+  const handleExportCsv = async () => {
+    const base = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1';
+    const token = sessionStorage.getItem('mpwik_token');
+    try {
+      const res = await fetch(`${base}/admin/notifications/export.csv`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Eksport nieudany');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dateStr = new Date().toISOString().split('T')[0];
+      a.download = `logi_powiadomien_eksport_${dateStr}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: 'Błąd eksportu CSV', variant: 'destructive' });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -194,13 +220,13 @@ const AdminNotifications = () => {
           <Input
             placeholder="Odbiorca lub treść..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
             className="pl-9 h-9 bg-background"
           />
         </div>
 
         {/* Dropdown kanału */}
-        <Select value={channelFilter} onValueChange={(v) => setChannelFilter(v as typeof channelFilter)}>
+        <Select value={channelFilter} onValueChange={(v) => { setChannelFilter(v as typeof channelFilter); setPage(1); }}>
           <SelectTrigger className="w-36 h-9 bg-background" aria-label="Filtr kanału">
             <SelectValue placeholder="Kanał" />
           </SelectTrigger>
@@ -212,7 +238,7 @@ const AdminNotifications = () => {
         </Select>
 
         {/* Dropdown statusu */}
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v as typeof statusFilter); setPage(1); }}>
           <SelectTrigger className="w-36 h-9 bg-background" aria-label="Filtr statusu">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
@@ -224,7 +250,7 @@ const AdminNotifications = () => {
         </Select>
 
         {/* Dropdown okresu */}
-        <Select value={periodFilter} onValueChange={(v) => setPeriodFilter(v as typeof periodFilter)}>
+        <Select value={periodFilter} onValueChange={(v) => { setPeriodFilter(v as typeof periodFilter); setPage(1); }}>
           <SelectTrigger className="w-36 h-9 bg-background" aria-label="Filtr okresu">
             <SelectValue placeholder="Okres" />
           </SelectTrigger>
@@ -235,7 +261,7 @@ const AdminNotifications = () => {
           </SelectContent>
         </Select>
 
-        {/* Selektor liczby rekordów na stronę */}
+        {/* Selektor liczby rekordów na stronę + eksport */}
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-sm text-muted-foreground whitespace-nowrap">Na stronę:</span>
           <Select
@@ -255,6 +281,16 @@ const AdminNotifications = () => {
             <span className="font-medium text-foreground">{filteredItems.length}</span>{' '}
             <span className="text-muted-foreground">z {data?.items.length ?? 0}</span>
           </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 shrink-0"
+            onClick={handleExportCsv}
+            aria-label="Eksportuj do CSV"
+          >
+            <Download className="h-4 w-4" />
+            Eksport CSV
+          </Button>
         </div>
       </div>
 
@@ -363,7 +399,7 @@ const AdminNotifications = () => {
           </span>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
+            disabled={page >= totalPages}
             className="px-3 py-1 rounded border text-sm disabled:opacity-40"
           >
             Następna

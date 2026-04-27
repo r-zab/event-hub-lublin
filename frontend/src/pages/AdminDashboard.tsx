@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus, Search, ChevronDown, ChevronRight, Mail, Loader2, AlertTriangle,
-  Wrench, Calendar, Pencil, CheckCircle, Timer, Archive, HardHat, X, AlertCircle,
+  Wrench, Calendar, Pencil, CheckCircle, Timer, Archive, HardHat, X, AlertCircle, Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,6 +41,8 @@ const TYPE_ICON_MAP: Record<string, { Icon: typeof Wrench; cls: string }> = {
   remont: { Icon: HardHat, cls: 'text-amber-500' },
 };
 
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250] as const;
+
 const AdminDashboard = () => {
   const { toast } = useToast();
   const [search, setSearch] = useState('');
@@ -48,13 +50,14 @@ const AdminDashboard = () => {
   const [typeFilter, setTypeFilter] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(50);
   const [activeTab, setActiveTab] = useState('lista');
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [closeId, setCloseId] = useState<number | null>(null);
   const [isClosing, setIsClosing] = useState(false);
 
   const { events, totalPages, currentPage, isLoading, error, refetch } = useEvents({
-    search, statusFilter, typeFilter, deptFilter, page,
+    search, statusFilter, typeFilter, deptFilter, page, limit: pageSize,
   });
 
   // Liczniki dla kart statusowych — stałe 4, niezależne od typów w DB
@@ -90,9 +93,39 @@ const AdminDashboard = () => {
   };
 
   const cardCls = (active: boolean) =>
-    `cursor-pointer transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring${
-      active ? ' ring-2 ring-primary shadow-sm bg-primary/5' : ''
+    `cursor-pointer select-none transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring${
+      active
+        ? ' ring-2 ring-primary shadow-md bg-primary/10'
+        : ' hover:ring-2 hover:ring-primary/30 hover:shadow-md hover:bg-muted/50'
     }`;
+
+  const handleExportCsv = async () => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (statusFilter) params.set('status_filter', statusFilter);
+    if (typeFilter) params.set('type_filter', typeFilter);
+    if (deptFilter) params.set('dept_filter', deptFilter);
+    const base = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1';
+    const token = sessionStorage.getItem('mpwik_token');
+    try {
+      const res = await fetch(`${base}/events/export.csv?${params.toString()}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Eksport nieudany');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dateStr = new Date().toISOString().split('T')[0];
+      a.download = `zdarzenia_eksport_${dateStr}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: 'Błąd eksportu CSV', description: 'Nie udało się pobrać pliku.', variant: 'destructive' });
+    }
+  };
 
   const activeTypeDef = typeFilter ? eventTypes.find((t) => t.code === typeFilter) : null;
   const hasActiveFilter = typeFilter !== '' || deptFilter !== '' || (statusFilter !== '' && statusFilter !== 'all');
@@ -279,7 +312,7 @@ const AdminDashboard = () => {
 
         <TabsContent value="lista" className="mt-4 space-y-4">
 
-          {/* Toolbar — wyszukiwarka + dział */}
+          {/* Toolbar — wyszukiwarka + dział + eksport */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -304,6 +337,16 @@ const AdminDashboard = () => {
                 ))}
               </SelectContent>
             </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 shrink-0 self-center"
+              onClick={handleExportCsv}
+              aria-label="Eksportuj widok do CSV"
+            >
+              <Download className="h-4 w-4" />
+              Eksport CSV
+            </Button>
           </div>
 
           {/* Baner aktywnego filtrowania */}
@@ -498,10 +541,26 @@ const AdminDashboard = () => {
           </div>
 
           {/* Paginacja */}
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Strona {currentPage} z {totalPages}
-            </p>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground whitespace-nowrap">Na stronę:</span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}
+              >
+                <SelectTrigger className="w-20 h-8 text-sm" aria-label="Liczba rekordów na stronę">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZE_OPTIONS.map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                Strona {currentPage} z {totalPages}
+              </p>
+            </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setPage((p) => p - 1)}>
                 Poprzednia

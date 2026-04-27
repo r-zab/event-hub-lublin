@@ -5,6 +5,7 @@ type UserRole = 'admin' | 'dispatcher' | null;
 interface AuthContextValue {
   isAuthenticated: boolean;
   role: UserRole;
+  department: string | null;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
 }
@@ -13,14 +14,14 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1';
 
-function parseJwtRole(token: string): UserRole {
+function parseJwtPayload(token: string): { role: UserRole; department: string | null } {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
-    const role = payload.role;
-    if (role === 'admin' || role === 'dispatcher') return role;
-    return null;
+    const role = payload.role === 'admin' || payload.role === 'dispatcher' ? payload.role : null;
+    const department = typeof payload.dept === 'string' ? payload.dept : null;
+    return { role, department };
   } catch {
-    return null;
+    return { role: null, department: null };
   }
 }
 
@@ -31,7 +32,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const [role, setRole] = useState<UserRole>(() => {
     const token = sessionStorage.getItem('mpwik_token');
-    return token ? parseJwtRole(token) : null;
+    return token ? parseJwtPayload(token).role : null;
+  });
+
+  const [department, setDepartment] = useState<string | null>(() => {
+    const token = sessionStorage.getItem('mpwik_token');
+    return token ? parseJwtPayload(token).department : null;
   });
 
   const login = useCallback(async (username: string, password: string) => {
@@ -58,8 +64,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.refresh_token) {
         sessionStorage.setItem('mpwik_refresh_token', data.refresh_token);
       }
+      const parsed = parseJwtPayload(token);
       setIsAuthenticated(true);
-      setRole(parseJwtRole(token));
+      setRole(parsed.role);
+      setDepartment(parsed.department);
       return true;
     } catch {
       return false;
@@ -71,10 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.removeItem('mpwik_refresh_token');
     setIsAuthenticated(false);
     setRole(null);
+    setDepartment(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, role, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, role, department, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

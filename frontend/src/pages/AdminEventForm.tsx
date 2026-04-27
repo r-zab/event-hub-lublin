@@ -23,6 +23,7 @@ import { toUTCISO, streetLabel } from '@/lib/utils';
 import { LUBLIN_BOUNDS, MIN_ZOOM } from '@/lib/mapConfig';
 import { Search, Loader2, MapPin, Plus, X, Send, FileText, Pencil } from 'lucide-react';
 import { useDepartments } from '@/hooks/useDepartments';
+import { useAuth } from '@/hooks/useAuth';
 
 interface EventTypeDictItem {
   id: number;
@@ -267,12 +268,14 @@ function BuildingLayer({ features, selectedIds, onToggle, renderKey, streetName 
 // Komponent koszyka — pojedynczy element kolejki
 // ---------------------------------------------------------------------------
 
-// T2.2: znaki niedozwolone w opisie — spójność z Pydantic (LIKE injection + XSS)
-const FORBIDDEN_DESC_RE = /[<>%_*]/;
+// Whitelist: polskie/łacińskie litery, cyfry, spacje, newline, podstawowa interpunkcja.
+// Spójność z backendem (_ALLOWED_TEXT_RE w schemas/event.py).
+const DESC_FORBIDDEN_CHAR_RE = /[^A-Za-zĄąĆćĘęŁłŃńÓóŚśŹźŻż0-9 \t\r\n.,!?\-()"'/%:]/;
 
 function checkDescription(val: string): string | null {
-  if (FORBIDDEN_DESC_RE.test(val)) return 'Opis zawiera niedozwolone znaki (< > % _ *). Usuń je przed zapisem.';
   if (val.length > 2000) return 'Opis nie może przekraczać 2000 znaków.';
+  if (val && DESC_FORBIDDEN_CHAR_RE.test(val))
+    return 'Opis zawiera niedozwolone znaki (np. $ { } [ ] ; < >). Dozwolone: litery, cyfry i interpunkcja (.,!?-()\'"%/:).';
   return null;
 }
 
@@ -335,6 +338,8 @@ const AdminEventForm = () => {
   const isEdit = !!id;
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const { role: userRole, department: userDepartment } = useAuth();
 
   // --- Słowniki (T2.1, T2.2) ---
   const { data: eventTypesDict } = useQuery({
@@ -408,6 +413,13 @@ const AdminEventForm = () => {
   // IDs budynków do przywrócenia przy edycji (synchronizacja timingu ładowania)
   const pendingRestoreIdsRef = useRef<number[] | null>(null);
 
+  // Ustaw dział dyspozytora z JWT przy montowaniu (zadanie 2)
+  useEffect(() => {
+    if (userDepartment && userRole !== 'admin') {
+      setDepartment(userDepartment);
+    }
+  }, [userDepartment, userRole]);
+
   // ---------------------------------------------------------------------------
   // Parser błędów 422 z FastAPI / Pydantic
   // ---------------------------------------------------------------------------
@@ -426,11 +438,15 @@ const AdminEventForm = () => {
       [/start_time.*past/i,
         'Błąd daty: Czas rozpoczęcia nie może być w przeszłości.'],
       [/opis zawiera niedozwolone znaki/i,
-        'Błąd opisu: Usuń niedozwolone znaki (< > % _ *) z pola Opis.'],
+        'Błąd opisu: Usuń znaki specjalne (np. $ { } [ ] ; < >) z pola Opis.'],
       [/treść wiadomości zawiera niedozwolone znaki/i,
-        'Błąd wiadomości: Usuń niedozwolone znaki (< > % _ *) z treści powiadomienia.'],
+        'Błąd wiadomości: Usuń znaki specjalne (np. $ { } [ ] ; < >) z treści powiadomienia.'],
       [/treść szablonu zawiera niedozwolone znaki/i,
-        'Błąd szablonu: Treść zawiera niedozwolone znaki (< > % _ *).'],
+        'Błąd szablonu: Treść zawiera niedozwolone znaki specjalne.'],
+      [/planowane wyłączenie wymaga podania czasu rozpoczęcia/i,
+        'Błąd daty: Planowane wyłączenie wymaga czasu rozpoczęcia.'],
+      [/estimated_end.*required|field required.*estimated_end/i,
+        'Błąd daty: Szacowany czas zakończenia jest wymagany.'],
     ];
 
     const translate = (msg: string): string => {
@@ -908,6 +924,16 @@ const AdminEventForm = () => {
       toast({ title: 'Nieprawidłowy numer budynku', description: 'Wybierz numer z listy lub pozostaw puste.', variant: 'destructive' });
       return;
     }
+    if (!estimatedEnd) {
+      setDateFieldError('estimated_end');
+      toast({ title: 'Błąd daty', description: 'Szacowany czas zakończenia jest wymagany.', variant: 'destructive' });
+      return;
+    }
+    if (eventType === 'planowane_wylaczenie' && !startTime) {
+      setDateFieldError('start_time');
+      toast({ title: 'Błąd daty', description: 'Planowane wyłączenie wymaga podania czasu rozpoczęcia.', variant: 'destructive' });
+      return;
+    }
     if (startTime && estimatedEnd && new Date(estimatedEnd) <= new Date(startTime)) {
       setDateFieldError('both');
       toast({
@@ -1003,6 +1029,16 @@ const AdminEventForm = () => {
       }
       if (!validateHouseFrom()) {
         toast({ title: 'Nieprawidłowy numer budynku', description: 'Wybierz numer z listy lub pozostaw puste.', variant: 'destructive' });
+        return;
+      }
+      if (!estimatedEnd) {
+        setDateFieldError('estimated_end');
+        toast({ title: 'Błąd daty', description: 'Szacowany czas zakończenia jest wymagany.', variant: 'destructive' });
+        return;
+      }
+      if (eventType === 'planowane_wylaczenie' && !startTime) {
+        setDateFieldError('start_time');
+        toast({ title: 'Błąd daty', description: 'Planowane wyłączenie wymaga podania czasu rozpoczęcia.', variant: 'destructive' });
         return;
       }
       if (startTime && estimatedEnd && new Date(estimatedEnd) <= new Date(startTime)) {
@@ -1159,7 +1195,12 @@ const AdminEventForm = () => {
                 (widoczny tylko w panelu admina)
               </span>
             </Label>
-            <Select value={department} onValueChange={setDepartment} required>
+            <Select
+              value={department}
+              onValueChange={setDepartment}
+              required
+              disabled={userRole !== 'admin' && !!userDepartment}
+            >
               <SelectTrigger aria-label="Dział odpowiedzialny" className={!department ? 'border-dashed' : ''}>
                 <SelectValue placeholder="Wybierz dział…" />
               </SelectTrigger>
@@ -1573,14 +1614,14 @@ const AdminEventForm = () => {
           </div>
           <div>
             <Label htmlFor="est-end">
-              {eventType === 'planowane_wylaczenie' ? 'Czas zakończenia *' : 'Szacowany czas usunięcia'}
+              {eventType === 'planowane_wylaczenie' ? 'Czas zakończenia *' : 'Szacowany czas usunięcia *'}
             </Label>
             <Input
               id="est-end"
               type="datetime-local"
               value={estimatedEnd}
               onChange={(e) => { setEstimatedEnd(e.target.value); setDateFieldError(null); }}
-              required={eventType === 'planowane_wylaczenie'}
+              required
               aria-label="Szacowany czas zakończenia"
               className={dateFieldError === 'estimated_end' || dateFieldError === 'both' ? 'border-destructive' : ''}
             />
