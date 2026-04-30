@@ -63,19 +63,30 @@ const ROW_BG: Record<string, string> = {
   failed: 'bg-red-50/50',
 };
 
-function isToday(dateStr: string): boolean {
-  const d = new Date(dateStr);
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate();
+function buildNotifParams(
+  skip: number,
+  limit: number,
+  searchQuery: string,
+  channelFilter: string,
+  statusFilter: string,
+  periodFilter: string,
+): URLSearchParams {
+  const p = new URLSearchParams({ skip: String(skip), limit: String(limit) });
+  if (searchQuery.trim()) p.set('search', searchQuery.trim());
+  if (channelFilter !== 'all') p.set('channel', channelFilter);
+  if (statusFilter !== 'all') p.set('status_filter', statusFilter);
+  if (periodFilter !== 'all') p.set('period', periodFilter);
+  return p;
 }
 
-function isLast7Days(dateStr: string): boolean {
-  const d = new Date(dateStr);
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 7);
-  return d >= cutoff;
+function buildCsvFilename(channelFilter: string, statusFilter: string, periodFilter: string): string {
+  const parts: string[] = ['logi_powiadomien'];
+  if (channelFilter !== 'all') parts.push(channelFilter);
+  if (statusFilter !== 'all') parts.push(statusFilter);
+  if (periodFilter !== 'all') parts.push(periodFilter);
+  const ts = new Date().toISOString().replace(/[-:]/g, '').replace('T', '_').slice(0, 15);
+  parts.push(ts);
+  return parts.join('_') + '.csv';
 }
 
 const AdminNotifications = () => {
@@ -98,57 +109,32 @@ const AdminNotifications = () => {
   const skip = (page - 1) * pageSize;
 
   const { data, isLoading, error } = useQuery<NotificationsResponse>({
-    queryKey: ['admin-notifications', page, pageSize],
+    queryKey: ['admin-notifications', page, pageSize, searchQuery, channelFilter, statusFilter, periodFilter],
     queryFn: () =>
-      apiFetch<NotificationsResponse>(`/admin/notifications?skip=${skip}&limit=${pageSize}`),
+      apiFetch<NotificationsResponse>(
+        `/admin/notifications?${buildNotifParams(skip, pageSize, searchQuery, channelFilter, statusFilter, periodFilter).toString()}`,
+      ),
   });
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total_count / pageSize)) : 1;
-
-  const filteredItems = useMemo(() => {
-    let items = data?.items ?? [];
-
-    if (channelFilter !== 'all') {
-      items = items.filter((n) => n.channel === channelFilter);
-    }
-    if (statusFilter === 'sent') {
-      items = items.filter((n) => n.status === 'sent');
-    } else if (statusFilter === 'failed') {
-      items = items.filter((n) => n.status === 'failed');
-    }
-    if (periodFilter === 'today') {
-      items = items.filter((n) => isToday(n.sent_at));
-    } else if (periodFilter === 'last7') {
-      items = items.filter((n) => isLast7Days(n.sent_at));
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      items = items.filter(
-        (n) =>
-          n.recipient.toLowerCase().includes(q) ||
-          (n.message_text ?? '').toLowerCase().includes(q),
-      );
-    }
-
-    return items;
-  }, [data?.items, searchQuery, channelFilter, statusFilter, periodFilter]);
+  const items = data?.items ?? [];
 
   const stats = useMemo(() => {
-    const items = data?.items ?? [];
     const sent = items.filter((n) => n.status === 'sent').length;
     const total = items.length;
     const rate = total > 0 ? Math.round((sent / total) * 100) : 0;
     return { sent, total, rate };
-  }, [data?.items]);
+  }, [items]);
 
   const hasFilters =
     searchQuery || channelFilter !== 'all' || statusFilter !== 'all' || periodFilter !== 'all';
 
   const handleExportCsv = async () => {
+    const exportParams = buildNotifParams(0, 10000, searchQuery, channelFilter, statusFilter, periodFilter);
     const base = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1';
     const token = sessionStorage.getItem('mpwik_token');
     try {
-      const res = await fetch(`${base}/admin/notifications/export.csv`, {
+      const res = await fetch(`${base}/admin/notifications/export.csv?${exportParams.toString()}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error('Eksport nieudany');
@@ -156,8 +142,7 @@ const AdminNotifications = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const dateStr = new Date().toISOString().split('T')[0];
-      a.download = `logi_powiadomien_eksport_${dateStr}.csv`;
+      a.download = buildCsvFilename(channelFilter, statusFilter, periodFilter);
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -200,7 +185,7 @@ const AdminNotifications = () => {
       {data && (
         <div className="flex flex-wrap gap-4 text-sm">
           <span className="text-muted-foreground">
-            Wysłano łącznie:{' '}
+            Wysłano na stronie:{' '}
             <span className="font-semibold text-foreground">{stats.sent}</span>
           </span>
           <span className="text-muted-foreground">
@@ -227,7 +212,7 @@ const AdminNotifications = () => {
 
         {/* Dropdown kanału */}
         <Select value={channelFilter} onValueChange={(v) => { setChannelFilter(v as typeof channelFilter); setPage(1); }}>
-          <SelectTrigger className="w-36 h-9 bg-background" aria-label="Filtr kanału">
+          <SelectTrigger className="min-w-[11rem] h-9 bg-background" aria-label="Filtr kanału">
             <SelectValue placeholder="Kanał" />
           </SelectTrigger>
           <SelectContent>
@@ -239,7 +224,7 @@ const AdminNotifications = () => {
 
         {/* Dropdown statusu */}
         <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v as typeof statusFilter); setPage(1); }}>
-          <SelectTrigger className="w-36 h-9 bg-background" aria-label="Filtr statusu">
+          <SelectTrigger className="min-w-[11rem] h-9 bg-background" aria-label="Filtr statusu">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -251,7 +236,7 @@ const AdminNotifications = () => {
 
         {/* Dropdown okresu */}
         <Select value={periodFilter} onValueChange={(v) => { setPeriodFilter(v as typeof periodFilter); setPage(1); }}>
-          <SelectTrigger className="w-36 h-9 bg-background" aria-label="Filtr okresu">
+          <SelectTrigger className="min-w-[11rem] h-9 bg-background" aria-label="Filtr okresu">
             <SelectValue placeholder="Okres" />
           </SelectTrigger>
           <SelectContent>
@@ -277,10 +262,6 @@ const AdminNotifications = () => {
               ))}
             </SelectContent>
           </Select>
-          <span className="text-sm whitespace-nowrap">
-            <span className="font-medium text-foreground">{filteredItems.length}</span>{' '}
-            <span className="text-muted-foreground">z {data?.items.length ?? 0}</span>
-          </span>
           <Button
             variant="outline"
             size="sm"
@@ -319,14 +300,14 @@ const AdminNotifications = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredItems.length === 0 && (
+            {items.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                   {hasFilters ? 'Brak wyników dla wybranych filtrów.' : 'Brak wpisów w logu.'}
                 </TableCell>
               </TableRow>
             )}
-            {filteredItems.map((notif) => (
+            {items.map((notif) => (
               <TableRow key={notif.id} className={ROW_BG[notif.status] ?? ''}>
                 <TableCell className="py-3 text-sm whitespace-nowrap">
                   {formatDateTime(notif.sent_at)}

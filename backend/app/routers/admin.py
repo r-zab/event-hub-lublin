@@ -8,7 +8,7 @@ import csv
 import io
 import logging
 import re
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Literal
 
 from zoneinfo import ZoneInfo
@@ -26,7 +26,7 @@ from app.models.audit import BuildingAuditLog, StreetAuditLog
 from app.models.department import Department
 from app.models.event import Event, EventHistory
 from app.models.notification import NotificationLog
-from app.models.subscriber import Subscriber
+from app.models.subscriber import Subscriber, SubscriberAddress
 from app.models.user import User
 from app.utils.security import hash_password
 
@@ -260,21 +260,50 @@ async def get_stats(
 async def list_subscribers(
     skip: int = 0,
     limit: int = 20,
+    search: str | None = None,
+    channel: str | None = Query(None, pattern="^(sms|email)$"),
+    night_only: bool = False,
+    street_filter: str | None = None,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_admin),
 ) -> AdminSubscriberList:
     """Zwraca paginowaną listę subskrybentów (posortowanych od najnowszych)."""
-    total_result = await db.execute(select(func.count()).select_from(Subscriber))
-    total_count: int = total_result.scalar_one()
+    filters = []
+    if search:
+        escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        filters.append(
+            or_(
+                Subscriber.email.ilike(pattern, escape="\\"),
+                Subscriber.phone.ilike(pattern, escape="\\"),
+            )
+        )
+    if channel == "sms":
+        filters.append(Subscriber.notify_by_sms.is_(True))
+    elif channel == "email":
+        filters.append(Subscriber.notify_by_email.is_(True))
+    if night_only:
+        filters.append(Subscriber.night_sms_consent.is_(True))
+    if street_filter:
+        subq = select(SubscriberAddress.subscriber_id).where(
+            SubscriberAddress.street_name == street_filter
+        )
+        filters.append(Subscriber.id.in_(subq))
 
-    subscribers_result = await db.execute(
+    count_stmt = select(func.count()).select_from(Subscriber)
+    data_stmt = (
         select(Subscriber)
         .options(selectinload(Subscriber.addresses))
         .order_by(Subscriber.created_at.desc())
         .offset(skip)
         .limit(limit)
     )
-    subscribers = list(subscribers_result.scalars().all())
+    if filters:
+        count_stmt = count_stmt.where(*filters)
+        data_stmt = data_stmt.where(*filters)
+
+    total_count: int = (await db.execute(count_stmt)).scalar_one()
+    subscribers = list((await db.execute(data_stmt)).scalars().all())
 
     items = [AdminSubscriberItem.model_validate(s) for s in subscribers]
     return AdminSubscriberList(items=items, total_count=total_count)
@@ -284,20 +313,44 @@ async def list_subscribers(
 async def list_notifications(
     skip: int = 0,
     limit: int = 20,
+    search: str | None = None,
+    channel: str | None = Query(None, pattern="^(sms|email)$"),
+    status_filter: str | None = None,
+    period: str | None = Query(None, pattern="^(today|last7)$"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_admin),
 ) -> AdminNotificationList:
     """Zwraca paginowany log powiadomień (posortowanych malejąco po sent_at)."""
-    total_result = await db.execute(select(func.count()).select_from(NotificationLog))
-    total_count: int = total_result.scalar_one()
+    filters = []
+    if channel:
+        filters.append(NotificationLog.channel == channel)
+    if status_filter:
+        filters.append(NotificationLog.status == status_filter)
+    if search:
+        escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        filters.append(
+            or_(
+                NotificationLog.recipient.ilike(pattern, escape="\\"),
+                NotificationLog.message_text.ilike(pattern, escape="\\"),
+            )
+        )
+    if period == "today":
+        tz = ZoneInfo("Europe/Warsaw")
+        today_date = datetime.now(tz).date()
+        day_start = datetime(today_date.year, today_date.month, today_date.day, tzinfo=tz)
+        filters.append(NotificationLog.sent_at >= day_start.astimezone(timezone.utc).replace(tzinfo=None))
+    elif period == "last7":
+        filters.append(NotificationLog.sent_at >= datetime.utcnow() - timedelta(days=7))
 
-    notifications_result = await db.execute(
-        select(NotificationLog)
-        .order_by(NotificationLog.sent_at.desc())
-        .offset(skip)
-        .limit(limit)
-    )
-    notifications = list(notifications_result.scalars().all())
+    count_stmt = select(func.count()).select_from(NotificationLog)
+    data_stmt = select(NotificationLog).order_by(NotificationLog.sent_at.desc()).offset(skip).limit(limit)
+    if filters:
+        count_stmt = count_stmt.where(*filters)
+        data_stmt = data_stmt.where(*filters)
+
+    total_count: int = (await db.execute(count_stmt)).scalar_one()
+    notifications = list((await db.execute(data_stmt)).scalars().all())
 
     items = [AdminNotificationItem.model_validate(n) for n in notifications]
     return AdminNotificationList(items=items, total_count=total_count)
@@ -607,16 +660,45 @@ def _fmt_admin_dt(dt: datetime | None) -> str:
 
 @router.get("/subscribers/export.csv", summary="Eksport CSV subskrybentów")
 async def export_subscribers_csv(
+    search: str | None = None,
+    channel: str | None = Query(None, pattern="^(sms|email)$"),
+    night_only: bool = False,
+    street_filter: str | None = None,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_admin),
 ) -> StreamingResponse:
-    """Eksportuj wszystkich subskrybentów do CSV (maks. 10 000). TYLKO admin."""
-    result = await db.execute(
+    """Eksportuj subskrybentów do CSV z aktywnymi filtrami (maks. 10 000). TYLKO admin."""
+    filters = []
+    if search:
+        escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        filters.append(
+            or_(
+                Subscriber.email.ilike(pattern, escape="\\"),
+                Subscriber.phone.ilike(pattern, escape="\\"),
+            )
+        )
+    if channel == "sms":
+        filters.append(Subscriber.notify_by_sms.is_(True))
+    elif channel == "email":
+        filters.append(Subscriber.notify_by_email.is_(True))
+    if night_only:
+        filters.append(Subscriber.night_sms_consent.is_(True))
+    if street_filter:
+        subq = select(SubscriberAddress.subscriber_id).where(
+            SubscriberAddress.street_name == street_filter
+        )
+        filters.append(Subscriber.id.in_(subq))
+
+    stmt = (
         select(Subscriber)
         .options(selectinload(Subscriber.addresses))
         .order_by(Subscriber.created_at.desc())
         .limit(10000)
     )
+    if filters:
+        stmt = stmt.where(*filters)
+    result = await db.execute(stmt)
     subscribers = list(result.scalars().all())
 
     output = io.StringIO()
@@ -652,15 +734,40 @@ async def export_subscribers_csv(
 
 @router.get("/notifications/export.csv", summary="Eksport CSV logów powiadomień")
 async def export_notifications_csv(
+    search: str | None = None,
+    channel: str | None = Query(None, pattern="^(sms|email)$"),
+    status_filter: str | None = None,
+    period: str | None = Query(None, pattern="^(today|last7)$"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_admin),
 ) -> StreamingResponse:
-    """Eksportuj log powiadomień do CSV (maks. 10 000, od najnowszych). TYLKO admin."""
-    result = await db.execute(
-        select(NotificationLog)
-        .order_by(NotificationLog.sent_at.desc())
-        .limit(10000)
-    )
+    """Eksportuj log powiadomień do CSV z aktywnymi filtrami (maks. 10 000). TYLKO admin."""
+    filters = []
+    if channel:
+        filters.append(NotificationLog.channel == channel)
+    if status_filter:
+        filters.append(NotificationLog.status == status_filter)
+    if search:
+        escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        filters.append(
+            or_(
+                NotificationLog.recipient.ilike(pattern, escape="\\"),
+                NotificationLog.message_text.ilike(pattern, escape="\\"),
+            )
+        )
+    if period == "today":
+        tz = ZoneInfo("Europe/Warsaw")
+        today_date = datetime.now(tz).date()
+        day_start = datetime(today_date.year, today_date.month, today_date.day, tzinfo=tz)
+        filters.append(NotificationLog.sent_at >= day_start.astimezone(timezone.utc).replace(tzinfo=None))
+    elif period == "last7":
+        filters.append(NotificationLog.sent_at >= datetime.utcnow() - timedelta(days=7))
+
+    stmt = select(NotificationLog).order_by(NotificationLog.sent_at.desc()).limit(10000)
+    if filters:
+        stmt = stmt.where(*filters)
+    result = await db.execute(stmt)
     notifications = list(result.scalars().all())
 
     output = io.StringIO()
@@ -694,11 +801,20 @@ async def export_notifications_csv(
 async def export_audit_logs_csv(
     source: str | None = Query(None, pattern="^(building|street|event)$"),
     action_filter: str | None = None,
+    user_filter: str | None = None,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_admin),
 ) -> StreamingResponse:
-    """Eksportuj logi audytowe do CSV (maks. 2000 na źródło). TYLKO admin."""
+    """Eksportuj logi audytowe do CSV z aktywnymi filtrami (maks. 2000 na źródło). TYLKO admin."""
     items: list[AuditLogItem] = []
+
+    filtered_user_ids: set[int] | None = None
+    if user_filter:
+        uf_escaped = user_filter.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        ur = await db.execute(
+            select(User.id).where(User.username.ilike(f"%{uf_escaped}%", escape="\\"))
+        )
+        filtered_user_ids = {row[0] for row in ur.all()}
 
     if source in (None, "building"):
         stmt = (
@@ -709,6 +825,8 @@ async def export_audit_logs_csv(
         )
         if action_filter:
             stmt = stmt.where(BuildingAuditLog.action == action_filter)
+        if filtered_user_ids is not None:
+            stmt = stmt.where(BuildingAuditLog.user_id.in_(filtered_user_ids))
         result = await db.execute(stmt)
         for log, username, full_name in result.all():
             items.append(AuditLogItem(
@@ -726,6 +844,8 @@ async def export_audit_logs_csv(
         )
         if action_filter:
             stmt = stmt.where(StreetAuditLog.action == action_filter)
+        if filtered_user_ids is not None:
+            stmt = stmt.where(StreetAuditLog.user_id.in_(filtered_user_ids))
         result = await db.execute(stmt)
         for log, username, full_name in result.all():
             items.append(AuditLogItem(
@@ -742,6 +862,8 @@ async def export_audit_logs_csv(
                 .order_by(EventHistory.changed_at.desc())
                 .limit(_MAX_AUDIT_PER_SOURCE)
             )
+            if filtered_user_ids is not None:
+                stmt = stmt.where(EventHistory.changed_by.in_(filtered_user_ids))
             result = await db.execute(stmt)
             for log, username, full_name in result.all():
                 items.append(AuditLogItem(

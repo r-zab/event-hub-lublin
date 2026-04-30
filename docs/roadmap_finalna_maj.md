@@ -104,7 +104,7 @@
 | ID | Prio | Zadanie | Pliki / Komponenty | Oszacowanie |
 |---|---|---|---|---|
 | T3.1 | **W** | **Deployment na Oracle Linux 9** — `docker-compose.prod.yml` + dokumentacja `docs/deployment_oracle_linux_9.md` (firewalld, SELinux, podman alternatywa). Test na VM. | `docker-compose.prod.yml`, nowy doc | 1 dzień |
-| T3.2 | **K** | **Audyt WCAG 2.1 AA** — pełen przebieg axe-core + Lighthouse na: `/`, `/register`, `/sys-panel/dashboard`. Raport → `docs/wcag_audit_final.md`. | całość frontu | 0.5 dnia |
+| T3.2 | ✅ (K) | **Audyt WCAG 2.1 AA** — pełen przebieg axe-core + Lighthouse na: `/`, `/register`, `/sys-panel/dashboard`. Raport → `docs/wcag_audit_final.md`. | całość frontu | 0.5 dnia |
 | T3.3 | **U** | **Tablety RWD** — testy na 10.1″ i 11″ (Chrome DevTools), pionowo/poziomo. Naprawa znalezionych regresji. | całość frontu | 0.5 dnia |
 | T3.4 | **U** | **OWASP/MITRE mapping w dokumentacji** — sekcja w README/prezentacji mapująca nasze zabezpieczenia: A01 (RBAC), A03 (Pydantic + escape LIKE), A05 (HSTS-ready), A07 (rate-limit + 2FA). | `docs/security_mapping.md` | 0.5 dnia |
 | T3.5 | **U** | **Demo data seed** — skrypt `seed_demo.py` ładujący 3-5 realistycznych zdarzeń + 10 subskrybentów + zamknięte historie. Reset jednym poleceniem. | nowy skrypt | 0.5 dnia |
@@ -368,5 +368,52 @@ Zrób <ID> z roadmap_finalna_maj.md zgodnie z sekcją 8 (zasady operacyjne).
 | U1.3 | 2026-04-26 | Lifting wizualny kart statystyk w AdminDashboard: layout zmieniony na "etykieta + ikona w kolorowym tle / liczba / podpis"; ikony w rounded-lg z kolorowym bg (orange/red/amber/slate); licznik 3xl bold tabular-nums; gap 4→spójne padding p-5 | `frontend/src/pages/AdminDashboard.tsx` |
 | UI — filtrowanie AND | 2026-04-26 | Wdrożono złożone filtrowanie na panelu dyspozytora (status z kafelka + typ zdarzenia z dropdownu); kafelki nie resetują filtru typu (AND-koniunkcja); usunięto redundantny dropdown wyboru statusu; zastąpiono pill-e typów Select'em w toolbarze | `frontend/src/pages/AdminDashboard.tsx` |
 | UI — sticky sidebar | 2026-04-26 | Zoptymalizowano nawigację: wdrożono zablokowany pasek boczny (h-screen sticky top-0 na aside, overflow-hidden na wrapper, overflow-y-auto na main); dolne przyciski "Strona główna"/"Wyloguj" odsunięte od krawędzi przez pb-6 | `frontend/src/components/AdminLayout.tsx` |
+| T3.2 | 2026-04-30 | Audyt WCAG 2.1 AA: Lighthouse na `/`, `/register`, `/admin/dashboard` (score 95/95/99); naprawiono 3 naruszenia poziomu A: role="log" na toast ol, sr-only na nav linki mobilne, aria-label na search w dashboardzie; raport w docs/wcag_audit_final.md | `frontend/src/components/ui/toast.tsx`, `frontend/src/components/PublicLayout.tsx`, `frontend/src/pages/AdminDashboard.tsx`, `docs/wcag_audit_final.md` |
+## [Unreleased] — 2026-04-30
+
+### Naprawiono
+
+#### Paginacja i filtracja — przeniesienie filtrów na serwer
+
+**AdminNotifications (Log powiadomień)**
+- Filtry (`channel`, `status_filter`, `period`, `search`) przeniesione z warstwy client-side (`useMemo`) na serwer — backend teraz filtruje przed paginacją.
+- `queryKey` rozszerzony o wszystkie aktywne filtry — React Query poprawnie odświeża dane przy każdej zmianie filtra.
+- `totalPages` teraz opiera się na `total_count` zwróconej przez API po zastosowaniu filtrów (nie na globalnej liczbie rekordów).
+- Zmiana dowolnego filtra resetuje `page` do 1.
+
+**AdminSubscribers (Subskrybenci)**
+- Filtry (`search`, `channel`, `night_only`, `street_filter`) przeniesione na serwer — analogiczny zestaw zmian jak w AdminNotifications.
+- Dropdown ulic zawiera zawsze aktualnie wybrany wpis, nawet jeśli nie pojawia się na bieżącej stronie wyników.
+
+#### Eksport CSV — synchronizacja filtrów i dynamiczne nazwy plików
+
+**AdminNotifications**
+- Eksport przekazuje teraz do API dokładnie te same parametry filtrowania co aktywny widok tabeli.
+- Nazwa pliku: `logi_powiadomien_[kanał]_[status]_[okres]_YYYYMMDD_HHmmss.csv` — odzwierciedla aktywne filtry i unikalny timestamp.
+
+**AdminSubscribers**
+- Eksport przekazuje aktywne filtry (`search`, `channel`, `night_only`, `street_filter`).
+- Nazwa pliku: `subskrybenci_[kanał]_[nocni]_[ulica]_YYYYMMDD_HHmmss.csv`.
+
+**AdminAuditLogs (Logi dyspozytorów)**
+- Naprawiono brakujący parametr `user_filter` w żądaniu eksportu — eksport uwzględnia teraz wyszukiwanie po użytkowniku.
+- Nazwa pliku: `logi_audytowe_[źródło]_[akcja]_[użytkownik]_YYYYMMDD_HHmmss.csv`.
+
+**AdminDashboard (Zdarzenia)**
+- Dynamiczna nazwa pliku: `zdarzenia_[typ]_[status]_[dział]_YYYYMMDD_HHmmss.csv` — tylko aktywne filtry wchodzą w skład nazwy.
+
+#### Czytelność filtrów — szerokość dropdownów w pasku filtrów
+
+**AdminNotifications (Log powiadomień) i AdminSubscribers (Subskrybenci)**
+- Dropdowny filtrów (kanał, status, okres) zmienione z `w-36` (144 px) na `min-w-[11rem]` (176 px) — pełny tekst placeholdera ("Wszystkie kanały", "Wszystkie statusy") jest teraz widoczny bez wielokropka.
+- Układ `flex-wrap` w pasku narzędzi zapewnia poprawne zawijanie elementów na węższych ekranach.
+
+#### Backend (admin.py)
+
+- `GET /admin/notifications` — nowe parametry zapytania: `search`, `channel`, `status_filter`, `period` z filtrowaniem po stronie bazy danych.
+- `GET /admin/subscribers` — nowe parametry: `search`, `channel`, `night_only`, `street_filter` z filtrowaniem i poprawnym liczeniem `total_count`.
+- `GET /admin/notifications/export.csv` — te same filtry co endpoint listy.
+- `GET /admin/subscribers/export.csv` — te same filtry co endpoint listy.
+
 
 

@@ -34,7 +34,7 @@ export function PublicLayout() {
                 )}
               >
                 <Icon className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">{label}</span>
+                <span className="sr-only sm:not-sr-only sm:inline">{label}</span>
               </Link>
             ))}
           </nav>

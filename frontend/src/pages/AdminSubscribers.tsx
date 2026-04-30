@@ -56,6 +56,32 @@ interface SubscribersResponse {
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250] as const;
 
+function buildSubParams(
+  skip: number,
+  limit: number,
+  searchQuery: string,
+  streetFilter: string,
+  channelFilter: string,
+  nightOnly: boolean,
+): URLSearchParams {
+  const p = new URLSearchParams({ skip: String(skip), limit: String(limit) });
+  if (searchQuery.trim()) p.set('search', searchQuery.trim());
+  if (streetFilter !== 'all') p.set('street_filter', streetFilter);
+  if (channelFilter !== 'all') p.set('channel', channelFilter);
+  if (nightOnly) p.set('night_only', 'true');
+  return p;
+}
+
+function buildCsvFilename(channelFilter: string, nightOnly: boolean, streetFilter: string): string {
+  const parts: string[] = ['subskrybenci'];
+  if (channelFilter !== 'all') parts.push(channelFilter);
+  if (nightOnly) parts.push('nocni');
+  if (streetFilter !== 'all') parts.push(streetFilter.replace(/\s+/g, '-').toLowerCase());
+  const ts = new Date().toISOString().replace(/[-:]/g, '').replace('T', '_').slice(0, 15);
+  parts.push(ts);
+  return parts.join('_') + '.csv';
+}
+
 const AdminSubscribers = () => {
   const { toast } = useToast();
   const [page, setPage] = useState(1);
@@ -67,9 +93,11 @@ const AdminSubscribers = () => {
   const skip = (page - 1) * pageSize;
 
   const { data, isLoading, error } = useQuery<SubscribersResponse>({
-    queryKey: ['admin-subscribers', page, pageSize],
+    queryKey: ['admin-subscribers', page, pageSize, searchQuery, streetFilter, channelFilter, nightOnly],
     queryFn: () =>
-      apiFetch<SubscribersResponse>(`/admin/subscribers?skip=${skip}&limit=${pageSize}`),
+      apiFetch<SubscribersResponse>(
+        `/admin/subscribers?${buildSubParams(skip, pageSize, searchQuery, streetFilter, channelFilter, nightOnly).toString()}`,
+      ),
   });
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total_count / pageSize)) : 1;
@@ -80,34 +108,6 @@ const AdminSubscribers = () => {
     return Array.from(names).sort();
   }, [data?.items]);
 
-  const filteredItems = useMemo(() => {
-    let items = data?.items ?? [];
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      items = items.filter(
-        (s) =>
-          (s.email?.toLowerCase().includes(q) ?? false) ||
-          (s.phone?.includes(q) ?? false),
-      );
-    }
-    if (streetFilter !== 'all') {
-      items = items.filter((s) =>
-        s.addresses.some((a) => a.street_name === streetFilter),
-      );
-    }
-    if (channelFilter === 'sms') {
-      items = items.filter((s) => s.notify_by_sms);
-    } else if (channelFilter === 'email') {
-      items = items.filter((s) => s.notify_by_email);
-    }
-    if (nightOnly) {
-      items = items.filter((s) => s.night_sms_consent);
-    }
-
-    return items;
-  }, [data?.items, searchQuery, streetFilter, channelFilter, nightOnly]);
-
   const formatAddress = (addr: AddressItem) => {
     const flat = addr.flat_number ? `/${addr.flat_number}` : '';
     return `${addr.street_name} ${addr.house_number}${flat}`;
@@ -116,10 +116,11 @@ const AdminSubscribers = () => {
   const hasFilters = searchQuery || streetFilter !== 'all' || channelFilter !== 'all' || nightOnly;
 
   const handleExportCsv = async () => {
+    const exportParams = buildSubParams(0, 10000, searchQuery, streetFilter, channelFilter, nightOnly);
     const base = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1';
     const token = sessionStorage.getItem('mpwik_token');
     try {
-      const res = await fetch(`${base}/admin/subscribers/export.csv`, {
+      const res = await fetch(`${base}/admin/subscribers/export.csv?${exportParams.toString()}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error('Eksport nieudany');
@@ -127,8 +128,7 @@ const AdminSubscribers = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const dateStr = new Date().toISOString().split('T')[0];
-      a.download = `subskrybenci_eksport_${dateStr}.csv`;
+      a.download = buildCsvFilename(channelFilter, nightOnly, streetFilter);
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -187,6 +187,9 @@ const AdminSubscribers = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Wszystkie ulice</SelectItem>
+            {streetFilter !== 'all' && !uniqueStreets.includes(streetFilter) && (
+              <SelectItem value={streetFilter}>{streetFilter}</SelectItem>
+            )}
             {uniqueStreets.map((s) => (
               <SelectItem key={s} value={s}>{s}</SelectItem>
             ))}
@@ -195,7 +198,7 @@ const AdminSubscribers = () => {
 
         {/* Dropdown kanału */}
         <Select value={channelFilter} onValueChange={(v) => { setChannelFilter(v as typeof channelFilter); setPage(1); }}>
-          <SelectTrigger className="w-36 h-9 bg-background" aria-label="Filtr kanału">
+          <SelectTrigger className="min-w-[11rem] h-9 bg-background" aria-label="Filtr kanału">
             <SelectValue placeholder="Kanał" />
           </SelectTrigger>
           <SelectContent>
@@ -234,8 +237,10 @@ const AdminSubscribers = () => {
             </SelectContent>
           </Select>
           <span className="text-sm font-medium whitespace-nowrap">
-            <span className="text-foreground">{filteredItems.length}</span>{' '}
-            <span className="text-muted-foreground">subskrybentów</span>
+            <span className="text-foreground">{data?.total_count ?? 0}</span>{' '}
+            <span className="text-muted-foreground">
+              {hasFilters ? 'wyników' : 'subskrybentów'}
+            </span>
           </span>
           <Button
             variant="outline"
@@ -287,14 +292,14 @@ const AdminSubscribers = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredItems.length === 0 && (
+            {(data?.items ?? []).length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                   {hasFilters ? 'Brak wyników dla wybranych filtrów.' : 'Brak subskrybentów.'}
                 </TableCell>
               </TableRow>
             )}
-            {filteredItems.map((sub) => (
+            {(data?.items ?? []).map((sub) => (
               <TableRow key={sub.id}>
                 <TableCell className="font-medium">{sub.email ?? <span className="text-muted-foreground">Brak</span>}</TableCell>
                 <TableCell>{sub.phone ?? <span className="text-muted-foreground">Brak</span>}</TableCell>

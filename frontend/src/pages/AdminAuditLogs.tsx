@@ -165,6 +165,7 @@ const AdminAuditLogs = () => {
     const exportParams = new URLSearchParams();
     if (sourceFilter !== 'all') exportParams.set('source', sourceFilter);
     if (actionFilter !== 'all') exportParams.set('action_filter', actionFilter);
+    if (debouncedUser) exportParams.set('user_filter', debouncedUser);
     const base = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1';
     const token = sessionStorage.getItem('mpwik_token');
     try {
@@ -176,8 +177,13 @@ const AdminAuditLogs = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const dateStr = new Date().toISOString().split('T')[0];
-      a.download = `logi_audytowe_eksport_${dateStr}.csv`;
+      const parts: string[] = ['logi_audytowe'];
+      if (sourceFilter !== 'all') parts.push(sourceFilter);
+      if (actionFilter !== 'all') parts.push(actionFilter);
+      if (debouncedUser) parts.push(debouncedUser.replace(/\s+/g, '-').toLowerCase());
+      const ts = new Date().toISOString().replace(/[-:]/g, '').replace('T', '_').slice(0, 15);
+      parts.push(ts);
+      a.download = parts.join('_') + '.csv';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

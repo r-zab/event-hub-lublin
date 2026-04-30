@@ -116,8 +116,13 @@ const AdminDashboard = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const dateStr = new Date().toISOString().split('T')[0];
-      a.download = `zdarzenia_eksport_${dateStr}.csv`;
+      const nameParts: string[] = ['zdarzenia'];
+      if (typeFilter) nameParts.push(typeFilter);
+      if (statusFilter) nameParts.push(statusFilter);
+      if (deptFilter) nameParts.push(deptFilter);
+      const ts = new Date().toISOString().replace(/[-:]/g, '').replace('T', '_').slice(0, 15);
+      nameParts.push(ts);
+      a.download = nameParts.join('_') + '.csv';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -321,6 +326,7 @@ const AdminDashboard = () => {
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 className="pl-9"
+                aria-label="Szukaj po nazwie ulicy"
               />
             </div>
             <Select
