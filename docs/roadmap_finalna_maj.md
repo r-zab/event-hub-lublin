@@ -107,8 +107,8 @@
 | T3.2 | ✅ (K) | **Audyt WCAG 2.1 AA** — pełen przebieg axe-core + Lighthouse na: `/`, `/register`, `/sys-panel/dashboard`. Raport → `docs/wcag_audit_final.md`. | całość frontu | 0.5 dnia |
 | T3.3 | **U** | **Tablety RWD** — testy na 10.1″ i 11″ (Chrome DevTools), pionowo/poziomo. Naprawa znalezionych regresji. | całość frontu | 0.5 dnia |
 | T3.4 | **U** | **OWASP/MITRE mapping w dokumentacji** — sekcja w README/prezentacji mapująca nasze zabezpieczenia: A01 (RBAC), A03 (Pydantic + escape LIKE), A05 (HSTS-ready), A07 (rate-limit + 2FA). | `docs/security_mapping.md` | 0.5 dnia |
-| T3.5 | **U** | **Demo data seed** — skrypt `seed_demo.py` ładujący 3-5 realistycznych zdarzeń + 10 subskrybentów + zamknięte historie. Reset jednym poleceniem. | nowy skrypt | 0.5 dnia |
-| T3.6 | **K** | **Testy integracyjne — must-have flows** — pytest: 2FA rejestracja, deduplikacja adresów, RBAC dispatcher vs admin (CRUD users), DELETE zablokowany dla dyspozytora. | `backend/tests/test_*.py` | 1 dzień |
+| T3.5 | ✅ (U) | **Demo data seed** — skrypt `seed_demo.py` ładujący 3-5 realistycznych zdarzeń + 10 subskrybentów + zamknięte historie. Reset jednym poleceniem. | nowy skrypt | 0.5 dnia |
+| T3.6 | ✅ (K) | **Testy integracyjne — must-have flows** — pytest: 2FA rejestracja, deduplikacja adresów, RBAC dispatcher vs admin (CRUD users), DELETE zablokowany dla dyspozytora. | `backend/tests/test_*.py` | 1 dzień |
 | T3.7 | ✅ (U) | **Eksport CSV — wszystkie tabele admina** — przycisk "Eksport CSV" w każdej tabeli: zdarzenia (z numerami z GeoJSON, data w nazwie pliku), subskrybenci, powiadomienia, logi audytowe. | `AdminDashboard.tsx`, `AdminSubscribers.tsx`, `AdminNotifications.tsx`, `AdminAuditLogs.tsx`, `backend/app/routers/events.py`, `backend/app/routers/admin.py` | 0.5 dnia |
 | T3.8 | **U** | **Storyboard demo na galę** — `docs/demo_scenariusz_gala.md` — 10-minutowa narracja z timestampami, kto co klika, jakie ataki demonstrujemy. | nowy doc | 0.5 dnia |
 
@@ -446,5 +446,6 @@ Zrób <ID> z roadmap_finalna_maj.md zgodnie z sekcją 8 (zasady operacyjne).
 - Skrypt anty-FOUC w `<head>` `index.html` aplikuje preferencje z `localStorage` przed hydracją React.
 - Preferencje zapisywane w `localStorage` (`mpwik-a11y-font-size`, `mpwik-a11y-contrast`) — persystencja między sesjami.
 
-
+| T3.5 | 2026-05-01 | Skrypt seed_demo.py: 5 zdarzeń (3 aktywne + 2 zamknięte z pełną historią statusów) + 10 subskrybentów powiązanych z ulicami Lublina; source='demo' jako znacznik; tryby: seed / --reset / --clean | `backend/seed_demo.py` |
+| T3.6 | 2026-05-01 | 17 testów pytest 40/40 PASS: (1) test_2fa_registration.py — 4 testy: pełny flow init→verify→201, błędny kod→400, wygasły token→410, duplikat email→409; (2) test_address_dedup.py — 7 testów Pydantic: dedup street_id, dedup none-id, case-insensitive, same-number-diff-street ok, limit 5, dokładnie 5, pusta lista; (3) test_rbac_admin.py — 6 testów RBAC: dyspozytor 403 na GET/POST/PATCH/DELETE /admin/users, admin 200 na GET, brak tokenu 401. Dodano też naprawę backend/.env (devpassword→mpwik_lublin po fresh install) | `backend/tests/test_2fa_registration.py`, `backend/tests/test_address_dedup.py`, `backend/tests/test_rbac_admin.py`, `backend/tests/conftest.py`, `backend/.env` |
 
