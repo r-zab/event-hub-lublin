@@ -35,7 +35,7 @@ Kierunek: Sztuczna Inteligencja w Biznesie | Zespół: Rafał Zaborek, Jakub Zat
 
 ```bash
 git clone <url-repozytorium>
-cd event-hub-lublin
+cd mpwik-lublin
 ```
 
 ### Krok 2 — Konfiguracja zmiennych środowiskowych
@@ -75,8 +75,11 @@ Swagger UI: http://localhost:8000/docs
 
 ### Krok 4 — Migracje bazy danych
 
+Migracje są aplikowane **automatycznie** przy każdym starcie kontenera backendu przez `entrypoint.sh`.
+Jeśli chcesz uruchomić je ręcznie (np. po dodaniu nowej migracji bez restartu):
+
 ```bash
-docker compose exec backend alembic upgrade head
+docker compose exec backend python -m alembic upgrade head
 ```
 
 ### Krok 5 — Zasilanie bazy danych
@@ -110,10 +113,127 @@ Panel admina: http://localhost:8080/sys-panel/login
 
 ---
 
+## Uruchamianie projektu (Docker)
+
+Najszybszy sposób na uruchomienie całego stacku od zera — wymaga tylko Docker Desktop.
+
+### Krok 1 — Sklonuj repozytorium
+
+```bash
+git clone <url-repozytorium>
+cd mpwik-lublin
+```
+
+### Krok 2 — Skonfiguruj zmienne środowiskowe
+
+```bash
+cp .env.example .env
+```
+
+Otwórz `.env` i ustaw `SECRET_KEY` (minimum 32 znaki):
+
+```env
+SECRET_KEY=wygeneruj-losowy-string-minimum-32-znaki
+```
+
+Pozostałe wartości domyślne działają lokalnie bez zmian.
+
+### Krok 3 — Uruchom projekt
+
+```bash
+docker compose up --build
+```
+
+Przy pierwszym uruchomieniu Docker pobierze obrazy, zbuduje backend i uruchomi kontenery.
+`entrypoint.sh` automatycznie:
+1. Czeka na pełną gotowość PostgreSQL (do 60 sekund, polling co 2s).
+2. Aplikuje wszystkie migracje Alembic (`alembic upgrade head`).
+3. Startuje serwer FastAPI.
+
+Możesz śledzić logi w terminalu. Kiedy zobaczysz:
+
+```
+backend  | ==> [3/3] Starting application...
+backend  | INFO:     Application startup complete.
+```
+
+projekt jest gotowy:
+
+| Serwis | URL |
+|--------|-----|
+| API / Swagger | http://localhost:8000/docs |
+| Health check | http://localhost:8000/health |
+| Frontend (dev) | `cd frontend && npm install && npm run dev` → http://localhost:8080 |
+
+### Krok 4 — Zasilanie bazy (jednorazowo)
+
+```bash
+docker compose exec backend python -m scripts.import_streets
+docker compose exec backend python -m scripts.setup_dev_users
+```
+
+---
+
+## Rozwiązywanie problemów
+
+### `UndefinedColumnError` / `UndefinedTableError` — schemat bazy niezgodny z modelem
+
+Objaw: backend startuje, ale API zwraca błąd 500 z komunikatem np. `column events.start_time does not exist`.
+
+Przyczyna: wolumen `db_data` zawiera starą wersję bazy, a `alembic upgrade head` nie zdążył (lub nie mógł) zaktualizować schematu.
+
+**Rozwiązanie — pełny reset bazy:**
+
+```bash
+# Zatrzymaj kontenery i usuń wolumeny (UWAGA: usuwa wszystkie dane!)
+docker compose down -v
+
+# Zbuduj i uruchom od zera — migracje zostaną zastosowane automatycznie
+docker compose up --build
+```
+
+> `down -v` usuwa named volumes (`db_data`), więc przy następnym starcie baza jest pusta i `alembic upgrade head` aplikuje pełny schemat.
+
+---
+
+### Backend nie startuje — „PostgreSQL not available after 60 seconds"
+
+Sprawdź logi bazy:
+
+```bash
+docker compose logs db
+```
+
+Upewnij się, że wartości `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` w `.env` są identyczne z tym, czego oczekuje baza. Jeśli zmieniałeś te zmienne po pierwszym starcie, wykonaj `docker compose down -v` i uruchom ponownie.
+
+---
+
+### Port 5433 lub 8000 jest zajęty
+
+Zmień porty w `docker-compose.yml`:
+
+```yaml
+ports:
+  - "5434:5432"   # db
+  - "8001:8000"   # backend
+```
+
+---
+
+### Logi kontenerów
+
+```bash
+docker compose logs -f backend   # logi backendu na żywo
+docker compose logs -f db        # logi PostgreSQL na żywo
+docker compose ps                # status kontenerów
+```
+
+---
+
 ## Struktura projektu
 
 ```
-event-hub-lublin/
+mpwik-lublin/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py               # FastAPI app, CORS, scheduler, lifespan

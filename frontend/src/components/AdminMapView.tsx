@@ -244,16 +244,16 @@ export function AdminMapView() {
       </MapContainer>
 
       {/* Legenda */}
-      <div className="absolute bottom-4 right-4 z-[1000] bg-white/95 backdrop-blur-sm shadow-md rounded-lg border border-border p-3 text-sm space-y-1.5 pointer-events-none">
+      <div className="map-overlay-panel absolute bottom-4 right-4 z-[1000] bg-white/95 backdrop-blur-sm shadow-md rounded-lg border border-border p-3 text-sm space-y-1.5 pointer-events-none">
         <div className="font-semibold text-xs text-muted-foreground uppercase tracking-wide mb-1">
           Legenda budynków
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-block w-3 h-3 rounded-sm bg-green-400 border border-green-600" />
+          <span className="inline-block w-3 h-3 rounded-sm bg-green-400 border-2 border-green-700" aria-hidden="true" />
           <span>Ma adres{isAdmin ? ' (kliknij, aby edytować)' : ''}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-block w-3 h-3 rounded-sm bg-red-300 border border-red-600" />
+          <span className="inline-block w-3 h-3 rounded-sm bg-red-300 border-2 border-red-700" aria-hidden="true" />
           <span>Brak adresu{isAdmin ? ' (kliknij, aby uzupełnić)' : ''}</span>
         </div>
       </div>
@@ -261,8 +261,8 @@ export function AdminMapView() {
       {/* Hint: za mały zoom */}
       {belowMinZoom && (
         <div className="absolute inset-0 z-[999] flex items-center justify-center pointer-events-none">
-          <div className="bg-white/90 backdrop-blur-sm border border-border rounded-xl shadow-lg px-6 py-4 flex items-center gap-3 max-w-xs text-center">
-            <MapPin className="h-6 w-6 text-muted-foreground shrink-0" />
+          <div className="map-overlay-panel bg-white/90 backdrop-blur-sm border border-border rounded-xl shadow-lg px-6 py-4 flex items-center gap-3 max-w-xs text-center">
+            <MapPin className="h-6 w-6 text-muted-foreground shrink-0" aria-hidden="true" />
             <p className="text-sm text-muted-foreground">
               Przybliż mapę do poziomu{' '}
               <span className="font-semibold text-foreground">{BUILDINGS_MIN_ZOOM}</span>, aby
@@ -274,22 +274,22 @@ export function AdminMapView() {
 
       {/* Loader */}
       {isLoading && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1001] bg-white/90 border border-border rounded-full px-4 py-2 flex items-center gap-2 shadow-sm text-sm">
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        <div className="map-overlay-panel absolute top-4 left-1/2 -translate-x-1/2 z-[1001] bg-white/90 border border-border rounded-full px-4 py-2 flex items-center gap-2 shadow-sm text-sm">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
           <span className="text-muted-foreground">Ładowanie budynków…</span>
         </div>
       )}
 
       {/* Błąd */}
       {error && !isLoading && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1001] bg-destructive/10 border border-destructive/40 text-destructive rounded-lg px-4 py-2 text-sm shadow-sm">
+        <div className="map-overlay-panel absolute top-4 left-1/2 -translate-x-1/2 z-[1001] bg-destructive/10 border border-destructive/40 text-destructive rounded-lg px-4 py-2 text-sm shadow-sm">
           {error}
         </div>
       )}
 
       {/* Licznik */}
       {!belowMinZoom && !isLoading && buildings.length > 0 && (
-        <div className="absolute top-4 right-4 z-[1001] bg-white/90 border border-border rounded-full px-3 py-1 text-xs text-muted-foreground shadow-sm">
+        <div className="map-overlay-panel absolute top-4 right-4 z-[1001] bg-white/90 border border-border rounded-full px-3 py-1 text-xs text-muted-foreground shadow-sm">
           {buildings.length} budynków
         </div>
       )}

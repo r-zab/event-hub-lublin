@@ -1,0 +1,87 @@
+  File "/usr/local/lib/python3.12/site-packages/sqlalchemy/orm/context.py", line 305, in orm_execute_statement
+
+    result = conn.execute(
+
+             ^^^^^^^^^^^^^
+
+  File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1418, in execute
+
+    return meth(
+
+           ^^^^^
+
+  File "/usr/local/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 515, in _execute_on_connection
+
+    return connection._execute_clauseelement(
+
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1640, in _execute_clauseelement
+
+    ret = self._execute_context(
+
+          ^^^^^^^^^^^^^^^^^^^^^^
+
+  File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+
+    return self._exec_single_context(
+
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+
+    self._handle_dbapi_exception(
+
+  File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2355, in _handle_dbapi_exception
+
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+
+  File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+
+    self.dialect.do_execute(
+
+  File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 941, in do_execute
+
+    cursor.execute(statement, parameters)
+
+  File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 572, in execute
+
+    self._adapt_connection.await_(
+
+  File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "/usr/local/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+
+    value = await result
+
+            ^^^^^^^^^^^^
+
+  File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 550, in _prepare_and_execute
+
+    self._handle_exception(error)
+
+  File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 501, in _handle_exception
+
+    self._adapt_connection._handle_exception(error)
+
+  File "/usr/local/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 784, in _handle_exception
+
+    raise translated_error from error
+
+sqlalchemy.exc.ProgrammingError: (sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError) <class 'asyncpg.exceptions.UndefinedColumnError'>: column events.start_time does not exist
+
+[SQL: SELECT events.id, events.event_type, events.source, events.street_id, events.street_name, events.house_number_from, events.house_number_to, events.description, events.status, events.start_time, events.estimated_end, events.geojson_segment, events.custom_message, events.auto_extend, events.auto_close, events.created_by, events.created_by_department, events.created_at, events.updated_at 
+
+FROM events 
+
+WHERE events.status = $1::VARCHAR ORDER BY events.created_at DESC 
+
+ LIMIT $2::INTEGER OFFSET $3::INTEGER]
+
+[parameters: ('usunieta', 1, 0)]
+
+(Background on this error at: https://sqlalche.me/e/20/f405)

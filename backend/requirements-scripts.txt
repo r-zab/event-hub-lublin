@@ -1,0 +1,8 @@
+# Zależności tylko dla skryptów GIS (import OSM, geocoding, analiza przestrzenna)
+# NIE instaluj tych pakietów w kontenerze produkcyjnym — wymagają GDAL/libosmium.
+# Uruchom: pip install -r requirements-scripts.txt (w środowisku z GDAL zainstalowanym systemowo)
+geopandas>=0.14.0
+shapely>=2.0.0
+rtree>=1.0.0
+pandas>=2.0.0
+osmium>=4.0.0

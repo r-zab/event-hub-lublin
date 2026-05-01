@@ -34,10 +34,7 @@ apscheduler==3.10.4
 # Logging
 python-json-logger==2.0.7
 
-# GIS / spatial join (import_buildings.py)
-geopandas>=0.14.0
-shapely>=2.0.0
-rtree>=1.0.0
+# GIS — tylko typy i zapytania PostGIS (nie wymaga GDAL na poziomie systemu)
 geoalchemy2>=0.14.0
 
 # Dev tools

@@ -103,6 +103,449 @@
   }
 }
 
+/* ============================================================
+   WCAG 2.1 AA — Tryby wysokiego kontrastu
+   Wszystkie współczynniki kontrastu:
+     hc-bw (biały na czarnym):  21:1   ✓ (≥4.5:1 / ≥3:1)
+     hc-by (czarny na żółtym): 19.6:1  ✓
+     hc-yb (żółty na czarnym): 19.6:1  ✓
+   ============================================================ */
+
+/* ── Biały tekst na czarnym tle ── */
+[data-theme="hc-bw"] {
+  color-scheme: dark;
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 4%;
+  --card-foreground: 0 0% 100%;
+  --popover: 0 0% 4%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 0 0% 100%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 0 0% 12%;
+  --muted-foreground: 0 0% 75%;
+  --accent: 0 0% 18%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 80% 60%;
+  --destructive-foreground: 0 0% 0%;
+  --border: 0 0% 80%;
+  --input: 0 0% 15%;
+  --ring: 0 0% 100%;
+  --sidebar-background: 0 0% 0%;
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-primary: 0 0% 100%;
+  --sidebar-primary-foreground: 0 0% 0%;
+  --sidebar-accent: 0 0% 18%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 0 0% 50%;
+  --sidebar-ring: 0 0% 100%;
+  --water-50: 0 0% 95%;
+  --water-100: 0 0% 100%;
+  --water-200: 0 0% 80%;
+  --water-500: 0 0% 50%;
+  --water-600: 0 0% 35%;
+  --water-700: 0 0% 20%;
+  --water-800: 0 0% 10%;
+  --water-900: 0 0% 0%;
+  --status-reported: 0 0% 100%;
+  --status-repairing: 0 0% 100%;
+  --status-resolved: 0 0% 100%;
+  --status-planned: 0 0% 100%;
+  --status-renovation: 0 0% 100%;
+}
+
+/* ── Czarny tekst na żółtym tle ── */
+[data-theme="hc-by"] {
+  color-scheme: light;
+  --background: 60 100% 50%;
+  --foreground: 0 0% 0%;
+  --card: 60 100% 50%;
+  --card-foreground: 0 0% 0%;
+  --popover: 60 100% 50%;
+  --popover-foreground: 0 0% 0%;
+  --primary: 0 0% 0%;
+  --primary-foreground: 60 100% 50%;
+  --secondary: 60 90% 40%;
+  --secondary-foreground: 0 0% 0%;
+  --muted: 60 80% 44%;
+  --muted-foreground: 0 0% 10%;
+  --accent: 60 80% 42%;
+  --accent-foreground: 0 0% 0%;
+  --destructive: 0 80% 25%;
+  --destructive-foreground: 60 100% 50%;
+  --border: 0 0% 0%;
+  --input: 60 80% 44%;
+  --ring: 0 0% 0%;
+  --sidebar-background: 60 100% 50%;
+  --sidebar-foreground: 0 0% 0%;
+  --sidebar-primary: 0 0% 0%;
+  --sidebar-primary-foreground: 60 100% 50%;
+  --sidebar-accent: 60 80% 42%;
+  --sidebar-accent-foreground: 0 0% 0%;
+  --sidebar-border: 0 0% 0%;
+  --sidebar-ring: 0 0% 0%;
+  --water-50: 60 100% 90%;
+  --water-100: 0 0% 0%;
+  --water-200: 0 0% 8%;
+  --water-500: 0 0% 25%;
+  --water-600: 0 0% 18%;
+  --water-700: 60 80% 40%;
+  --water-800: 60 85% 44%;
+  --water-900: 60 100% 50%;
+  --status-reported: 0 0% 0%;
+  --status-repairing: 0 0% 0%;
+  --status-resolved: 0 0% 0%;
+  --status-planned: 0 0% 0%;
+  --status-renovation: 0 0% 0%;
+}
+
+/* ── Żółty tekst na czarnym tle ── */
+[data-theme="hc-yb"] {
+  color-scheme: dark;
+  --background: 0 0% 0%;
+  --foreground: 60 100% 50%;
+  --card: 0 0% 4%;
+  --card-foreground: 60 100% 50%;
+  --popover: 0 0% 4%;
+  --popover-foreground: 60 100% 50%;
+  --primary: 60 100% 50%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 60 100% 50%;
+  --muted: 0 0% 12%;
+  --muted-foreground: 60 80% 70%;
+  --accent: 0 0% 18%;
+  --accent-foreground: 60 100% 50%;
+  --destructive: 60 100% 50%;
+  --destructive-foreground: 0 0% 0%;
+  --border: 60 80% 50%;
+  --input: 0 0% 15%;
+  --ring: 60 100% 50%;
+  --sidebar-background: 0 0% 0%;
+  --sidebar-foreground: 60 100% 50%;
+  --sidebar-primary: 60 100% 50%;
+  --sidebar-primary-foreground: 0 0% 0%;
+  --sidebar-accent: 0 0% 18%;
+  --sidebar-accent-foreground: 60 100% 50%;
+  --sidebar-border: 60 70% 40%;
+  --sidebar-ring: 60 100% 50%;
+  --water-50: 60 100% 90%;
+  --water-100: 60 100% 50%;
+  --water-200: 60 90% 60%;
+  --water-500: 60 80% 40%;
+  --water-600: 0 0% 22%;
+  --water-700: 0 0% 14%;
+  --water-800: 0 0% 8%;
+  --water-900: 0 0% 0%;
+  --status-reported: 60 100% 50%;
+  --status-repairing: 60 100% 50%;
+  --status-resolved: 60 100% 50%;
+  --status-planned: 60 100% 50%;
+  --status-renovation: 60 100% 50%;
+}
+
+/* Odznaki statusów [role="status"] — pełny kontrast (zastępuje opacity-clipped bg-status-X/15) */
+[data-theme="hc-bw"] [role="status"] {
+  background-color: hsl(0 0% 0%) !important;
+  color: hsl(0 0% 100%) !important;
+  border: 2px solid hsl(0 0% 100%) !important;
+}
+[data-theme="hc-by"] [role="status"] {
+  background-color: hsl(60 100% 50%) !important;
+  color: hsl(0 0% 0%) !important;
+  border: 2px solid hsl(0 0% 0%) !important;
+}
+[data-theme="hc-yb"] [role="status"] {
+  background-color: hsl(0 0% 0%) !important;
+  color: hsl(60 100% 50%) !important;
+  border: 2px solid hsl(60 100% 50%) !important;
+}
+
+/* Nadpisanie hardkodowanych klas Tailwind (text-amber-800, text-blue-700, text-purple-800
+   używanych w StatusBadge + kart statusów w AdminDashboard) */
+[data-theme="hc-bw"] .text-amber-800,
+[data-theme="hc-bw"] .text-blue-700,
+[data-theme="hc-bw"] .text-purple-800,
+[data-theme="hc-bw"] .text-orange-600,
+[data-theme="hc-bw"] .text-red-600,
+[data-theme="hc-bw"] .text-green-700 { color: hsl(0 0% 100%) !important; }
+
+[data-theme="hc-by"] .text-amber-800,
+[data-theme="hc-by"] .text-blue-700,
+[data-theme="hc-by"] .text-purple-800,
+[data-theme="hc-by"] .text-orange-600,
+[data-theme="hc-by"] .text-red-600,
+[data-theme="hc-by"] .text-green-700 { color: hsl(0 0% 0%) !important; }
+
+[data-theme="hc-yb"] .text-amber-800,
+[data-theme="hc-yb"] .text-blue-700,
+[data-theme="hc-yb"] .text-purple-800,
+[data-theme="hc-yb"] .text-orange-600,
+[data-theme="hc-yb"] .text-red-600,
+[data-theme="hc-yb"] .text-green-700 { color: hsl(60 100% 50%) !important; }
+
+/* Pogrubienie obramowania pól formularzy (min. 3:1 dla elementów UI wg WCAG 1.4.11) */
+[data-theme="hc-bw"] input,
+[data-theme="hc-bw"] select,
+[data-theme="hc-bw"] textarea,
+[data-theme="hc-by"] input,
+[data-theme="hc-by"] select,
+[data-theme="hc-by"] textarea,
+[data-theme="hc-yb"] input,
+[data-theme="hc-yb"] select,
+[data-theme="hc-yb"] textarea { border-width: 2px !important; }
+
+/* Widoczne obramowania komórek tabel */
+[data-theme="hc-bw"] th, [data-theme="hc-bw"] td,
+[data-theme="hc-by"] th, [data-theme="hc-by"] td,
+[data-theme="hc-yb"] th, [data-theme="hc-yb"] td { border: 1px solid; }
+
+/* Podkreślenie linków (dodatkowy cue poza kolorem — WCAG 1.4.1) */
+[data-theme="hc-bw"] a,
+[data-theme="hc-by"] a,
+[data-theme="hc-yb"] a { text-decoration-line: underline; }
+
+/* ============================================================
+   HC — panele nakładkowe mapy (legenda, loader, hint, licznik)
+   Klasa: .map-overlay-panel
+   Selektor [data-theme^="hc-"] trafia we wszystkie 3 tryby HC.
+   ============================================================ */
+[data-theme^="hc-"] .map-overlay-panel {
+  background-color: hsl(var(--card)) !important;
+  border: 2px solid hsl(var(--border)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+[data-theme^="hc-"] .map-overlay-panel .text-muted-foreground {
+  color: hsl(var(--muted-foreground)) !important;
+}
+[data-theme^="hc-"] .map-overlay-panel .text-foreground {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Kółka legendy z inline-style color — dodaj konturową ramkę w kolorze tekstu */
+[data-theme^="hc-"] .map-event-legend-dot {
+  outline: 2px solid hsl(var(--foreground));
+  outline-offset: 1px;
+}
+
+/* HC — Leaflet popup (treść + trójkąt) */
+[data-theme^="hc-"] .leaflet-popup-content-wrapper,
+[data-theme^="hc-"] .leaflet-popup-tip {
+  background-color: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  border: 2px solid hsl(var(--border)) !important;
+  box-shadow: none !important;
+}
+[data-theme^="hc-"] .leaflet-popup-content *,
+[data-theme^="hc-"] .leaflet-popup-content-wrapper a {
+  color: hsl(var(--popover-foreground)) !important;
+}
+
+/* HC — Leaflet tooltip */
+[data-theme^="hc-"] .leaflet-tooltip {
+  background-color: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  border: 2px solid hsl(var(--border)) !important;
+  box-shadow: none !important;
+}
+[data-theme^="hc-"] .leaflet-tooltip::before {
+  border-top-color: hsl(var(--border)) !important;
+  border-bottom-color: hsl(var(--border)) !important;
+  border-left-color: transparent !important;
+  border-right-color: transparent !important;
+}
+
+/* HC — Leaflet attribution bar */
+[data-theme^="hc-"] .leaflet-control-attribution {
+  background-color: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+[data-theme^="hc-"] .leaflet-control-attribution a {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* HC — Leaflet zoom / bar controls */
+[data-theme^="hc-"] .leaflet-bar {
+  border: 2px solid hsl(var(--border)) !important;
+}
+[data-theme^="hc-"] .leaflet-bar a {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  border-bottom-color: hsl(var(--border)) !important;
+}
+[data-theme^="hc-"] .leaflet-bar a:hover {
+  background-color: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+/* ============================================================
+   HC — wyszukiwarka ulic na stronie głównej
+   Klasy: .street-search-input, .street-suggestions-list,
+          .street-suggestion-item, .street-search-btn
+   ============================================================ */
+
+/* Pole tekstowe */
+[data-theme^="hc-"] .street-search-input {
+  background-color: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 2px solid hsl(var(--border)) !important;
+  /* Ring "ulica wybrana" w kolorze motywu zamiast zielonego */
+  --tw-ring-color: hsl(var(--foreground));
+}
+[data-theme^="hc-"] .street-search-input::placeholder {
+  color: hsl(var(--muted-foreground)) !important;
+  opacity: 1;
+}
+
+/* Lista podpowiedzi — kontener */
+[data-theme^="hc-"] .street-suggestions-list {
+  background-color: hsl(var(--background)) !important;
+  border: 2px solid hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: none !important;
+}
+
+/* Elementy listy — stan normalny */
+[data-theme^="hc-"] .street-suggestion-item {
+  color: hsl(var(--foreground)) !important;
+}
+[data-theme^="hc-"] .street-suggestion-item .text-muted-foreground {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Elementy listy — hover: odwrócenie kolorów dla czytelności */
+[data-theme^="hc-"] .street-suggestion-item:hover {
+  background-color: hsl(var(--foreground)) !important;
+  color: hsl(var(--background)) !important;
+}
+[data-theme^="hc-"] .street-suggestion-item:hover .text-foreground,
+[data-theme^="hc-"] .street-suggestion-item:hover .text-muted-foreground {
+  color: hsl(var(--background)) !important;
+}
+
+/* Przycisk "Sprawdź" */
+[data-theme^="hc-"] .street-search-btn {
+  background-color: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 2px solid hsl(var(--border)) !important;
+}
+[data-theme^="hc-"] .street-search-btn:hover:not(:disabled) {
+  background-color: hsl(var(--foreground)) !important;
+  color: hsl(var(--background)) !important;
+}
+/* Ikona wewnątrz przycisku dziedziczy kolor */
+[data-theme^="hc-"] .street-search-btn svg {
+  color: inherit !important;
+}
+
+/* ============================================================
+   HC — widok Wyrejestrowania (Unsubscribe)
+   Klasy: .unsub-warning-box, .unsub-warning-title,
+          .unsub-2fa-box, .unsub-icon-wrapper, .unsub-confirm-btn
+   ============================================================ */
+
+/* Ikona AlertTriangle — widoczna ramka zamiast półprzezroczystego tła */
+[data-theme^="hc-"] .unsub-icon-wrapper {
+  background-color: hsl(var(--background)) !important;
+  border: 2px solid hsl(var(--border)) !important;
+}
+[data-theme^="hc-"] .unsub-icon-wrapper svg {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Blok ostrzegawczy "Uwaga! Ta operacja jest nieodwracalna." */
+[data-theme^="hc-"] .unsub-warning-box {
+  background-color: hsl(var(--background)) !important;
+  border: 3px solid hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+/* Tytuł "Uwaga!" — pogrubienie + kolor motywu */
+[data-theme^="hc-"] .unsub-warning-title {
+  color: hsl(var(--foreground)) !important;
+  font-weight: 700 !important;
+}
+/* Treść ostrzeżenia — hardkodowane text-slate-700 */
+[data-theme^="hc-"] .unsub-warning-box .text-slate-700 {
+  color: hsl(var(--foreground)) !important;
+}
+[data-theme^="hc-"] .unsub-warning-box strong {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Blok 2FA (krok info) — hardkodowane kolory niebieskie */
+[data-theme^="hc-"] .unsub-2fa-box {
+  background-color: hsl(var(--background)) !important;
+  border: 2px solid hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+[data-theme^="hc-"] .unsub-2fa-box .text-blue-900,
+[data-theme^="hc-"] .unsub-2fa-box .text-blue-700 {
+  color: hsl(var(--foreground)) !important;
+}
+[data-theme^="hc-"] .unsub-2fa-box svg {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Przycisk "Potwierdzam — usuń moje dane" (variant=destructive) */
+[data-theme^="hc-"] .unsub-confirm-btn {
+  background-color: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 3px solid hsl(var(--border)) !important;
+}
+[data-theme^="hc-"] .unsub-confirm-btn:hover:not(:disabled) {
+  background-color: hsl(var(--foreground)) !important;
+  color: hsl(var(--background)) !important;
+}
+[data-theme^="hc-"] .unsub-confirm-btn:disabled {
+  opacity: 0.5;
+}
+
+/* ============================================================
+   HC — sekcja Hero (strona główna Index.tsx)
+   Klasy: .hero-section, .hero-heading, .hero-description,
+          .hero-hint, .no-results-alert
+   ============================================================ */
+
+/* Gradient inline-style nadpisany przez !important */
+[data-theme^="hc-"] .hero-section {
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Nagłówek h1 — usuń text-shadow, wymuś kolor motywu */
+[data-theme^="hc-"] .hero-heading {
+  color: hsl(var(--foreground)) !important;
+  text-shadow: none !important;
+}
+
+/* Opis "Wpisz nazwę ulicy..." — text-white/75 → kolor motywu */
+[data-theme^="hc-"] .hero-description {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Hint pod wyszukiwarką — text-white/70 → muted foreground */
+[data-theme^="hc-"] .hero-hint {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Alert "brak awarii" — zielone bg/border/tekst → tokeny motywu */
+[data-theme^="hc-"] .no-results-alert {
+  background-color: hsl(var(--background)) !important;
+  border: 2px solid hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+[data-theme^="hc-"] .no-results-alert svg {
+  color: hsl(var(--foreground)) !important;
+}
+[data-theme^="hc-"] .no-results-alert .text-green-100,
+[data-theme^="hc-"] .no-results-alert .text-green-200 {
+  color: hsl(var(--foreground)) !important;
+}
+
 @layer base {
   * {
     @apply border-border;

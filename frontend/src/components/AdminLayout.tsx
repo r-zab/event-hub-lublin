@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { AccessibilityWidget } from '@/components/AccessibilityWidget';
 
 const allSidebarItems = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
@@ -62,6 +63,10 @@ export function AdminLayout() {
         ))}
       </nav>
       <div className="p-3 pb-6 border-t border-water-700/50 space-y-1">
+        <AccessibilityWidget
+          align="start"
+          triggerClassName="w-full justify-start text-water-200 hover:bg-water-800 hover:text-water-100"
+        />
         <Link
           to="/"
           onClick={onNavigate}
@@ -108,10 +113,11 @@ export function AdminLayout() {
               </div>
             </SheetContent>
           </Sheet>
-          <Link to="/admin/dashboard" className="flex items-center gap-2 font-heading font-bold text-sm">
+          <Link to="/admin/dashboard" className="flex-1 flex items-center gap-2 font-heading font-bold text-sm">
             <Droplets className="h-5 w-5 text-water-200" aria-hidden="true" />
             Panel MPWiK
           </Link>
+          <AccessibilityWidget triggerClassName="text-water-200 hover:bg-water-800 hover:text-water-100" />
         </header>
 
         <main className="flex-1 p-4 lg:p-6 min-w-0 overflow-y-auto">

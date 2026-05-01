@@ -14,6 +14,17 @@
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@MPWiKLublin" />
+  <script>
+    (function(){
+      try {
+        var f = localStorage.getItem('mpwik-a11y-font-size');
+        var c = localStorage.getItem('mpwik-a11y-contrast');
+        if (f === 'large') document.documentElement.style.fontSize = '18px';
+        else if (f === 'xlarge') document.documentElement.style.fontSize = '20px';
+        if (c && c !== 'default') document.documentElement.setAttribute('data-theme', c);
+      } catch(e) {}
+    })();
+  </script>
   </head>
 
   <body>

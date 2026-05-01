@@ -137,15 +137,15 @@ const Index = () => {
       {/* Hero Section */}
       {/* Hero — gradient MPWiK: od hsl(214,65%,36%) do hsl(214,60%,14%) */}
       <section
-        className="text-white py-12 px-4"
+        className="hero-section text-white py-12 px-4"
         style={{ background: 'linear-gradient(135deg, hsl(214,65%,36%) 0%, hsl(214,57%,25%) 50%, hsl(214,60%,14%) 100%)' }}
       >
         <div className="container mx-auto max-w-4xl text-center space-y-6">
-          <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold font-heading leading-tight whitespace-normal">
+          <h1 className="hero-heading text-2xl md:text-4xl lg:text-5xl font-bold font-heading leading-tight whitespace-normal">
             Sprawdź, czy w Twojej okolicy<br className="hidden sm:block" />
             {' '}występują przerwy w dostawie wody
           </h1>
-          <p className="text-white/75 text-sm sm:text-base">
+          <p className="hero-description text-white/75 text-sm sm:text-base">
             Wpisz nazwę ulicy, aby sprawdzić aktywne awarie i planowane wyłączenia.
           </p>
 
@@ -163,7 +163,7 @@ const Index = () => {
                   onFocus={() => streetQuery.length >= 3 && setShowStreetSuggestions(true)}
                   onKeyDown={handleKeyDown}
                   onBlur={handleStreetBlur}
-                  className={`bg-white text-foreground placeholder:text-muted-foreground border-0 h-12 text-base pl-9 pr-9 transition-shadow ${
+                  className={`street-search-input bg-white text-foreground placeholder:text-muted-foreground border-0 h-12 text-base pl-9 pr-9 transition-shadow ${
                     selectedStreet ? 'ring-2 ring-green-400' : ''
                   }`}
                   aria-label="Szukaj ulicy"
@@ -188,7 +188,7 @@ const Index = () => {
                 {showStreetSuggestions && (
                   <ul
                     id="street-suggestions-listbox"
-                    className="absolute z-50 left-0 right-0 mt-1 bg-white border border-border rounded-md shadow-lg max-h-52 overflow-y-auto text-left"
+                    className="street-suggestions-list absolute z-50 left-0 right-0 mt-1 bg-white border border-border rounded-md shadow-lg max-h-52 overflow-y-auto text-left"
                     role="listbox"
                   >
                     {suggestions.length > 0 ? (
@@ -197,7 +197,7 @@ const Index = () => {
                           key={s.id}
                           role="option"
                           aria-selected={selectedStreet?.id === s.id}
-                          className="px-3 py-2 text-sm cursor-pointer hover:bg-accent transition-colors"
+                          className="street-suggestion-item px-3 py-2 text-sm cursor-pointer hover:bg-accent transition-colors"
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => selectStreet(s)}
                         >
@@ -220,7 +220,7 @@ const Index = () => {
                 onClick={handleSearch}
                 size="lg"
                 disabled={!selectedStreet}
-                className="bg-white text-primary hover:bg-secondary h-12 px-6 font-semibold shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="street-search-btn bg-white text-primary hover:bg-secondary h-12 px-6 font-semibold shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Search className="h-4 w-4 mr-2" />
                 Sprawdź
@@ -228,7 +228,7 @@ const Index = () => {
             </div>
 
             {/* Stała wysokość min-h-4 = brak layout shift przy pojawianiu/znikaniu hintu */}
-            <p className="min-h-4 text-white/70 text-xs text-center sm:text-left">
+            <p className="hero-hint min-h-4 text-white/70 text-xs text-center sm:text-left">
               {streetQuery.trim().length >= 3 && !selectedStreet && !streetsLoading
                 ? 'Wybierz ulicę z listy podpowiedzi, aby zobaczyć zdarzenia.'
                 : ''}
@@ -236,7 +236,7 @@ const Index = () => {
           </div>
 
           {noResultsForQuery && (
-            <div className="flex items-center justify-center gap-2 bg-green-500/20 border border-green-300/40 rounded-lg py-3 px-4 max-w-lg mx-auto">
+            <div className="no-results-alert flex items-center justify-center gap-2 bg-green-500/20 border border-green-300/40 rounded-lg py-3 px-4 max-w-lg mx-auto">
               <CheckCircle2 className="h-5 w-5 text-green-200 shrink-0" />
               <span className="text-green-100 text-sm">
                 W tej chwili nie mamy zgłoszeń o awariach w podanej lokalizacji.

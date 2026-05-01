@@ -103,7 +103,7 @@
 
 | ID | Prio | Zadanie | Pliki / Komponenty | Oszacowanie |
 |---|---|---|---|---|
-| T3.1 | **W** | **Deployment na Oracle Linux 9** — `docker-compose.prod.yml` + dokumentacja `docs/deployment_oracle_linux_9.md` (firewalld, SELinux, podman alternatywa). Test na VM. | `docker-compose.prod.yml`, nowy doc | 1 dzień |
+| T3.1 | ✅ (W) | **Deployment na Oracle Linux 9** — `docker-compose.prod.yml` + dokumentacja `docs/deployment_oracle_linux_9.md` (firewalld, SELinux, podman alternatywa). Test na VM. | `docker-compose.prod.yml`, nowy doc | 1 dzień |
 | T3.2 | ✅ (K) | **Audyt WCAG 2.1 AA** — pełen przebieg axe-core + Lighthouse na: `/`, `/register`, `/sys-panel/dashboard`. Raport → `docs/wcag_audit_final.md`. | całość frontu | 0.5 dnia |
 | T3.3 | **U** | **Tablety RWD** — testy na 10.1″ i 11″ (Chrome DevTools), pionowo/poziomo. Naprawa znalezionych regresji. | całość frontu | 0.5 dnia |
 | T3.4 | **U** | **OWASP/MITRE mapping w dokumentacji** — sekcja w README/prezentacji mapująca nasze zabezpieczenia: A01 (RBAC), A03 (Pydantic + escape LIKE), A05 (HSTS-ready), A07 (rate-limit + 2FA). | `docs/security_mapping.md` | 0.5 dnia |
@@ -340,6 +340,9 @@ Zrób <ID> z roadmap_finalna_maj.md zgodnie z sekcją 8 (zasady operacyjne).
 | T2.2 (bugfix) | 2026-04-25 | Naprawiono wyświetlanie name_pl zamiast kodu technicznego: typeLabel w generatorze wiadomości pobierany z eventTypesDict; QueueCard dostaje prop eventTypesDict i wyświetla name_pl; usunięto hardkodowaną mapę TYPE_LABELS | `frontend/src/pages/AdminEventForm.tsx` |
 | T2.3 (update) | 2026-04-25 | Zmieniono tekst auto-przedłużania na: "Zdarzenie będzie przedłużane o 1h po minięciu szacowanego czasu zakończenia." | `frontend/src/pages/AdminEventForm.tsx` |
 | T2.6 | 2026-04-25 | Zrealizowane w ramach T2.5 — dropdown "Dział" w toolbarze AdminDashboard (stan filtra + dept_filter w GET /events); kolumna Dział w tabeli zdarzeń | `frontend/src/pages/AdminDashboard.tsx`, `backend/app/routers/events.py` |
+| T3.1 | 2026-05-01 | Produkcyjny docker-compose.prod.yml (no-reload, baza bez exposed portu, DEBUG=false, json-file logging); docs/deployment_oracle_linux_9.md (Docker CE na OL9, SELinux :z, firewalld, podman fallback, import danych, autostart); docs/instrukcja_odpalenia_serwer.md | `docker-compose.prod.yml`, `docs/deployment_oracle_linux_9.md`, `docs/instrukcja_odpalenia_serwer.md` |
+| Bugfix-captcha-prod | 2026-05-01 | Naprawa CAPTCHA Turnstile w buildzie Docker: VITE_TURNSTILE_SITE_KEY nie był przekazywany do `npm run build` (frontend/.dockerignore wyklucza .env*) → widget nie renderował się w prod → przycisk rejestracji permanentnie zablokowany. Dodano ARG+ENV w Dockerfile frontendu; build arg w docker-compose.prod.yml; VITE_TURNSTILE_SITE_KEY w .env i .env.example (domyślnie testowy klucz Cloudflare 1x00000000000000000000AA) | `frontend/Dockerfile`, `docker-compose.prod.yml`, `.env`, `.env.example` |
+| Bugfix-event-type-label | 2026-05-01 | Naprawa wyświetlania polskiej nazwy typu zdarzenia na stronie publicznej: (1) GeoJSON `bindPopup` w EventMap budował HTML string z kodem zamiast name_pl — Leaflet `onEachFeature` jest wywoływany przy mount, gdy `useEventTypes()` jeszcze ładuje dane i `typeNameMap` jest pusty; fix: `key={`fc-${event.id}-${eventTypes.length}`}` wymusza remount GeoJSON gdy typy załadują; (2) EventCard: podczas ładowania typów pokazuje spację zamiast surowego kodu (`typesLoading ? ' ' : event.event_type`) | `frontend/src/components/EventMap.tsx`, `frontend/src/components/EventCard.tsx` |
 | T2.7 | 2026-04-25 | Zweryfikowano: field_validator `phone_format` w SubscriberCreate dodaje +48 dla 9 cyfr, numery z prefiksem +48 lub innym przepuszcza bez zmian; walidacja w schemacie — brak zmian wymaganych | `backend/app/schemas/subscriber.py` |
 | T1.8 | 2026-04-25 | Zainstalowano @marsidev/react-turnstile; zastąpiono captchę matematyczną widżetem Cloudflare Turnstile (testowy sitekey 1x00000000000000000000AA w VITE_TURNSTILE_SITE_KEY); przycisk "Wyślij kod" zablokowany do uzyskania tokenu | `frontend/src/pages/Register.tsx`, `frontend/.env`, `frontend/package.json` |
 | T1.9 | 2026-04-25 | Zastąpiono captchę matematyczną Turnstile w Unsubscribe.tsx na kroku wpisywania tokenu; auto-weryfikacja z URL-a nie wymaga captchy; przycisk "Sprawdź dane" zablokowany do uzyskania tokenu | `frontend/src/pages/Unsubscribe.tsx` |
@@ -368,6 +371,11 @@ Zrób <ID> z roadmap_finalna_maj.md zgodnie z sekcją 8 (zasady operacyjne).
 | U1.3 | 2026-04-26 | Lifting wizualny kart statystyk w AdminDashboard: layout zmieniony na "etykieta + ikona w kolorowym tle / liczba / podpis"; ikony w rounded-lg z kolorowym bg (orange/red/amber/slate); licznik 3xl bold tabular-nums; gap 4→spójne padding p-5 | `frontend/src/pages/AdminDashboard.tsx` |
 | UI — filtrowanie AND | 2026-04-26 | Wdrożono złożone filtrowanie na panelu dyspozytora (status z kafelka + typ zdarzenia z dropdownu); kafelki nie resetują filtru typu (AND-koniunkcja); usunięto redundantny dropdown wyboru statusu; zastąpiono pill-e typów Select'em w toolbarze | `frontend/src/pages/AdminDashboard.tsx` |
 | UI — sticky sidebar | 2026-04-26 | Zoptymalizowano nawigację: wdrożono zablokowany pasek boczny (h-screen sticky top-0 na aside, overflow-hidden na wrapper, overflow-y-auto na main); dolne przyciski "Strona główna"/"Wyloguj" odsunięte od krawędzi przez pb-6 | `frontend/src/components/AdminLayout.tsx` |
+| WCAG-hero-HC | 2026-04-30 | Poprawka WCAG: pełna stylizacja sekcji Hero oraz komunikatów statusu dla trybów wysokiego kontrastu — `.hero-section` (nadpisanie inline gradient `!important`, kolor foreground); `.hero-heading` (text-shadow:none, kolor motywu); `.hero-description` (text-white/75→foreground); `.hero-hint` (text-white/70→muted-foreground); `.no-results-alert` (bg background, border 2px, tekst+ikona foreground zamiast green-100/200); płynne przejście hero→treść przez wspólny token `--background` | `frontend/src/pages/Index.tsx`, `frontend/src/index.css` |
+| WCAG-unsub-HC | 2026-04-30 | Poprawka WCAG: zwiększenie widoczności ostrzeżeń w zakładce wyrejestrowania dla trybów wysokiego kontrastu — klasy `.unsub-warning-box` (border: 3px), `.unsub-warning-title` (font-weight: 700, kolor motywu), `.unsub-2fa-box` (bg/border z tokenów HC), `.unsub-icon-wrapper` (ramka 2px, bg background), `.unsub-confirm-btn` (border: 3px, bg background, hover: odwrócenie); nadpisano hardkodowane `text-red-700`, `text-slate-700`, `text-blue-900`, `text-blue-700`, `bg-destructive/5`, `bg-blue-50` | `frontend/src/pages/Unsubscribe.tsx`, `frontend/src/index.css` |
+| WCAG-search-HC | 2026-04-30 | Poprawka WCAG: naprawa widoczności wyszukiwarki i listy podpowiedzi w trybach wysokiego kontrastu — klasy `.street-search-input`, `.street-suggestions-list`, `.street-suggestion-item`, `.street-search-btn` z regułami `[data-theme^="hc-"]`: tło `hsl(--background)`, kolor `hsl(--foreground)`, `border: 2px solid hsl(--border)`, placeholder via `--muted-foreground`; hover na elementach listy odwraca kolory (bg=foreground, color=background); `--tw-ring-color` przekierowany na `--foreground` zamiast hardkodowanego zielonego | `frontend/src/pages/Index.tsx`, `frontend/src/index.css` |
+| WCAG-map-HC | 2026-04-30 | Poprawka czytelności WCAG: naprawa kontrastu legendy mapy i elementów interfejsu w trybach wysokiego kontrastu — klasa `.map-overlay-panel` na wszystkich nakładkach (legenda EventMap, legenda AdminMapView, loader, licznik, hint zoom); reguły CSS `[data-theme^="hc-"]` dla `.leaflet-popup-content-wrapper`, `.leaflet-popup-tip`, `.leaflet-tooltip`, `.leaflet-control-attribution`, `.leaflet-bar`; `.map-event-legend-dot` z `outline` w kolorze motywu; backdrop-filter wyłączony w HC | `frontend/src/components/EventMap.tsx`, `frontend/src/components/AdminMapView.tsx`, `frontend/src/index.css` |
+| WCAG Widget | 2026-04-30 | Dodano widget dostępności WCAG 2.1 AA: 3 poziomy rozmiaru czcionki (domyślny 16px / duży 18px / bardzo duży 20px) modyfikujące `html.style.fontSize`; 4 tryby kontrastowe (`hc-bw` biały na czarnym 21:1, `hc-by` czarny na żółtym 19.6:1, `hc-yb` żółty na czarnym 19.6:1, domyślny) z `data-theme` na `<html>`; style HC w index.css (nadpisanie CSS variables, `[role="status"]` dla StatusBadge, pola formularzy border-width:2px, podkreślenia linków, obramowania tabel); skrypt anty-FOUC w `<head>` index.html (localStorage → DOM przed hydracją React); widget w PublicLayout (nawigacja publiczna) i AdminLayout (sidebar desktopowy + nagłówek mobilny); preferencje zapisywane do localStorage | `frontend/src/components/AccessibilityWidget.tsx`, `frontend/src/components/PublicLayout.tsx`, `frontend/src/components/AdminLayout.tsx`, `frontend/src/index.css`, `frontend/index.html` |
 | T3.2 | 2026-04-30 | Audyt WCAG 2.1 AA: Lighthouse na `/`, `/register`, `/admin/dashboard` (score 95/95/99); naprawiono 3 naruszenia poziomu A: role="log" na toast ol, sr-only na nav linki mobilne, aria-label na search w dashboardzie; raport w docs/wcag_audit_final.md | `frontend/src/components/ui/toast.tsx`, `frontend/src/components/PublicLayout.tsx`, `frontend/src/pages/AdminDashboard.tsx`, `docs/wcag_audit_final.md` |
 ## [Unreleased] — 2026-04-30
 
@@ -414,6 +422,29 @@ Zrób <ID> z roadmap_finalna_maj.md zgodnie z sekcją 8 (zasady operacyjne).
 - `GET /admin/subscribers` — nowe parametry: `search`, `channel`, `night_only`, `street_filter` z filtrowaniem i poprawnym liczeniem `total_count`.
 - `GET /admin/notifications/export.csv` — te same filtry co endpoint listy.
 - `GET /admin/subscribers/export.csv` — te same filtry co endpoint listy.
+
+#### Poprawka czytelności WCAG — mapa w trybach wysokiego kontrastu
+
+- Wszystkie pływające panele mapy (`EventMap`, `AdminMapView`: legenda, loader, licznik budynków, hint zoom) oznaczone klasą `map-overlay-panel` — w trybach HC otrzymują `background-color: hsl(var(--card))`, `border: 2px solid hsl(var(--border))`, `color: hsl(var(--card-foreground))` i wyłączony `backdrop-filter` (eliminuje efekt blending na ciemnym tle).
+- Kółka legendy typów zdarzeń (`map-event-legend-dot`) otrzymują `outline: 2px solid hsl(var(--foreground))` — ikony z inline-style pozostają widoczne niezależnie od koloru motywu.
+- **Leaflet natywne elementy** pokryte regułami `[data-theme^="hc-"]`:
+  - `.leaflet-popup-content-wrapper` + `.leaflet-popup-tip` → `background: hsl(--popover)`, `color: hsl(--popover-foreground)`, `border: 2px solid hsl(--border)`; wszystkie descendanty `*` z `color: hsl(--popover-foreground) !important` (nadpisuje inline-style `color:#6B7280` w dymkach budynków)
+  - `.leaflet-tooltip` → te same tokeny + obramowanie (border-width: 2px)
+  - `.leaflet-control-attribution` → adaptacja do tła/tekstu motywu
+  - `.leaflet-bar` (zoom controls) → `border`, `background-color`, `color` z tokenów `--card`/`--card-foreground`/`--border`
+
+#### Widget dostępności WCAG 2.1 AA
+
+- Nowy komponent `AccessibilityWidget` dostępny w publicznym pasku nawigacyjnym oraz w Panelu Dyspozytora (sidebar desktopowy + nagłówek mobilny).
+- **Rozmiar czcionki** — 3 poziomy: domyślny (16 px), duży (18 px), bardzo duży (20 px); modyfikują `html.style.fontSize`, skalując wszystkie jednostki `rem`/`em`.
+- **Tryby kontrastowe** — 4 opcje z ratios spełniającymi WCAG 2.1 AA:
+  - Domyślny (MPWiK brand)
+  - `hc-bw` biały na czarnym — **21:1** (tekst standardowy ≥ 4,5:1, duży ≥ 3:1 ✓)
+  - `hc-by` czarny na żółtym — **19,6:1** ✓
+  - `hc-yb` żółty na czarnym — **19,6:1** ✓
+- Style HC nadpisują wszystkie CSS variables, odznaki `[role="status"]` (StatusBadge), hardkodowane klasy Tailwind (`text-amber-800`, `text-blue-700`, `text-purple-800`), obramowania pól formularzy (`border-width: 2px`) i komórek tabel; linki otrzymują `text-decoration-line: underline`.
+- Skrypt anty-FOUC w `<head>` `index.html` aplikuje preferencje z `localStorage` przed hydracją React.
+- Preferencje zapisywane w `localStorage` (`mpwik-a11y-font-size`, `mpwik-a11y-contrast`) — persystencja między sesjami.
 
 
 

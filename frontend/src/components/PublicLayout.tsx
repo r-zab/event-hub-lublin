@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { Droplets, Map, UserPlus, Info, ShieldCheck, UserMinus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AccessibilityWidget } from '@/components/AccessibilityWidget';
 
 const navItems = [
   { to: '/', label: 'Mapa', icon: Map },
@@ -37,6 +38,7 @@ export function PublicLayout() {
                 <span className="sr-only sm:not-sr-only sm:inline">{label}</span>
               </Link>
             ))}
+            <AccessibilityWidget />
           </nav>
         </div>
       </header>

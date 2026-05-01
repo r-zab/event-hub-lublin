@@ -2,8 +2,8 @@ import re
 
 from pydantic import BaseModel, field_validator
 
-# Nazwa: tylko polskie litery, cyfry, spacje — max 20 znaków
-_STREET_NAME_RE = re.compile(r"^[A-Za-zĄąĆćĘęŁłŃńÓóŚśŹźŻż0-9\s]+$")
+# Polskie litery, cyfry, spacje i typowe znaki w nazwach ulic (., -, ', /)
+_STREET_NAME_RE = re.compile(r"^[A-Za-zĄąĆćĘęŁłŃńÓóŚśŹźŻż0-9\s.\-'/]+$")
 
 # Numer budynku: max 5 znaków, zaczyna się od cyfry, tylko cyfry/WIELKIE litery/slash
 _HOUSE_NUM_RE = re.compile(r"^\d[A-Z0-9/]*$")
@@ -15,10 +15,10 @@ def _validate_name(v: str | None) -> str | None:
     v = v.strip()
     if not v:
         raise ValueError("Nazwa ulicy nie może być pusta.")
-    if len(v) > 20:
-        raise ValueError("Nazwa ulicy nie może przekraczać 20 znaków.")
+    if len(v) > 200:
+        raise ValueError("Nazwa ulicy nie może przekraczać 200 znaków.")
     if not _STREET_NAME_RE.match(v):
-        raise ValueError("Nazwa ulicy może zawierać tylko litery polskiego alfabetu, cyfry i spacje.")
+        raise ValueError("Nazwa ulicy zawiera niedozwolone znaki.")
     return v
 
 

@@ -31,7 +31,6 @@ depends_on = None
 # Kolumny do konwersji: (tabela, kolumna)
 _TIMESTAMP_COLUMNS = [
     ("users", "created_at"),
-    ("streets", ),  # brak timestampów
     ("events", "created_at"),
     ("events", "updated_at"),
     ("events", "estimated_end"),

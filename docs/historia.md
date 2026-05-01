@@ -17,7 +17,7 @@ tworzony we współpracy z MPWiK Lublin. Realizowany na Festiwal Biznesu — Pol
 ## Struktura plików projektu
 
 ```
-event-hub-lublin/
+mpwik-lublin/
 │
 ├── CLAUDE.md                          # Instrukcje dla AI — stack, zasady, co robić
 ├── README.md                          # Opis projektu

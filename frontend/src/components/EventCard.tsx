@@ -27,12 +27,11 @@ interface EventCardProps {
 }
 
 export function EventCard({ event, onFocus }: EventCardProps) {
-  const { eventTypes } = useEventTypes();
+  const { eventTypes, isLoading: typesLoading } = useEventTypes();
 
-  // Kolor i etykieta z dynamicznego słownika typów zdarzeń (T2.1 + bugfix)
   const eventTypeDef = eventTypes.find((t) => t.code === event.event_type);
   const eventColor = eventTypeDef?.default_color_rgb ?? '#6B7280';
-  const eventLabel = eventTypeDef?.name_pl ?? event.event_type;
+  const eventLabel = eventTypeDef?.name_pl ?? (typesLoading ? ' ' : event.event_type);
 
   const Icon = typeIcons[event.event_type] ?? TriangleAlert;
   const numbers = formatEventNumbers(event);

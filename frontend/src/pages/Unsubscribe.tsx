@@ -133,14 +133,14 @@ const Unsubscribe = () => {
   return (
     <div className="container max-w-md py-16 space-y-8">
       <div className="text-center space-y-4">
-        <div className="mx-auto w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center">
+        <div className="unsub-icon-wrapper mx-auto w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center">
           <AlertTriangle className="h-7 w-7 text-destructive" aria-hidden="true" />
         </div>
         <h1 className="font-heading text-2xl font-bold">Wyrejestrowanie z systemu</h1>
       </div>
 
-      <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm space-y-2">
-        <p className="font-semibold text-red-700">Uwaga! Ta operacja jest nieodwracalna.</p>
+      <div className="unsub-warning-box rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm space-y-2">
+        <p className="unsub-warning-title font-semibold text-red-700">Uwaga! Ta operacja jest nieodwracalna.</p>
         <p className="text-slate-700">
           Wszystkie Twoje dane — adresy, numer telefonu, e-mail — zostaną{' '}
           <strong>całkowicie i fizycznie usunięte</strong> z bazy danych. Nie będziesz już
@@ -219,7 +219,7 @@ const Unsubscribe = () => {
             )}
           </div>
 
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 space-y-1.5">
+          <div className="unsub-2fa-box rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 space-y-1.5">
             <div className="flex items-center gap-2 font-semibold">
               <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
               Wymagana weryfikacja tożsamości (2FA)
@@ -310,7 +310,7 @@ const Unsubscribe = () => {
               type="submit"
               variant="destructive"
               size="lg"
-              className="flex-1 font-semibold"
+              className="unsub-confirm-btn flex-1 font-semibold"
               disabled={isDeleting || deleteCode.length !== 6}
             >
               {isDeleting ? (

@@ -140,7 +140,7 @@ function MapLegend({ eventTypes }: { eventTypes: EventTypeItem[] }) {
   if (eventTypes.length === 0) return null;
   return (
     <div
-      className="absolute bottom-4 right-4 z-[1000] bg-white/95 backdrop-blur-sm shadow-md rounded-lg border border-border p-3 text-sm space-y-1.5 pointer-events-none"
+      className="map-overlay-panel absolute bottom-4 right-4 z-[1000] bg-white/95 backdrop-blur-sm shadow-md rounded-lg border border-border p-3 text-sm space-y-1.5 pointer-events-none"
       role="note"
       aria-label="Legenda mapy"
     >
@@ -150,7 +150,7 @@ function MapLegend({ eventTypes }: { eventTypes: EventTypeItem[] }) {
       {eventTypes.map((t) => (
         <div key={t.code} className="flex items-center gap-2">
           <span
-            className="inline-block w-3 h-3 rounded-full border"
+            className="map-event-legend-dot inline-block w-3 h-3 rounded-full border"
             style={{ backgroundColor: t.default_color_rgb, borderColor: t.default_color_rgb }}
             aria-hidden="true"
           />
@@ -271,7 +271,7 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
             <Fragment key={`group-fc-${event.id}`}>
               <ZoomAwareLayer>
                 <GeoJSON
-                  key={`fc-${event.id}`}
+                  key={`fc-${event.id}-${eventTypes.length}`}
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   data={fc as any}
                   style={{ color, fillColor, stroke: true, weight: 1.5, fillOpacity: 0.6 }}
