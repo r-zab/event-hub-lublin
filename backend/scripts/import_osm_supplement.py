@@ -61,7 +61,7 @@ logger = logging.getLogger(__name__)
 # --------------------------------------------------------------------------- #
 # Konfiguracja
 # --------------------------------------------------------------------------- #
-DEFAULT_PBF = Path(__file__).resolve().parent.parent / "data" / "lubelskie-260413.osm.pbf"
+DEFAULT_PBF = Path(__file__).resolve().parent.parent / "data" / "lubelskie-260430.osm.pbf"
 BATCH_SIZE = 500
 TARGET_CITY = "lublin"  # case-insensitive match na addr:city
 

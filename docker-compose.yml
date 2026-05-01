@@ -1,3 +1,5 @@
+name: mpwik-lublin
+
 services:
   db:
     image: postgis/postgis:16-3.4-alpine

@@ -195,7 +195,7 @@ Test-Path backend\data\budynki_surowe.geojson
 Test-Path backend\data\adresy_surowe.geojson
 ```
 
-Jeśli nie ma plików — pobierz je od Kuby lub Rafała (nie są w repozytorium ze względu na rozmiar).
+
 
 Uruchom import:
 
@@ -224,7 +224,25 @@ docker compose exec db psql -U mpwik -d mpwik_lublin -c "
 
 ### 5.5 Uzupełnij adresami z OSM (opcjonalne)
 
-Wymaga pliku `backend/data/lubelskie-*.osm.pbf`. Pomiń jeśli go nie masz.
+Wymaga pliku `.osm.pbf` dla województwa lubelskiego. Pobierz go z Geofabrik:
+
+**https://download.geofabrik.de/europe/poland/lubelskie.html**
+
+Pobierz plik `lubelskie-latest.osm.pbf` i umieść go w `backend/data/`:
+
+```bash
+# Windows PowerShell
+Invoke-WebRequest -Uri "https://download.geofabrik.de/europe/poland/lubelskie-latest.osm.pbf" `
+  -OutFile "backend\data\lubelskie-latest.osm.pbf"
+```
+
+```bash
+# macOS / Linux
+curl -L -o backend/data/lubelskie-latest.osm.pbf \
+  https://download.geofabrik.de/europe/poland/lubelskie-latest.osm.pbf
+```
+
+Plik ma ~150 MB. Po pobraniu uruchom:
 
 ```bash
 docker compose run --rm scripts python -m scripts.import_osm_supplement
@@ -316,6 +334,18 @@ netstat -ano | findstr :8000
 # macOS/Linux
 lsof -i :8000
 ```
+
+### Backend nie startuje — `exec ./entrypoint.sh: no such file or directory`
+
+Plik `entrypoint.sh` ma końce linii CRLF (Windows). Linux nie może wykonać skryptu z `\r` w shebangu.
+
+Naprawione automatycznie przez `sed` w `Dockerfile` — wymaga **przebudowania obrazu**:
+
+```bash
+docker compose up -d --build backend
+```
+
+Jeśli błąd nadal występuje, upewnij się że masz aktualny `Dockerfile` (powinien zawierać `sed -i 's/\r//' entrypoint.sh`).
 
 ### Backend nie startuje — błąd `SECRET_KEY not configured`
 
