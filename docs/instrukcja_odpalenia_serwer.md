@@ -1,15 +1,26 @@
-# Ściągawka Operacyjna — Serwer Oracle Linux 9
+# Ściągawka Operacyjna — Serwer Produkcyjny
 
 Codzienna obsługa środowiska produkcyjnego.
-Wszystkie komendy wykonuj z katalogu `/opt/mpwik`.
+
+---
+
+## Przed startem — ustal swoje wartości
+
+```bash
+# === USTAW RAZ — używaj przez całą sesję ===
+export UŻYTKOWNIK=admin                              # nazwa konta systemowego na serwerze
+export IP_SERWERA=192.168.0.17                       # adres IP serwera w sieci lokalnej
+export KATALOG_PROJEKTU=/opt/mpwik/event-hub-lublin  # katalog projektu na serwerze
+# ===========================================
+```
 
 ---
 
 ## Połączenie z serwerem
 
 ```bash
-ssh kuba@192.168.1.15
-cd /opt/mpwik
+ssh ${UŻYTKOWNIK}@${IP_SERWERA}
+cd ${KATALOG_PROJEKTU}
 ```
 
 > **Przed pierwszym wdrożeniem:** upewnij się, że `.env` zawiera `VITE_TURNSTILE_SITE_KEY`.
@@ -64,7 +75,7 @@ docker compose -f docker-compose.prod.yml restart
 ## Aktualizacja do nowej wersji
 
 ```bash
-cd /opt/mpwik
+cd ${KATALOG_PROJEKTU}
 git pull
 
 # Backend — entrypoint.sh automatycznie uruchomi alembic upgrade head przy starcie
@@ -113,30 +124,47 @@ docker compose -f docker-compose.prod.yml logs -f
 
 ---
 
-## Dostęp do bazy danych — tunel SSH (DBeaver / pgAdmin)
+## Dostęp do bazy danych — DBeaver / pgAdmin
 
-Port `5432` bazy **nie jest** wystawiony na zewnątrz serwera (celowe — brak wpisu `ports:` w `docker-compose.prod.yml`).
+Port `5432` bazy jest dostępny **tylko lokalnie na serwerze** (binding `127.0.0.1:5432`) — nie jest wystawiony na zewnątrz. Dostęp z komputera lokalnego możliwy wyłącznie przez tunel SSH.
 
-Aby połączyć DBeaver lub pgAdmin z komputera lokalnego, zestawiamy tunel SSH:
+### Opcja A — wbudowany tunel SSH w DBeaver (zalecane, bez osobnego terminala)
 
+**Zakładka SSH** w DBeaver:
+
+| Pole | Wartość |
+|------|---------|
+| Use SSH Tunnel | ✅ zaznaczone |
+| Host/IP | `<IP_SERWERA>` |
+| Port | `22` |
+| User Name | `<UŻYTKOWNIK>` |
+| Authentication | Password lub klucz prywatny |
+
+**Zakładka Main**:
+
+| Pole | Wartość |
+|------|---------|
+| Host | `localhost` |
+| Port | `5432` |
+| Database | `mpwik_lublin` |
+| Username | `mpwik` |
+| Password | wartość `POSTGRES_PASSWORD` z `.env` |
+
+Hasło bazy:
 ```bash
-# Na lokalnym komputerze Windows (PowerShell) — zostaw ten terminal otwarty
-ssh -L 5433:localhost:5432 kuba@192.168.1.15
+grep POSTGRES_PASSWORD ${KATALOG_PROJEKTU}/.env
 ```
 
-Co robi ta komenda: przekierowuje lokalny port `5433` przez szyfrowany tunel SSH na port `5432` wewnątrz serwera (gdzie słucha PostgreSQL wewnątrz sieci Docker).
+### Opcja B — ręczny tunel SSH (terminal musi być otwarty przez całą sesję)
 
-Po zestawieniu tunelu — w DBeaver/pgAdmin:
+```bash
+# Na lokalnym komputerze — zostaw ten terminal otwarty
+ssh -L 5433:localhost:5432 <UŻYTKOWNIK>@<IP_SERWERA>
+```
 
-| Parametr | Wartość |
-|----------|---------|
-| Host | `127.0.0.1` |
-| Port | `5433` |
-| Baza danych | `mpwik_lublin` |
-| Użytkownik | `mpwik` |
-| Hasło | wartość `POSTGRES_PASSWORD` z `/opt/mpwik/.env` |
+Wtedy w DBeaver (bez SSH tunnel): `localhost:5433`, baza `mpwik_lublin`, user `mpwik`.
 
-> Tunel SSH zamyka się gdy zamkniesz terminal. Każda sesja pracy z bazą wymaga ponownego uruchomienia tunelu.
+> Jeśli lokalnie masz już PostgreSQL na porcie 5432 lub 5433 — zmień port lokalny na inny, np. `15432`.
 
 ---
 
@@ -247,7 +275,9 @@ docker compose -f docker-compose.prod.yml logs -f mpwik-backend
 ## Szybka ściągawka
 
 ```bash
-ssh kuba@192.168.1.15 && cd /opt/mpwik
+# Połącz się z serwerem
+ssh <UŻYTKOWNIK>@<IP_SERWERA>
+cd <KATALOG_PROJEKTU>
 
 docker compose -f docker-compose.prod.yml ps                        # status
 docker compose -f docker-compose.prod.yml up -d                     # start wszystkiego
@@ -263,7 +293,6 @@ git pull && docker compose -f docker-compose.prod.yml up -d --build mpwik-backen
 curl -I http://localhost                     # frontend
 curl http://localhost/api/v1/events          # API przez Nginx
 
-# Tunel SSH do bazy (na lokalnym komputerze)
-ssh -L 5433:localhost:5432 kuba@192.168.1.15
-# DBeaver: localhost:5433 / mpwik / <POSTGRES_PASSWORD z .env>
+# Hasło bazy (do DBeaver)
+grep POSTGRES_PASSWORD .env
 ```

@@ -1,7 +1,23 @@
 # Deployment — Oracle Linux 9 (Docker)
 
 Docelowa platforma: Oracle Linux 9.x, Docker CE, za WAF-em Fortinet.
-Wszystkie komendy wykonuj jako użytkownik `kuba` (nie root), chyba że zaznaczono `sudo`.
+
+---
+
+## Przed startem — ustal swoje wartości
+
+Przed wykonaniem jakiejkolwiek komendy ustal trzy wartości i wklej je do terminala SSH. Dzięki temu wszystkie komendy poniżej działają bez edycji.
+
+```bash
+# === USTAW RAZ — używaj przez całą sesję ===
+export UŻYTKOWNIK=admin                          # nazwa konta systemowego na serwerze
+export IP_SERWERA=192.168.0.17                   # adres IP serwera w sieci lokalnej
+export KATALOG_PROJEKTU=/opt/mpwik/event-hub-lublin  # katalog docelowy projektu
+# ===========================================
+```
+
+> Wszystkie komendy wykonuj jako `$UŻYTKOWNIK` (nie root), chyba że zaznaczono `sudo`.  
+> Wszystkie komendy na serwerze wykonuj z katalogu `$KATALOG_PROJEKTU`, chyba że zaznaczono inaczej.
 
 ---
 
@@ -15,15 +31,19 @@ Wszystkie komendy wykonuj jako użytkownik `kuba` (nie root), chyba że zaznaczo
 | Dysk | 40 GB (z czego ~20 GB dla danych PostGIS) |
 | Sieć | Port **80** dostępny z sieci lokalnej (frontend Nginx) |
 
-Port `8000` backendu i `5432` bazy danych **nie są** wystawiane na zewnątrz — działają wyłącznie wewnątrz sieci Docker.
+Port `8000` backendu i `5432` bazy danych **nie są** wystawiane na zewnątrz — działają wyłącznie wewnątrz sieci Docker lub przez tunel SSH.
 
 ---
 
-## 2. Instalacja Docker CE
+## 2. Instalacja Docker CE i Git
 
-Oracle Linux 9 nie ma Docker CE w domyślnych repozytoriach. Dodaj oficjalne repozytorium Dockera:
+Oracle Linux 9 nie ma Docker CE ani Git w domyślnych repozytoriach.
 
 ```bash
+# Git (wymagany do klonowania repozytorium)
+sudo dnf install -y git
+
+# Docker CE
 sudo dnf install -y dnf-plugins-core
 sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
 sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
@@ -35,11 +55,12 @@ newgrp docker
 Zweryfikuj instalację:
 
 ```bash
+git --version
 docker --version
 docker compose version
 ```
 
-Oczekiwany wynik: `Docker version 26.x.x` oraz `Docker Compose version v2.x.x`.
+Oczekiwany wynik: `git version 2.x.x`, `Docker version 26.x.x`, `Docker Compose version v2.x.x`.
 
 ---
 
@@ -83,35 +104,34 @@ sudo firewall-cmd --list-ports
 ### Opcja A — git clone (zalecana)
 
 ```bash
-sudo mkdir -p /opt/mpwik && sudo chown $USER:$USER /opt/mpwik
-cd /opt/mpwik
+sudo mkdir -p ${KATALOG_PROJEKTU} && sudo chown $USER:$USER ${KATALOG_PROJEKTU}
+cd ${KATALOG_PROJEKTU}
 git clone <URL_REPOZYTORIUM> .
 ```
 
-### Opcja B — rsync / scp (gdy brak dostępu do git)
+### Opcja B — scp (gdy brak dostępu do git lub repozytorium prywatne bez kluczy)
 
-Z lokalnego komputera (Windows PowerShell):
+Z lokalnego komputera (Windows PowerShell) — zastąp ścieżkę lokalną swoją:
 
 ```powershell
-# Prześlij cały projekt
-scp -r C:\MPWIK\mpwik-lublin\* kuba@192.168.1.15:/opt/mpwik/
+scp -r C:\<ŚCIEŻKA_LOKALNA>\* ${env:UŻYTKOWNIK}@${env:IP_SERWERA}:${env:KATALOG_PROJEKTU}/
 ```
 
 ### Pliki danych GIS (wymagane do seeda bazy)
 
-Pliki nie są w repozytorium — prześlij je oddzielnie:
+Pliki nie są w repozytorium — prześlij je oddzielnie z lokalnego komputera:
 
 ```powershell
-# Z Windows PowerShell:
-scp C:\MPWIK\mpwik-lublin\backend\data\budynki_surowe.geojson    kuba@192.168.1.15:/opt/mpwik/backend/data/
-scp C:\MPWIK\mpwik-lublin\backend\data\adresy_surowe.geojson     kuba@192.168.1.15:/opt/mpwik/backend/data/
-scp C:\MPWIK\mpwik-lublin\backend\data\streets_lublin__final.geojson kuba@192.168.1.15:/opt/mpwik/backend/data/
+# Windows PowerShell — zastąp ścieżkę lokalną
+scp C:\<ŚCIEŻKA_LOKALNA>\backend\data\budynki_surowe.geojson       ${env:UŻYTKOWNIK}@${env:IP_SERWERA}:${env:KATALOG_PROJEKTU}/backend/data/
+scp C:\<ŚCIEŻKA_LOKALNA>\backend\data\adresy_surowe.geojson        ${env:UŻYTKOWNIK}@${env:IP_SERWERA}:${env:KATALOG_PROJEKTU}/backend/data/
+scp C:\<ŚCIEŻKA_LOKALNA>\backend\data\streets_lublin__final.geojson ${env:UŻYTKOWNIK}@${env:IP_SERWERA}:${env:KATALOG_PROJEKTU}/backend/data/
 ```
 
 Sprawdź na serwerze:
 
 ```bash
-ls -lh /opt/mpwik/backend/data/
+ls -lh ${KATALOG_PROJEKTU}/backend/data/
 ```
 
 ---
@@ -119,7 +139,7 @@ ls -lh /opt/mpwik/backend/data/
 ## 6. Konfiguracja środowiska produkcyjnego (.env)
 
 ```bash
-cd /opt/mpwik
+cd ${KATALOG_PROJEKTU}
 cp .env.example .env
 nano .env
 ```
@@ -138,7 +158,7 @@ SECRET_KEY=<WYNIK_OPENSSL_PONIZEJ>
 DEBUG=false
 
 # === CORS — adres serwera (IP lub domena) ===
-CORS_ORIGINS=http://192.168.1.15
+CORS_ORIGINS=http://<IP_SERWERA>
 
 # === Bramka SMS (produkcja) ===
 SMS_GATEWAY_TYPE=smseagle
@@ -205,7 +225,7 @@ printf 'node_modules\ndist\n.env*\n' > frontend/.dockerignore
 ## 8. Uruchomienie stosu produkcyjnego
 
 ```bash
-cd /opt/mpwik
+cd ${KATALOG_PROJEKTU}
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
@@ -272,7 +292,7 @@ curl -s http://localhost/api/v1/events | head -c 100  # → JSON (API przez Ngin
 ### 9.1 Zbuduj obraz skryptów GIS
 
 ```bash
-cd /opt/mpwik
+cd ${KATALOG_PROJEKTU}
 docker build -f backend/Dockerfile.scripts -t mpwik-scripts ./backend
 ```
 
@@ -281,16 +301,8 @@ Czas: ~5–10 minut (pobiera GDAL, rasterio, shapely).
 ### 9.2 Importuj ulice
 
 ```bash
-docker run --rm \
-  --network mpwik-lublin_default \
-  -e DATABASE_URL="postgresql+asyncpg://mpwik:${POSTGRES_PASSWORD}@mpwik-db:5432/mpwik_lublin" \
-  mpwik-scripts python -m scripts.import_streets
+docker run --rm --network mpwik-lublin_default -e DATABASE_URL="postgresql+asyncpg://mpwik:${POSTGRES_PASSWORD}@mpwik-db:5432/mpwik_lublin" mpwik-scripts python -m scripts.import_streets
 ```
-
-> **Uwaga SSH:** wieloliniowe komendy z `\` na SSH mogą się nie powieść. W razie problemów użyj wersji jednoliniowej:
-> ```bash
-> docker run --rm --network mpwik-lublin_default -e DATABASE_URL="postgresql+asyncpg://mpwik:${POSTGRES_PASSWORD}@mpwik-db:5432/mpwik_lublin" mpwik-scripts python -m scripts.import_streets
-> ```
 
 Weryfikacja:
 
@@ -305,7 +317,7 @@ Oczekiwany wynik: `1378`.
 Sprawdź czy pliki danych istnieją:
 
 ```bash
-ls -lh /opt/mpwik/backend/data/budynki_surowe.geojson /opt/mpwik/backend/data/adresy_surowe.geojson
+ls -lh ${KATALOG_PROJEKTU}/backend/data/budynki_surowe.geojson ${KATALOG_PROJEKTU}/backend/data/adresy_surowe.geojson
 ```
 
 Jeśli nie ma — wróć do kroku 5 (przesłanie plików).
@@ -329,7 +341,8 @@ Oczekiwany wynik: `~46596`.
 Wymaga pliku `lubelskie-*.osm.pbf` w `backend/data/`. Prześlij jeśli brakuje (plik ~50 MB):
 
 ```powershell
-scp C:\MPWIK\mpwik-lublin\backend\data\lubelskie-260413.osm.pbf kuba@192.168.1.15:/opt/mpwik/backend/data/
+# Windows PowerShell
+scp C:\<ŚCIEŻKA_LOKALNA>\backend\data\lubelskie-*.osm.pbf ${env:UŻYTKOWNIK}@${env:IP_SERWERA}:${env:KATALOG_PROJEKTU}/backend/data/
 ```
 
 Przebuduj obraz (żeby plik był dostępny wewnątrz kontenera) i uruchom:
@@ -425,7 +438,7 @@ Zweryfikuj po restarcie:
 ```bash
 sudo reboot
 # Po ponownym połączeniu SSH:
-docker compose -f /opt/mpwik/docker-compose.prod.yml ps
+docker compose -f ${KATALOG_PROJEKTU}/docker-compose.prod.yml ps
 ```
 
 ---
@@ -452,7 +465,7 @@ df -h /
 ## 13. Aktualizacja aplikacji
 
 ```bash
-cd /opt/mpwik
+cd ${KATALOG_PROJEKTU}
 git pull
 
 # Przebuduj i uruchom backend (migracje Alembic uruchamiają się automatycznie przy starcie)
@@ -469,22 +482,77 @@ docker compose -f docker-compose.prod.yml logs -f mpwik-backend
 
 ## 14. Dostęp do bazy danych z komputera lokalnego (DBeaver / pgAdmin)
 
-Baza danych nie ma otwartego portu na zewnątrz (celowo). Użyj tunelu SSH:
+### Wymaganie wstępne — port bazy musi być dostępny przez loopback
 
-```bash
-# Na lokalnym komputerze — zostaw ten terminal otwarty przez całą sesję pracy
-ssh -L 5433:localhost:5432 kuba@192.168.1.15
+Plik `docker-compose.prod.yml` zawiera dla serwisu `mpwik-db`:
+
+```yaml
+ports:
+  - "127.0.0.1:5432:5432"
 ```
 
-Po zestawieniu tunelu połącz DBeaver/pgAdmin:
+Binding na `127.0.0.1` (nie `0.0.0.0`) oznacza, że port jest dostępny **tylko lokalnie na serwerze** — nie jest wystawiony na zewnątrz. Dostęp z zewnątrz możliwy wyłącznie przez tunel SSH.
 
-| Parametr | Wartość |
-|----------|---------|
+Sprawdź czy binding jest aktywny:
+
+```bash
+ss -tlnp | grep 5432
+# Powinno pokazać: 127.0.0.1:5432
+```
+
+Jeśli nic nie pokazuje — kontener działa ze starą konfiguracją. Wymuś restart:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --force-recreate mpwik-db
+```
+
+### Konfiguracja DBeaver — wbudowany tunel SSH (zalecane)
+
+Nie potrzebujesz osobnego okna terminala. DBeaver ma wbudowaną obsługę tunelu SSH.
+
+**Zakładka SSH** (wypełnij jako pierwszą):
+
+| Pole | Wartość |
+|------|---------|
+| Use SSH Tunnel | ✅ zaznaczone |
+| Host/IP | `<IP_SERWERA>` |
+| Port | `22` |
+| User Name | `<UŻYTKOWNIK>` |
+| Authentication | Password (lub klucz prywatny) |
+| Password | hasło do konta systemowego na serwerze |
+
+**Zakładka Main**:
+
+| Pole | Wartość |
+|------|---------|
+| Host | `localhost` |
+| Port | `5432` |
+| Database | `mpwik_lublin` |
+| Username | `mpwik` |
+| Password | wartość `POSTGRES_PASSWORD` z `.env` na serwerze |
+
+> Hasło bazy: `grep POSTGRES_PASSWORD ${KATALOG_PROJEKTU}/.env`
+
+Kliknij **Test tunnel configuration** (zakładka SSH) — musi być OK przed testowaniem połączenia głównego.
+
+### Alternatywa — ręczny tunel SSH w terminalu
+
+Jeśli wolisz ręczny tunel (terminal musi pozostać otwarty przez całą sesję):
+
+```bash
+# Na lokalnym komputerze
+ssh -L 5433:localhost:5432 <UŻYTKOWNIK>@<IP_SERWERA>
+```
+
+Wtedy w DBeaver (bez SSH tunnel):
+
+| Pole | Wartość |
+|------|---------|
 | Host | `localhost` |
 | Port | `5433` |
-| Baza | `mpwik_lublin` |
-| Użytkownik | `mpwik` |
-| Hasło | wartość z `.env` → `POSTGRES_PASSWORD` |
+| Database | `mpwik_lublin` |
+| Username | `mpwik` |
+| Password | wartość `POSTGRES_PASSWORD` z `.env` |
 
 ---
 
@@ -517,3 +585,16 @@ Plik `.env` nie istnieje lub `SECRET_KEY` jest pusty/domyślny. Wygeneruj klucz 
 ### `Connection refused` na porcie 80 z innego komputera
 
 Sprawdź firewalld (`sudo firewall-cmd --list-ports`) — port 80 musi być otwarty. Sprawdź czy kontener `mpwik-frontend` jest `running`.
+
+### DBeaver: `EOFException` / `The connection attempt failed`
+
+Kolejno sprawdzaj:
+
+1. **Port nieexponowany** — `ss -tlnp | grep 5432` musi pokazać `127.0.0.1:5432`. Jeśli nie — patrz krok 14 (wymuś restart kontenera).
+2. **Konflikt portów** — jeśli na lokalnym komputerze działa PostgreSQL na porcie 5432/5433, zmień port lokalny tunelu na np. 15432: `ssh -L 15432:localhost:5432 <UŻYTKOWNIK>@<IP_SERWERA>` i w DBeaver ustaw port `15432`.
+3. **DBeaver SSH + ręczny tunnel jednocześnie** — nie używaj obu naraz. Albo wbudowany SSH tunnel w DBeaver, albo ręczny terminal — nie oba.
+4. **Błędne hasło bazy** — sprawdź: `grep POSTGRES_PASSWORD ${KATALOG_PROJEKTU}/.env`.
+
+### `git: command not found` na serwerze
+
+Git nie jest zainstalowany. Wykonaj `sudo dnf install -y git` (patrz krok 2).
