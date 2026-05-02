@@ -162,6 +162,48 @@ _REMOVAL_SUBJECT_PHRASE: dict[str, str] = {
     "remont": "Remont zakończony",
 }
 
+# Skonsolidowane etykiety typów zdarzeń — jeden słownik na kontekst
+_EVENT_TYPE_SMS_LABEL: dict[str, str] = {
+    "awaria": "Awaria",
+    "planowane_wylaczenie": "Planowane wyłączenie",
+    "remont": "Remont",
+}
+_EVENT_TYPE_EMAIL_SUBJECT_LABEL: dict[str, str] = {
+    "awaria": "Awaria wody",
+    "planowane_wylaczenie": "Planowane wyłączenie wody",
+    "remont": "Remont sieci wodociągowej",
+}
+_EVENT_TYPE_EMAIL_BODY_LABEL: dict[str, str] = {
+    "awaria": "awaria sieci wodociągowej",
+    "planowane_wylaczenie": "planowane wyłączenie wody",
+    "remont": "remont sieci wodociągowej",
+}
+
+
+def _event_label(event: "Event", variant: str) -> str:
+    """Zwróć polską nazwę typu zdarzenia dopasowaną do kontekstu wiadomości.
+
+    Priorytet:
+    1. Hardkodowany słownik (znane typy ze specyficznym brzmieniem per kontekst).
+    2. name_pl z relacji event_type_obj (gdy załadowana przez selectinload).
+    3. Sformatowany kod: podkreślenia → spacje, pierwsza litera wielka.
+    """
+    label_maps: dict[str, dict[str, str]] = {
+        "sms": _EVENT_TYPE_SMS_LABEL,
+        "email_subject": _EVENT_TYPE_EMAIL_SUBJECT_LABEL,
+        "email_body": _EVENT_TYPE_EMAIL_BODY_LABEL,
+    }
+    d = label_maps.get(variant, _EVENT_TYPE_SMS_LABEL)
+    if event.event_type in d:
+        return d[event.event_type]
+    # Fallback: name_pl z bazy (bez triggera lazy-load — sprawdzamy __dict__)
+    obj = event.__dict__.get("event_type_obj")
+    if obj is not None:
+        name: str = obj.name_pl
+        return name.lower() if variant == "email_body" else name
+    # Ostateczny fallback: czytelny format kodu
+    return event.event_type.replace("_", " ").capitalize()
+
 
 def _status_label(status: str) -> str:
     return _STATUS_LABELS.get(status, status)
@@ -230,12 +272,7 @@ def _start_time_str(event: Event) -> str | None:
 
 def build_sms_message(event: Event) -> str:
     """Zbuduj krótką treść SMS o nowym zdarzeniu."""
-    event_type_label = {
-        "awaria": "Awaria",
-        "planowane_wylaczenie": "Planowane wyłączenie",
-        "remont": "Remont",
-    }.get(event.event_type, event.event_type.capitalize())
-
+    event_type_label = _event_label(event, "sms")
     parts = [f"MPWiK Lublin: {event_type_label} — {_get_formatted_address(event)}"]
 
     if event.event_type == "planowane_wylaczenie":
@@ -292,22 +329,13 @@ def build_sms_status_change_message(event: Event, old_status: str) -> str:
 
 def build_email_subject(event: Event) -> str:
     """Zbuduj temat emaila o nowym zdarzeniu."""
-    label = {
-        "awaria": "Awaria wody",
-        "planowane_wylaczenie": "Planowane wyłączenie wody",
-        "remont": "Remont sieci wodociągowej",
-    }.get(event.event_type, "Informacja od MPWiK")
+    label = _event_label(event, "email_subject")
     return f"[MPWiK Lublin] {label} — ul. {event.street_name}"
 
 
 def build_email_body(event: Event) -> str:
     """Zbuduj treść emaila o nowym zdarzeniu."""
-    event_type_label = {
-        "awaria": "awaria sieci wodociągowej",
-        "planowane_wylaczenie": "planowane wyłączenie wody",
-        "remont": "remont sieci wodociągowej",
-    }.get(event.event_type, event.event_type)
-
+    event_type_label = _event_label(event, "email_body")
     lines = [
         "Szanowny Mieszkańcu,",
         "",
@@ -410,12 +438,7 @@ def build_email_time_update_body(event: Event) -> str:
 
 def build_sms_retroactive_message(event: Event) -> str:
     """Zbuduj treść SMS o trwającej awarii dla nowo zarejestrowanego subskrybenta."""
-    event_type_label = {
-        "awaria": "Awaria",
-        "planowane_wylaczenie": "Planowane wyłączenie",
-        "remont": "Remont",
-    }.get(event.event_type, event.event_type.capitalize())
-
+    event_type_label = _event_label(event, "sms")
     parts = [f"MPWiK Lublin: {event_type_label} — {_get_formatted_address(event)}"]
 
     parts.append(f"Aktualny status: {_status_label(event.status)}")
@@ -438,12 +461,7 @@ def build_sms_retroactive_message(event: Event) -> str:
 
 def build_email_retroactive_body(event: Event) -> str:
     """Zbuduj treść emaila o trwającej awarii dla nowo zarejestrowanego subskrybenta."""
-    event_type_label = {
-        "awaria": "awaria sieci wodociągowej",
-        "planowane_wylaczenie": "planowane wyłączenie wody",
-        "remont": "remont sieci wodociągowej",
-    }.get(event.event_type, event.event_type)
-
+    event_type_label = _event_label(event, "email_body")
     lines = [
         "Szanowny Mieszkańcu,",
         "",
@@ -655,7 +673,11 @@ async def notify_event(
     """
     try:
         async with AsyncSessionLocal() as db:
-            result = await db.execute(select(Event).where(Event.id == event_id))
+            result = await db.execute(
+                select(Event)
+                .options(selectinload(Event.event_type_obj))
+                .where(Event.id == event_id)
+            )
             event = result.scalar_one_or_none()
             if event is None:
                 logger.error("notify_event: zdarzenie id=%d nie istnieje w bazie", event_id)
@@ -834,7 +856,9 @@ async def notify_new_subscriber_about_active_events(subscriber_id: int) -> None:
 
             # Pobierz wszystkie aktywne zdarzenia
             events_result = await db.execute(
-                select(Event).where(Event.status.in_(["zgloszona", "w_naprawie"]))
+                select(Event)
+                .options(selectinload(Event.event_type_obj))
+                .where(Event.status.in_(["zgloszona", "w_naprawie"]))
             )
             active_events: list[Event] = list(events_result.scalars().all())
 

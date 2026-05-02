@@ -100,6 +100,7 @@ async def events_feed(db: AsyncSession = Depends(get_db)) -> str:
     """Zwróć aktywne zdarzenia jako czysty tekst czytelny dla syntezatora mowy (IVR 994). Endpoint publiczny."""
     result = await db.execute(
         select(Event)
+        .options(selectinload(Event.event_type_obj))
         .where(Event.status != "usunieta")
         .order_by(Event.created_at.desc())
     )
@@ -108,7 +109,9 @@ async def events_feed(db: AsyncSession = Depends(get_db)) -> str:
         return "Aktualnie brak zgłoszonych awarii i planowanych wyłączeń w sieci MPWiK."
     lines: list[str] = []
     for event in events:
-        label = _EVENT_TYPE_LABEL.get(event.event_type, "Zdarzenie")
+        obj = event.__dict__.get("event_type_obj")
+        label = (obj.name_pl if obj is not None
+                 else _EVENT_TYPE_LABEL.get(event.event_type, "Zdarzenie"))
         street = event.street_name or "nieznana ulica"
         if event.estimated_end:
             end_local = event.estimated_end.astimezone(ZoneInfo("Europe/Warsaw"))

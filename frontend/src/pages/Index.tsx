@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect, useCallback, Component } from 're
 import { EventCard } from '@/components/EventCard';
 import { EventMap } from '@/components/EventMap';
 import { useEvents } from '@/hooks/useEvents';
+import { useEventWebSocket } from '@/hooks/useEventWebSocket';
 import { useStreets } from '@/hooks/useStreets';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,7 @@ class MapErrorBoundary extends Component<{ children: React.ReactNode }, { hasErr
 // ---------------------------------------------------------------------------
 
 const Index = () => {
+  useEventWebSocket();
   const { events, isLoading } = useEvents({ limit: 100, refetchInterval: 60_000 });
   const [mapFocus, setMapFocus] = useState<{ id: number; trigger: number } | null>(null);
 

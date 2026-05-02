@@ -169,6 +169,23 @@ SMS_GATEWAY_API_KEY=<KLUCZ_API_SMSEAGLE>
 TRUSTED_PROXIES=<IP_WAF_FORTINET>
 ```
 
+### Konfiguracja Cloudflare Turnstile (ochrona anty-botowa)
+
+**Wymagane przed uruchomieniem produkcyjnym.** Bez prawdziwych kluczy formularz rejestracji i wyrejestrowania nie jest chroniony przed automatycznym ruchem botów.
+
+1. Zaloguj się do panelu Cloudflare: **https://dash.cloudflare.com**
+2. Przejdź do sekcji **Turnstile** i kliknij **Add site**.
+3. Podaj docelową domenę lub adres IP serwera (np. `mpwik.lublin.pl` lub IP z sekcji `CORS_ORIGINS`).
+4. Wybierz typ widżetu (zalecane: **Managed**) i zatwierdź.
+5. Skopiuj wygenerowane klucze i wklej do `.env`:
+
+```bash
+VITE_TURNSTILE_SITE_KEY=<KLUCZ_SITE_KEY_Z_CLOUDFLARE>
+TURNSTILE_SECRET_KEY=<KLUCZ_SECRET_Z_CLOUDFLARE>
+```
+
+> **Uwaga:** `VITE_TURNSTILE_SITE_KEY` jest osadzany w kodzie frontendu podczas budowania obrazu Docker — zmiana klucza wymaga przebudowania kontenera (`docker compose -f docker-compose.prod.yml up -d --build mpwik-frontend`).
+
 ### Generowanie klucza JWT
 
 ```bash

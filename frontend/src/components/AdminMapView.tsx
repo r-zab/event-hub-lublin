@@ -121,7 +121,7 @@ function BuildingsLayer({ buildings, onBuildingClick, isAdmin }: BuildingsLayerP
     return { type: 'FeatureCollection' as const, features };
   }, [buildings]);
 
-  const layerKey = buildings.map((b) => b.id).join(',');
+  const layerKey = buildings.map((b) => `${b.id}:${b.has_address ? 1 : 0}`).join(',');
 
   const getStyle = useCallback((feature: GeoJSON.Feature | undefined): L.PathOptions => {
     return feature?.properties?.has_address ? STYLE_HAS_ADDRESS : STYLE_NO_ADDRESS;

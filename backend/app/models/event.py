@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.event_type import EventType
     from app.models.notification import NotificationLog
     from app.models.street import Street
     from app.models.user import User
@@ -40,6 +41,14 @@ class Event(Base):
 
     street: Mapped["Street | None"] = relationship("Street", back_populates="events")
     creator: Mapped["User | None"] = relationship("User", back_populates="events")
+    event_type_obj: Mapped["EventType | None"] = relationship(
+        "EventType",
+        primaryjoin="Event.event_type == EventType.code",
+        foreign_keys="[Event.event_type]",
+        uselist=False,
+        lazy="raise",
+        viewonly=True,
+    )
     history: Mapped[list["EventHistory"]] = relationship(
         "EventHistory", back_populates="event", cascade="all, delete-orphan"
     )

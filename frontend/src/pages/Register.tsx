@@ -65,6 +65,7 @@ const Register = () => {
   const [notifyBySms, setNotifyBySms] = useState(false);
   const [houseNumberValidity, setHouseNumberValidity] = useState<boolean[]>([true]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [gdprConsentError, setGdprConsentError] = useState(false);
 
   // Turnstile
   const [turnstileToken, setTurnstileToken] = useState('');
@@ -125,9 +126,10 @@ const Register = () => {
     }
 
     if (!gdprConsent) {
-      toast({ title: 'Wymagana zgoda', description: 'Zaznacz zgodę na przetwarzanie danych.', variant: 'destructive' });
+      setGdprConsentError(true);
       return;
     }
+    setGdprConsentError(false);
 
     const emptyAddr = addresses.find((a) => !a.street_name.trim() || !a.house_number.trim());
     if (emptyAddr) {
@@ -351,7 +353,7 @@ const Register = () => {
         </p>
       </div>
 
-      <form onSubmit={handleSubmitStep1} className="space-y-8">
+      <form onSubmit={handleSubmitStep1} noValidate className="space-y-8">
 
         {/* Kanały powiadomień */}
         <fieldset className="space-y-4 rounded-lg border border-border p-4">
@@ -463,19 +465,30 @@ const Register = () => {
         <fieldset className="space-y-4">
           <legend className="font-heading text-lg font-semibold">Zgody</legend>
 
-          <label className="flex items-start gap-3 cursor-pointer">
-            <Checkbox
-              checked={gdprConsent}
-              onCheckedChange={(v) => setGdprConsent(v === true)}
-              aria-label="Zgoda na przetwarzanie danych osobowych"
-              required
-            />
-            <span className="text-sm leading-snug">
-              <strong>Wyrażam zgodę</strong> na przetwarzanie moich danych osobowych (RODO). System pozwala na całkowite,
-              fizyczne usunięcie danych w dowolnym momencie.{' '}
-              <span className="text-destructive">*</span>
-            </span>
-          </label>
+          <div className="space-y-1">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <Checkbox
+                checked={gdprConsent}
+                onCheckedChange={(v) => {
+                  setGdprConsent(v === true);
+                  if (v === true) setGdprConsentError(false);
+                }}
+                aria-label="Zgoda na przetwarzanie danych osobowych"
+                aria-invalid={gdprConsentError}
+                aria-describedby={gdprConsentError ? 'gdpr-error' : undefined}
+              />
+              <span className="text-sm leading-snug">
+                <strong>Wyrażam zgodę</strong> na przetwarzanie moich danych osobowych (RODO). System pozwala na całkowite,
+                fizyczne usunięcie danych w dowolnym momencie.{' '}
+                <span className="text-destructive">*</span>
+              </span>
+            </label>
+            {gdprConsentError && (
+              <p id="gdpr-error" className="text-sm text-red-500 pl-9">
+                Wymagana jest zgoda na przetwarzanie danych osobowych.
+              </p>
+            )}
+          </div>
 
           {notifyBySms && (
             <label className="flex items-start gap-3 cursor-pointer">
