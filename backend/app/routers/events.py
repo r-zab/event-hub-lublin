@@ -18,12 +18,13 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.dependencies import get_current_dispatcher_or_admin, get_current_user, get_db
+from app.dependencies import get_current_dispatcher_or_admin, get_current_user, get_current_user_or_api_key, get_db
 from app.models.event import Event, EventHistory
 from app.models.event_type import EventType as EventTypeModel
 from app.models.street import Street
 from app.models.user import User
 from app.schemas.event import EventCreate, EventResponse, EventUpdate, PaginatedEventResponse
+from app.services.event_service import assign_buildings_by_range
 from app.services.notification_service import notify_event
 from app.ws_manager import ws_manager
 
@@ -243,9 +244,9 @@ async def get_event(
 async def create_event(
     data: EventCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_dispatcher_or_admin),
+    current_user: User | None = Depends(get_current_user_or_api_key),
 ) -> EventResponse:
-    """Utwórz nowe zdarzenie. Wymaga roli dispatcher lub admin."""
+    """Utwórz nowe zdarzenie. Wymaga roli dispatcher/admin (JWT) lub aktywnego klucza API (X-API-Key)."""
     has_buildings = bool(
         data.geojson_segment
         and isinstance(data.geojson_segment.get("features"), list)
@@ -269,13 +270,38 @@ async def create_event(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Nieznany lub nieaktywny typ zdarzenia: '{data.event_type}'.",
         )
-    # Dispatcher nie może przypisać zdarzenia do innego działu niż własny
-    if current_user.role != "admin" and current_user.department:
+
+    if current_user is None:
+        # Autoryzacja przez klucz API — dział i twórca z payloadu (brak wymuszenia działu)
+        dept = data.created_by_department
+        user_id: int | None = None
+    elif current_user.role != "admin" and current_user.department:
+        # Dispatcher nie może przypisać zdarzenia do innego działu niż własny
         dept = current_user.department
+        user_id = current_user.id
     else:
         dept = data.created_by_department or current_user.department
+        user_id = current_user.id
+
+    # Blokada duplikatów — tylko dla użytkowników JWT (systemy zewnętrzne mogą zgłaszać niezależnie)
+    if current_user is not None and data.street_id is not None:
+        dup_result = await db.execute(
+            select(Event.id).where(
+                Event.event_type == data.event_type,
+                Event.street_id == data.street_id,
+                Event.created_by_department == dept,
+                Event.created_by == user_id,
+                Event.status != "usunieta",
+            ).limit(1)
+        )
+        if dup_result.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Takie zdarzenie jest już aktualnie obsługiwane.",
+            )
+
     event_data = data.model_dump(exclude={"created_by_department"})
-    event = Event(**event_data, created_by=current_user.id, created_by_department=dept)
+    event = Event(**event_data, created_by=user_id, created_by_department=dept)
     db.add(event)
     await db.flush()  # przypisuje event.id przed commitem
 
@@ -283,15 +309,38 @@ async def create_event(
         event_id=event.id,
         old_status=None,
         new_status=event.status,
-        changed_by=current_user.id,
+        changed_by=user_id,
     )
     db.add(history_entry)
     await db.commit()
-    await db.refresh(event)
-    # Załaduj relacje po commicie
-    await db.execute(select(Event).options(selectinload(Event.history)).where(Event.id == event.id))
-    event.notified_count = 0
-    logger.info("Utworzono zdarzenie id=%d typ=%r przez user=%d", event.id, event.event_type, current_user.id)
+
+    # Geokodowanie — dane z payloadu (event.id jest PK, zawsze dostępny po commit)
+    if data.house_number_from and data.house_number_to and not data.geojson_segment:
+        matched = await assign_buildings_by_range(
+            db, event.id, data.street_name, data.street_id,
+            data.house_number_from, data.house_number_to,
+        )
+        if matched > 0:
+            logger.info("Geokodowanie: przypisano %d budynków do zdarzenia id=%d", matched, event.id)
+
+    # Jednorazowy reload z jawnym ładowaniem relacji — zapobiega MissingGreenlet przy serializacji
+    result = await db.execute(
+        select(Event)
+        .options(
+            selectinload(Event.history),
+            selectinload(Event.street),
+            selectinload(Event.notifications),
+        )
+        .where(Event.id == event.id)
+    )
+    event = result.scalar_one()
+    event.street_geojson = event.street.geojson if event.street else None
+    event.notified_count = len(event.notifications)
+    logger.info(
+        "Utworzono zdarzenie id=%d typ=%r przez %s",
+        event.id, event.event_type,
+        f"user={user_id}" if user_id else "klucz API",
+    )
     await ws_manager.broadcast({"entity": "events", "action": "update"})
     task = asyncio.create_task(notify_event(event.id))
     task.add_done_callback(_log_task_exception)
@@ -386,7 +435,15 @@ async def update_event(
     db.add(event)
     await db.commit()
     await db.refresh(event)
-    # Odśwież relacje po ewentualnym dodaniu wpisu historii
+
+    # Geokodowanie — przypisz budynki gdy zakres numerów jest ustawiony, ale brak geojson_segment
+    if event.house_number_from and event.house_number_to and not event.geojson_segment:
+        await assign_buildings_by_range(
+            db, event.id, event.street_name, event.street_id,
+            event.house_number_from, event.house_number_to,
+        )
+
+    # Odśwież relacje po ewentualnym dodaniu wpisu historii (i geokodowaniu)
     result = await db.execute(
         select(Event)
         .options(selectinload(Event.history), selectinload(Event.street), selectinload(Event.notifications))

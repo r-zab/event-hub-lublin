@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useStreets } from '@/hooks/useStreets';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
@@ -43,8 +43,12 @@ export function AddressRow({
   const [streetTouched, setStreetTouched] = useState(false);
   const [buildings, setBuildings] = useState<BuildingOption[]>([]);
   const [buildingsLoading, setBuildingsLoading] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+  const [activeHouseIndex, setActiveHouseIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const houseWrapperRef = useRef<HTMLDivElement>(null);
+  const streetListRef = useRef<HTMLUListElement>(null);
+  const houseListRef = useRef<HTMLUListElement>(null);
   const prevHouseErrorRef = useRef<string | null>(null);
   const { streets: suggestions, isLoading } = useStreets(query);
 
@@ -103,6 +107,64 @@ export function AddressRow({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => { setActiveSuggestionIndex(-1); }, [suggestions]);
+  useEffect(() => { setActiveHouseIndex(-1); }, [showHouseDropdown]);
+
+  useEffect(() => {
+    if (!streetListRef.current || activeSuggestionIndex < 0) return;
+    streetListRef.current.querySelectorAll('li')[activeSuggestionIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [activeSuggestionIndex]);
+
+  useEffect(() => {
+    if (!houseListRef.current || activeHouseIndex < 0) return;
+    houseListRef.current.querySelectorAll('li')[activeHouseIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [activeHouseIndex]);
+
+  const handleStreetKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveSuggestionIndex((i) => Math.min(i + 1, suggestions.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveSuggestionIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter' && activeSuggestionIndex >= 0) {
+      e.preventDefault();
+      const s = suggestions[activeSuggestionIndex];
+      const displayName = s.street_type && !/^\d+$/.test(s.street_type.trim())
+        ? `${s.street_type} ${s.full_name}`
+        : s.full_name;
+      setQuery(displayName);
+      onChange(index, 'street_name', displayName);
+      onChange(index, 'street_id', String(s.id));
+      onChange(index, 'house_number', '');
+      setShowSuggestions(false);
+      setActiveSuggestionIndex(-1);
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      setActiveSuggestionIndex(-1);
+    }
+  }, [showSuggestions, suggestions, activeSuggestionIndex, index, onChange]);
+
+  const handleHouseKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>, displayed: BuildingOption[]) => {
+    if (!showHouseDropdown || displayed.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveHouseIndex((i) => Math.min(i + 1, displayed.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveHouseIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter' && activeHouseIndex >= 0) {
+      e.preventDefault();
+      onChange(index, 'house_number', displayed[activeHouseIndex].house_number);
+      setShowHouseDropdown(false);
+      setActiveHouseIndex(-1);
+    } else if (e.key === 'Escape') {
+      setShowHouseDropdown(false);
+      setActiveHouseIndex(-1);
+    }
+  }, [showHouseDropdown, activeHouseIndex, index, onChange]);
+
   const handleStreetChange = (value: string) => {
     setQuery(value);
     onChange(index, 'street_name', value);
@@ -115,6 +177,7 @@ export function AddressRow({
   const filteredBuildings = buildings.filter((b) =>
     !house_number || b.house_number.toUpperCase().startsWith(house_number.trim().toUpperCase()),
   );
+  const displayedBuildings = filteredBuildings.slice(0, 20);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-[minmax(150px,3fr)_5rem_5rem_auto] gap-3 items-end p-3 rounded-lg bg-muted/50 border border-border/50">
@@ -130,42 +193,48 @@ export function AddressRow({
             onChange={(e) => handleStreetChange(e.target.value)}
             onFocus={() => query.length >= 3 && suggestions.length > 0 && setShowSuggestions(true)}
             onBlur={() => setStreetTouched(true)}
+            onKeyDown={handleStreetKeyDown}
             placeholder="Wpisz nazwę ulicy..."
             className={`pl-9 ${streetTouched && query.trim() && !street_id ? 'border-destructive focus-visible:ring-destructive' : ''}`}
             required
             aria-label="Nazwa ulicy"
             aria-autocomplete="list"
             aria-invalid={streetTouched && !!query.trim() && !street_id}
+            aria-activedescendant={activeSuggestionIndex >= 0 ? `street-option-${index}-${activeSuggestionIndex}` : undefined}
           />
           {isLoading && <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
         </div>
         {showSuggestions && suggestions.length > 0 && (
-          <ul className="absolute z-20 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-40 overflow-y-auto" role="listbox">
-            {suggestions.map((s) => (
-              <li
-                key={s.id}
-                role="option"
-                aria-selected={street_name === s.full_name}
-                className="px-3 py-2 text-sm cursor-pointer hover:bg-accent transition-colors"
-                onClick={() => {
-                  const displayName = s.street_type && !/^\d+$/.test(s.street_type.trim())
-                    ? `${s.street_type} ${s.full_name}`
-                    : s.full_name;
-                  setQuery(displayName);
-                  onChange(index, 'street_name', displayName);
-                  onChange(index, 'street_id', String(s.id));
-                  onChange(index, 'house_number', '');
-                  setShowSuggestions(false);
-                }}
-              >
-                <span className="font-medium">
-                  {s.street_type && !/^\d+$/.test(s.street_type.trim())
-                    ? `${s.street_type} ${s.full_name}`
-                    : s.full_name}
-                </span>
-                <span className="text-muted-foreground ml-2 text-xs">{s.city}</span>
-              </li>
-            ))}
+          <ul
+            ref={streetListRef}
+            className="absolute z-20 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-40 overflow-y-auto"
+            role="listbox"
+          >
+            {suggestions.map((s, i) => {
+              const displayName = s.street_type && !/^\d+$/.test(s.street_type.trim())
+                ? `${s.street_type} ${s.full_name}`
+                : s.full_name;
+              return (
+                <li
+                  key={s.id}
+                  id={`street-option-${index}-${i}`}
+                  role="option"
+                  aria-selected={i === activeSuggestionIndex}
+                  className={`px-3 py-2 text-sm cursor-pointer transition-colors ${i === activeSuggestionIndex ? 'bg-accent' : 'hover:bg-accent'}`}
+                  onClick={() => {
+                    setQuery(displayName);
+                    onChange(index, 'street_name', displayName);
+                    onChange(index, 'street_id', String(s.id));
+                    onChange(index, 'house_number', '');
+                    setShowSuggestions(false);
+                    setActiveSuggestionIndex(-1);
+                  }}
+                >
+                  <span className="font-medium">{displayName}</span>
+                  <span className="text-muted-foreground ml-2 text-xs">{s.city}</span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
@@ -183,11 +252,13 @@ export function AddressRow({
               setShowHouseDropdown(e.target.value.length > 0 && buildings.length > 0);
             }}
             onFocus={() => buildings.length > 0 && setShowHouseDropdown(true)}
+            onKeyDown={(e) => handleHouseKeyDown(e, displayedBuildings)}
             placeholder="np. 10"
             className={`w-full pr-7 ${houseNumberError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
             required
             aria-label="Numer budynku"
             aria-invalid={!!houseNumberError}
+            aria-activedescendant={activeHouseIndex >= 0 ? `house-option-${index}-${activeHouseIndex}` : undefined}
             autoComplete="off"
           />
           {buildingsLoading ? (
@@ -196,17 +267,24 @@ export function AddressRow({
             <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           ) : null}
         </div>
-        {showHouseDropdown && filteredBuildings.length > 0 && (
-          <ul className="absolute z-20 w-32 mt-1 bg-card border border-border rounded-md shadow-lg max-h-40 overflow-y-auto" role="listbox">
-            {filteredBuildings.slice(0, 20).map((b) => (
+        {showHouseDropdown && displayedBuildings.length > 0 && (
+          <ul
+            ref={houseListRef}
+            className="absolute z-20 w-32 mt-1 bg-card border border-border rounded-md shadow-lg max-h-40 overflow-y-auto"
+            role="listbox"
+          >
+            {displayedBuildings.map((b, i) => (
               <li
                 key={b.id}
+                id={`house-option-${index}-${i}`}
                 role="option"
-                className="px-3 py-1.5 text-sm cursor-pointer hover:bg-accent transition-colors"
+                aria-selected={i === activeHouseIndex}
+                className={`px-3 py-1.5 text-sm cursor-pointer transition-colors ${i === activeHouseIndex ? 'bg-accent' : 'hover:bg-accent'}`}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   onChange(index, 'house_number', b.house_number);
                   setShowHouseDropdown(false);
+                  setActiveHouseIndex(-1);
                 }}
               >
                 {b.house_number}

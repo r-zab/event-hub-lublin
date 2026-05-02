@@ -28,6 +28,7 @@ from app.models.event import Event, EventHistory
 from app.models.notification import NotificationLog
 from app.models.subscriber import Subscriber, SubscriberAddress
 from app.models.user import User
+from app.utils.masking import mask_recipient
 from app.utils.security import hash_password
 
 logger = logging.getLogger(__name__)
@@ -73,6 +74,13 @@ class AdminSubscriberItem(BaseModel):
     addresses: list[AdminAddressItem] = []
 
     model_config = {"from_attributes": True}
+
+    @field_validator("phone", "email", mode="after")
+    @classmethod
+    def mask_pii(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        return mask_recipient(v)
 
 
 class AdminSubscriberList(BaseModel):
@@ -711,8 +719,8 @@ async def export_subscribers_csv(
         )
         writer.writerow([
             s.id,
-            s.email or "",
-            s.phone or "",
+            mask_recipient(s.email) if s.email else "",
+            mask_recipient(s.phone) if s.phone else "",
             "Tak" if s.notify_by_email else "Nie",
             "Tak" if s.notify_by_sms else "Nie",
             "Tak" if s.rodo_consent else "Nie",

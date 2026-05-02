@@ -1,6 +1,7 @@
 """Authentication router — login and token refresh endpoints."""
 
 import logging
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -50,9 +51,15 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = create_access_token(data={"sub": user.username, "role": user.role, "dept": user.department})
-    refresh_token = create_refresh_token(data={"sub": user.username, "role": user.role, "dept": user.department})
-    logger.info("Zalogowano użytkownika: %s (role=%s)", user.username, user.role)
+    user.session_id = str(uuid.uuid4())
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    token_payload = {"sub": user.username, "role": user.role, "dept": user.department, "sid": str(user.session_id)}
+    access_token = create_access_token(data=token_payload)
+    refresh_token = create_refresh_token(data=token_payload)
+    logger.info("Zalogowano użytkownika: %s (role=%s) sid=%s", user.username, user.role, user.session_id)
     return Token(access_token=access_token, refresh_token=refresh_token)
 
 
@@ -80,6 +87,7 @@ async def refresh_token(
         username: str | None = payload.get("sub")
         if username is None:
             raise credentials_error
+        refresh_sid: str | None = payload.get("sid")
     except JWTError:
         raise credentials_error
 
@@ -88,6 +96,15 @@ async def refresh_token(
     if user is None or not user.is_active:
         raise credentials_error
 
-    new_access_token = create_access_token(data={"sub": user.username, "role": user.role, "dept": user.department})
+    if not refresh_sid or not user.session_id or str(refresh_sid) != str(user.session_id):
+        logger.warning(
+            "Odrzucono refresh token dla user=%s: token_sid=%r db_sid=%r — nowa sesja wykryta",
+            username, refresh_sid, user.session_id,
+        )
+        raise credentials_error
+
+    new_access_token = create_access_token(
+        data={"sub": user.username, "role": user.role, "dept": user.department, "sid": str(user.session_id)}
+    )
     logger.info("Odświeżono token dla użytkownika: %s", user.username)
     return Token(access_token=new_access_token)

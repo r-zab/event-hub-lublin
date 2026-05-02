@@ -1,4 +1,4 @@
-import { useEffect, useState, Fragment, useMemo } from 'react';
+import { useEffect, useRef, useState, Fragment, useMemo } from 'react';
 import { MapContainer, TileLayer, Polyline, Popup, Marker, GeoJSON, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -10,7 +10,7 @@ import { useEventTypes, type EventTypeItem } from '@/hooks/useEventTypes';
 
 interface Props {
   events: EventItem[];
-  focusedEventId?: number | null;
+  focusedEventId?: { id: number; trigger: number } | null;
   setFocusedEventId?: (id: number) => void;
 }
 
@@ -54,6 +54,15 @@ function makeIcon(eventType: string, color: string) {
   });
 }
 
+/** Styl obrysu budynku zależny od statusu zdarzenia.
+ *  Gdy status == 'usunieta', poligon staje się przezroczysty (powrót do koloru mapy). */
+function getBuildingStyle(eventStatus: string, color: string): L.PathOptions {
+  if (eventStatus === 'usunieta') {
+    return { stroke: false, fillOpacity: 0, weight: 0 };
+  }
+  return { color, fillColor: color, stroke: true, weight: 1.5, fillOpacity: 0.6 };
+}
+
 /** Zwróć pozycję Leaflet [lat, lng] dla zdarzenia — z street_geojson lub centrum Lublina. */
 function getMarkerPosition(event: EventItem): [number, number] {
   if (event.street_geojson?.type === 'Point') {
@@ -91,7 +100,7 @@ function ZoomAwareLayer({ children }: { children: React.ReactNode }) {
 
 interface MapControllerProps {
   events: EventItem[];
-  focusedEventId: number | null | undefined;
+  focusedEventId: { id: number; trigger: number } | null | undefined;
 }
 
 function MapController({ events, focusedEventId }: MapControllerProps) {
@@ -99,7 +108,7 @@ function MapController({ events, focusedEventId }: MapControllerProps) {
 
   useEffect(() => {
     if (focusedEventId == null) return;
-    const event = events.find((e) => e.id === focusedEventId);
+    const event = events.find((e) => e.id === focusedEventId.id);
     if (!event) return;
 
     try {
@@ -114,9 +123,8 @@ function MapController({ events, focusedEventId }: MapControllerProps) {
       }
 
       // Punkt (street_geojson) lub fallback centrum — używamy flyTo
+      // Dla zdarzeń zewnętrznych (bez poligonów i bez street_geojson) centrujemy na pinezce
       const [lat, lon] = getMarkerPosition(event);
-      // Nie leć do centrum Lublina — brak precyzyjnych danych
-      if (lat === LUBLIN_CENTER[0] && lon === LUBLIN_CENTER[1]) return;
       if (
         typeof lat === 'number' && !isNaN(lat) &&
         typeof lon === 'number' && !isNaN(lon)
@@ -128,6 +136,37 @@ function MapController({ events, focusedEventId }: MapControllerProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusedEventId]);
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// PopupAutoClose — zamyka aktywny popup mapy po 5 sekundach
+// Używa useMapEvents (react-leaflet) + useRef, by uniknąć problemów z domknięciami.
+// Obsługuje wszystkie typy popupów: <Popup> react-leaflet, bindPopup GeoJSON/Polyline.
+// ---------------------------------------------------------------------------
+
+function PopupAutoClose() {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const map = useMapEvents({
+    popupopen: () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => map.closePopup(), 5000);
+    },
+    popupclose: () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    },
+  });
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   return null;
 }
@@ -177,6 +216,22 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
     return m;
   }, [eventTypes]);
 
+  // Legenda pokazuje tylko typy obecne wśród aktualnie widocznych zdarzeń
+  const visibleEventTypes = useMemo(() => {
+    const codes = new Set(events.map((e) => e.event_type));
+    return eventTypes.filter((t) => codes.has(t.code));
+  }, [events, eventTypes]);
+
+  // Skrót statusów wszystkich zdarzeń — wymusza odtworzenie warstw GeoJSON
+  // gdy status dowolnego zdarzenia zmieni się (np. → 'usunieta')
+  const eventsFingerprint = useMemo(() => {
+    let h = 5381;
+    for (const e of events) {
+      h = (((h << 5) + h) ^ (e.id * 31 + e.status.length)) >>> 0;
+    }
+    return h;
+  }, [events]);
+
   const getColor = (code: string) => typeColorMap.get(code) ?? '#6B7280';
   const getName = (code: string) => typeNameMap.get(code) ?? code;
 
@@ -197,6 +252,7 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
       />
 
       <MapController events={events} focusedEventId={focusedEventId} />
+      <PopupAutoClose />
 
       {events.map((event) => {
         const color = getColor(event.event_type);
@@ -224,7 +280,7 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
               <p className="font-bold">{getName(event.event_type)}</p>
               <p>{event.street_name}{eventNumbers ? ` ${eventNumbers}` : ''}</p>
               <StatusBadge status={event.status} />
-              <p className="text-muted-foreground text-xs mt-1">{event.description}</p>
+              <p className="text-muted-foreground text-xs mt-1">{event.custom_message || event.description}</p>
             </div>
           </Popup>
         );
@@ -249,7 +305,7 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
               `<div style="min-width:180px;font-size:13px">` +
               `<p style="font-weight:700;margin:0 0 4px">${getName(event.event_type)}</p>` +
               `<p style="margin:0 0 4px">${label}</p>` +
-              `<p style="margin:0;color:#6B7280;font-size:11px">${event.description ?? ''}</p>` +
+              `<p style="margin:0;color:#6B7280;font-size:11px">${event.custom_message || event.description || ''}</p>` +
               `</div>`
             );
           };
@@ -271,10 +327,10 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
             <Fragment key={`group-fc-${event.id}`}>
               <ZoomAwareLayer>
                 <GeoJSON
-                  key={`fc-${event.id}-${eventTypes.length}`}
+                  key={`fc-${event.id}-${event.status}-${event.event_type}-${eventsFingerprint}`}
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   data={fc as any}
-                  style={{ color, fillColor, stroke: true, weight: 1.5, fillOpacity: 0.6 }}
+                  style={getBuildingStyle(event.status, color)}
                   onEachFeature={onEachFeature}
                   pointToLayer={pointToLayer}
                 />
@@ -333,7 +389,7 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
         );
       })}
     </MapContainer>
-      <MapLegend eventTypes={eventTypes} />
+      <MapLegend eventTypes={visibleEventTypes} />
     </div>
   );
 }

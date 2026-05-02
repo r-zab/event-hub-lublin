@@ -21,6 +21,7 @@ from app.limiter import limiter
 from app.ws_manager import ws_manager
 from app.routers import (
     admin,
+    api_keys,
     auth,
     buildings,
     departments,
@@ -201,3 +202,4 @@ app.include_router(departments.router, prefix="/api/v1/departments", tags=["Depa
 app.include_router(message_templates.router, prefix="/api/v1/message-templates", tags=["MessageTemplates"])
 app.include_router(subscribers.router, prefix="/api/v1/subscribers", tags=["Subscribers"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
+app.include_router(api_keys.router, prefix="/api/v1")

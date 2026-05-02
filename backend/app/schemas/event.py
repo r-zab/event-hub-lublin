@@ -224,6 +224,7 @@ class EventUpdate(BaseModel):
     custom_message: str | None = None
     auto_extend: bool | None = None
     auto_close: bool | None = None
+    created_by_department: str | None = None
 
     @field_validator("event_type", mode="after")
     @classmethod

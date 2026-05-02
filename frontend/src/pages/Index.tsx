@@ -43,17 +43,30 @@ class MapErrorBoundary extends Component<{ children: React.ReactNode }, { hasErr
 
 const Index = () => {
   const { events, isLoading } = useEvents({ limit: 100, refetchInterval: 60_000 });
-  const [focusedEventId, setFocusedEventId] = useState<number | null>(null);
+  const [mapFocus, setMapFocus] = useState<{ id: number; trigger: number } | null>(null);
+
+  const focusEvent = useCallback((id: number) => {
+    setMapFocus({ id, trigger: Date.now() });
+  }, []);
 
   // --- Wyszukiwanie ulicy ---
   const [streetQuery, setStreetQuery] = useState('');
   const [selectedStreet, setSelectedStreet] = useState<Street | null>(null);
   const [submittedStreet, setSubmittedStreet] = useState<{ name: string; id: number | null } | null>(null);
   const [showStreetSuggestions, setShowStreetSuggestions] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const streetListRef = useRef<HTMLUListElement>(null);
 
   const { streets: suggestions, isLoading: streetsLoading } = useStreets(streetQuery);
+
+  useEffect(() => { setActiveSuggestionIndex(-1); }, [suggestions]);
+
+  useEffect(() => {
+    if (!streetListRef.current || activeSuggestionIndex < 0) return;
+    streetListRef.current.querySelectorAll('li')[activeSuggestionIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [activeSuggestionIndex]);
 
   // ---------------------------------------------------------------------------
   // Handlery ulicy
@@ -71,7 +84,7 @@ const Index = () => {
     setSelectedStreet(street);
     setStreetQuery(street.full_name);
     setShowStreetSuggestions(false);
-    // Auto-wyszukiwanie po wyborze z listy
+    setActiveSuggestionIndex(-1);
     setSubmittedStreet({ name: street.full_name, id: street.id });
   }, []);
 
@@ -80,6 +93,7 @@ const Index = () => {
     setSelectedStreet(null);
     setSubmittedStreet(null);
     setShowStreetSuggestions(false);
+    setActiveSuggestionIndex(-1);
   }, []);
 
   const handleStreetBlur = () => {
@@ -97,8 +111,28 @@ const Index = () => {
   }, [selectedStreet]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (showStreetSuggestions && suggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveSuggestionIndex((i) => (i >= suggestions.length - 1 ? 0 : i + 1));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveSuggestionIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+        return;
+      }
+      if (e.key === 'Enter' && activeSuggestionIndex >= 0) {
+        e.preventDefault();
+        selectStreet(suggestions[activeSuggestionIndex]);
+        return;
+      }
+    }
     if (e.key === 'Enter' && selectedStreet) handleSearch();
-    if (e.key === 'Escape') setShowStreetSuggestions(false);
+    if (e.key === 'Escape') {
+      setShowStreetSuggestions(false);
+      setActiveSuggestionIndex(-1);
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -120,10 +154,10 @@ const Index = () => {
   // Fly-To po wyszukaniu
   useEffect(() => {
     if (!submittedStreet) {
-      setFocusedEventId(null);
+      setMapFocus(null);
       return;
     }
-    if (filteredEvents.length > 0) setFocusedEventId(filteredEvents[0].id);
+    if (filteredEvents.length > 0) setMapFocus({ id: filteredEvents[0].id, trigger: Date.now() });
   }, [submittedStreet, filteredEvents]);
 
   // Opis aktualnego wyszukiwania (pod nagłówkiem listy)
@@ -172,6 +206,7 @@ const Index = () => {
                   aria-autocomplete="list"
                   aria-expanded={showStreetSuggestions}
                   aria-controls="street-suggestions-listbox"
+                  aria-activedescendant={activeSuggestionIndex >= 0 ? `street-suggestion-${activeSuggestionIndex}` : undefined}
                 />
                 {streetsLoading ? (
                   <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
@@ -187,17 +222,19 @@ const Index = () => {
                 ) : null}
                 {showStreetSuggestions && (
                   <ul
+                    ref={streetListRef}
                     id="street-suggestions-listbox"
                     className="street-suggestions-list absolute z-50 left-0 right-0 mt-1 bg-white border border-border rounded-md shadow-lg max-h-52 overflow-y-auto text-left"
                     role="listbox"
                   >
                     {suggestions.length > 0 ? (
-                      suggestions.map((s) => (
+                      suggestions.map((s, i) => (
                         <li
                           key={s.id}
+                          id={`street-suggestion-${i}`}
                           role="option"
-                          aria-selected={selectedStreet?.id === s.id}
-                          className="street-suggestion-item px-3 py-2 text-sm cursor-pointer hover:bg-accent transition-colors"
+                          aria-selected={i === activeSuggestionIndex}
+                          className={`street-suggestion-item px-3 py-2 text-sm cursor-pointer transition-colors ${i === activeSuggestionIndex ? 'bg-accent font-semibold' : 'hover:bg-accent'}`}
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => selectStreet(s)}
                         >
@@ -283,7 +320,7 @@ const Index = () => {
                 ) : (
                   <div className="space-y-3">
                     {filteredEvents.map((event) => (
-                      <EventCard key={event.id} event={event} onFocus={setFocusedEventId} />
+                      <EventCard key={event.id} event={event} onFocus={focusEvent} />
                     ))}
                   </div>
                 )}
@@ -295,8 +332,8 @@ const Index = () => {
               <MapErrorBoundary>
                 <EventMap
                   events={filteredEvents}
-                  focusedEventId={focusedEventId}
-                  setFocusedEventId={setFocusedEventId}
+                  focusedEventId={mapFocus}
+                  setFocusedEventId={focusEvent}
                 />
               </MapErrorBoundary>
             </div>

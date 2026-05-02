@@ -12,7 +12,7 @@ function getAuthHeaders(): Record<string, string> {
 function clearSessionAndRedirect() {
   sessionStorage.removeItem('mpwik_token');
   sessionStorage.removeItem('mpwik_refresh_token');
-  window.location.href = '/sys-panel/login';
+  window.dispatchEvent(new CustomEvent('mpwik:session-expired'));
 }
 
 let refreshPromise: Promise<string | null> | null = null;

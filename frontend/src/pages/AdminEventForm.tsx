@@ -160,6 +160,19 @@ function buildDisplayLabel(houseFrom: string, houseTo: string, selectedNums: str
   return 'wszystkie budynki';
 }
 
+// Usuwa znaki specjalne z auto-generowanej treści SMS
+// (np. wąskie spacje niełamiące z pl-PL locale, typograficzne cudzysłowy, pauzy)
+function sanitizeMessageText(text: string): string {
+  return text
+    .replace(/[“”„‟]/g, '"')
+    .replace(/[‘’‚‛]/g, "'")
+    .replace(/[–—―]/g, '-')
+    .replace(/…/g, '...')
+    .replace(/[    ]/g, ' ')
+    .replace(/​/g, '')
+    .replace(/[^A-Za-zĄąĆćĘęŁłŃńÓóŚśŹźŻż0-9 \t\r\n.,!?\-()"'/%:]/g, '');
+}
+
 // Skrócony opis adresów do SMS — zapobiega "ścianie tekstu" przy setkach numerów
 function buildShortAddressLabel(houseFrom: string, houseTo: string, selectedNums: string[]): string {
   if (selectedNums.length === 0) {
@@ -407,7 +420,13 @@ const AdminEventForm = () => {
 
   // --- Autocomplete ---
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+  const [activeHouseFromIndex, setActiveHouseFromIndex] = useState(-1);
+  const [activeHouseToIndex, setActiveHouseToIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const streetListRef = useRef<HTMLUListElement>(null);
+  const houseFromListRef = useRef<HTMLUListElement>(null);
+  const houseToListRef = useRef<HTMLUListElement>(null);
   const { streets: suggestions, isLoading: streetsLoading } = useStreets(streetQuery);
 
   // IDs budynków do przywrócenia przy edycji (synchronizacja timingu ładowania)
@@ -508,6 +527,7 @@ const AdminEventForm = () => {
         setEstimatedEnd(cleanDateForInput(event.estimated_end));
         setAutoExtend(event.auto_extend ?? false);
         setAutoClose(event.auto_close ?? false);
+        if (event.created_by_department) setDepartment(event.created_by_department);
         setStreetQuery(event.street_name);
         if (event.street_id) {
           setSelectedStreet({
@@ -624,6 +644,29 @@ const AdminEventForm = () => {
 
 
   // ---------------------------------------------------------------------------
+  // Keyboard navigation — reset indeksów i scrollIntoView
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => { setActiveSuggestionIndex(-1); }, [suggestions]);
+  useEffect(() => { setActiveHouseFromIndex(-1); }, [showHouseFromDropdown]);
+  useEffect(() => { setActiveHouseToIndex(-1); }, [showHouseToDropdown]);
+
+  useEffect(() => {
+    if (!streetListRef.current || activeSuggestionIndex < 0) return;
+    streetListRef.current.querySelectorAll('li')[activeSuggestionIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [activeSuggestionIndex]);
+
+  useEffect(() => {
+    if (!houseFromListRef.current || activeHouseFromIndex < 0) return;
+    houseFromListRef.current.querySelectorAll('li')[activeHouseFromIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [activeHouseFromIndex]);
+
+  useEffect(() => {
+    if (!houseToListRef.current || activeHouseToIndex < 0) return;
+    houseToListRef.current.querySelectorAll('li')[activeHouseToIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [activeHouseToIndex]);
+
+  // ---------------------------------------------------------------------------
   // Computed values
   // ---------------------------------------------------------------------------
 
@@ -717,16 +760,27 @@ const AdminEventForm = () => {
 
     let msg: string;
 
+    const isDeleted = status === 'usunieta';
+
+    const fmtPlanned = (from: string, to: string) => {
+      const parts: string[] = [];
+      if (from) parts.push(`Czas rozpoczęcia planowego wyłączenia: ${fmtLocal(from)}`);
+      if (to) parts.push(`czas zakończenia: ${fmtLocal(to)}`);
+      return parts.join(', ');
+    };
+
     if (isStatusChange) {
       // Zmiana statusu → informacja o nowym statusie
       const oldLabel = STATUS_PREVIEW_LABELS[initialData!.status] ?? initialData!.status;
       const newLabel = STATUS_PREVIEW_LABELS[status] ?? status;
       const parts = [`${addrDisplay}: Status zgłoszenia zmienił się z "${oldLabel}" na "${newLabel}"`];
-      if (eventType === 'planowane_wylaczenie') {
-        if (startTime) parts.push(`Od: ${fmtLocal(startTime)}`);
-        if (estimatedEnd) parts.push(`Do: ${fmtLocal(estimatedEnd)}`);
-      } else {
-        if (estimatedEnd) parts.push(`Szacowany czas naprawy: ${fmtLocal(estimatedEnd)}`);
+      if (!isDeleted) {
+        if (eventType === 'planowane_wylaczenie') {
+          const planned = fmtPlanned(startTime, estimatedEnd);
+          if (planned) parts.push(planned);
+        } else {
+          if (estimatedEnd) parts.push(`Szacowany czas naprawy: ${fmtLocal(estimatedEnd)}`);
+        }
       }
       parts.push('Przepraszamy za utrudnienia. MPWiK Lublin tel. 994');
       msg = parts.join('. ');
@@ -735,8 +789,8 @@ const AdminEventForm = () => {
       // Bez zmiany statusu, zmienił się czas lub opis → Aktualizacja
       const parts = [`${addrDisplay}: Aktualizacja`];
       if (eventType === 'planowane_wylaczenie') {
-        if (startTime) parts.push(`Od: ${fmtLocal(startTime)}`);
-        if (estimatedEnd) parts.push(`Do: ${fmtLocal(estimatedEnd)}`);
+        const planned = fmtPlanned(startTime, estimatedEnd);
+        if (planned) parts.push(planned);
       } else {
         if (estimatedEnd) parts.push(`Nowy szacowany czas przywrócenia wody: ${fmtLocal(estimatedEnd)}`);
       }
@@ -750,10 +804,8 @@ const AdminEventForm = () => {
       const descPart = description ? ` ${description}.` : '';
       let timePart: string;
       if (eventType === 'planowane_wylaczenie') {
-        const fromPart = startTime ? `Od: ${fmtLocal(startTime)}` : '';
-        const toPart = estimatedEnd ? `Do: ${fmtLocal(estimatedEnd)}` : '';
-        const combined = [fromPart, toPart].filter(Boolean).join('. ');
-        timePart = combined ? ` ${combined}.` : '';
+        const planned = fmtPlanned(startTime, estimatedEnd);
+        timePart = planned ? ` ${planned}.` : '';
       } else {
         const endPart = estimatedEnd ? fmtLocal(estimatedEnd) : 'nieznany';
         timePart = ` Szacowany czas naprawy: ${endPart}.`;
@@ -762,7 +814,7 @@ const AdminEventForm = () => {
       msg = `MPWiK Lublin: ${typeLabel} na ul. ${streetDisplay}${addrPart ? ` ${addrPart}` : ''}.${descPart}${timePart} Za utrudnienia przepraszamy. tel. 994`;
     }
 
-    setCustomMessage(msg);
+    setCustomMessage(sanitizeMessageText(msg));
     // Auto-generowany tekst nie zawiera znaków niedozwolonych — czyścimy błąd
     setCustomMessageError(null);
   }, [isEdit, initialData, eventType, selectedStreet, streetQuery, houseFrom, houseTo, selectedNums, startTime, estimatedEnd, description, status, isMessageEdited]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -853,6 +905,70 @@ const AdminEventForm = () => {
     setSelectedStreet(s);
     setStreetQuery(streetLabel(s.street_type, s.full_name));
     setShowSuggestions(false);
+    setActiveSuggestionIndex(-1);
+  };
+
+  const handleStreetKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+    const len = suggestions.length;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveSuggestionIndex((i) => (i >= len - 1 ? 0 : i + 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveSuggestionIndex((i) => (i <= 0 ? len - 1 : i - 1));
+    } else if (e.key === 'Enter' && activeSuggestionIndex >= 0) {
+      e.preventDefault();
+      selectStreet(suggestions[activeSuggestionIndex]);
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      setActiveSuggestionIndex(-1);
+    }
+  };
+
+  const handleHouseFromKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const displayed = filteredFromNumbers.slice(0, 20);
+    if (!showHouseFromDropdown || displayed.length === 0) return;
+    const len = displayed.length;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveHouseFromIndex((i) => (i >= len - 1 ? 0 : i + 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveHouseFromIndex((i) => (i <= 0 ? len - 1 : i - 1));
+    } else if (e.key === 'Enter' && activeHouseFromIndex >= 0) {
+      e.preventDefault();
+      selectionSourceRef.current = 'range';
+      setHouseFrom(displayed[activeHouseFromIndex]);
+      setHouseFromError(null);
+      setShowHouseFromDropdown(false);
+      setActiveHouseFromIndex(-1);
+    } else if (e.key === 'Escape') {
+      setShowHouseFromDropdown(false);
+      setActiveHouseFromIndex(-1);
+    }
+  };
+
+  const handleHouseToKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const displayed = filteredToNumbers.slice(0, 20);
+    if (!showHouseToDropdown || displayed.length === 0) return;
+    const len = displayed.length;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveHouseToIndex((i) => (i >= len - 1 ? 0 : i + 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveHouseToIndex((i) => (i <= 0 ? len - 1 : i - 1));
+    } else if (e.key === 'Enter' && activeHouseToIndex >= 0) {
+      e.preventDefault();
+      selectionSourceRef.current = 'range';
+      setHouseTo(displayed[activeHouseToIndex]);
+      setShowHouseToDropdown(false);
+      setActiveHouseToIndex(-1);
+    } else if (e.key === 'Escape') {
+      setShowHouseToDropdown(false);
+      setActiveHouseToIndex(-1);
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -956,7 +1072,7 @@ const AdminEventForm = () => {
     setEventsQueue((prev) => [...prev, item]);
     toast({ title: 'Dodano do kolejki', description: `${streetLabel(item.street_type, item.street_name)} — ${item.displayLabel}` });
 
-    // Reset pól ulicy i budynków, zachowaj typ/status/datę
+    // Pełny reset formularza — gotowy na kolejne, niezależne zgłoszenie
     setSelectedStreet(null);
     setStreetQuery('');
     setBuildings([]);
@@ -965,9 +1081,17 @@ const AdminEventForm = () => {
     setHouseFrom('');
     setHouseTo('');
     setDescription('');
+    setEventType('');
+    setEstimatedEnd('');
+    setStartTime('');
+    setStatus('zgloszona');
+    setAutoExtend(false);
+    setAutoClose(false);
     setActiveTab('map');
     setIsMessageEdited(false);
     setCustomMessage('');
+    setDateFieldError(null);
+    setDescError(null);
   };
 
   const removeFromQueue = (qId: string) => {
@@ -1103,6 +1227,7 @@ const AdminEventForm = () => {
           custom_message: item.custom_message || null,
           auto_extend: item.auto_extend,
           auto_close: item.auto_close,
+          created_by_department: department || null,
         });
         toast({ title: 'Zdarzenie zaktualizowane', description: 'Zmiany zostały zapisane.' });
       } else {
@@ -1185,35 +1310,33 @@ const AdminEventForm = () => {
       <form onSubmit={handleSubmit} className="space-y-6">
 
         {/* ---------------------------------------------------------------- */}
-        {/* Dział odpowiedzialny (T2.5) — wymagany przy tworzeniu           */}
+        {/* Dział odpowiedzialny (T2.5)                                    */}
         {/* ---------------------------------------------------------------- */}
-        {!isEdit && (
-          <div>
-            <Label>
-              Dział odpowiedzialny *{' '}
-              <span className="text-xs text-muted-foreground font-normal">
-                (widoczny tylko w panelu admina)
-              </span>
-            </Label>
-            <Select
-              value={department}
-              onValueChange={setDepartment}
-              required
-              disabled={userRole !== 'admin' && !!userDepartment}
-            >
-              <SelectTrigger aria-label="Dział odpowiedzialny" className={!department ? 'border-dashed' : ''}>
-                <SelectValue placeholder="Wybierz dział…" />
-              </SelectTrigger>
-              <SelectContent>
-                {departments.map((d) => (
-                  <SelectItem key={d.code} value={d.code}>
-                    {d.code} — {d.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        <div>
+          <Label>
+            {isEdit ? 'Dział odpowiedzialny' : 'Dział odpowiedzialny *'}{' '}
+            <span className="text-xs text-muted-foreground font-normal">
+              (widoczny tylko w panelu admina)
+            </span>
+          </Label>
+          <Select
+            value={department}
+            onValueChange={setDepartment}
+            required={!isEdit}
+            disabled={userRole !== 'admin' && !!userDepartment}
+          >
+            <SelectTrigger aria-label="Dział odpowiedzialny" className={!department ? 'border-dashed' : ''}>
+              <SelectValue placeholder="Wybierz dział…" />
+            </SelectTrigger>
+            <SelectContent>
+              {departments.map((d) => (
+                <SelectItem key={d.code} value={d.code}>
+                  {d.code} — {d.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         {/* ---------------------------------------------------------------- */}
         {/* Typ zdarzenia                                                    */}
@@ -1253,10 +1376,13 @@ const AdminEventForm = () => {
               onFocus={() =>
                 streetQuery.length >= 3 && suggestions.length > 0 && setShowSuggestions(true)
               }
+              onKeyDown={handleStreetKeyDown}
               placeholder="Wpisz nazwę ulicy (np. Lipowa)..."
               className="pl-9"
               required
               aria-label="Nazwa ulicy"
+              aria-autocomplete="list"
+              aria-activedescendant={activeSuggestionIndex >= 0 ? `admin-street-option-${activeSuggestionIndex}` : undefined}
             />
             {streetsLoading && (
               <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
@@ -1264,15 +1390,17 @@ const AdminEventForm = () => {
           </div>
           {showSuggestions && suggestions.length > 0 && (
             <ul
+              ref={streetListRef}
               className="absolute z-20 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-48 overflow-y-auto"
               role="listbox"
             >
-              {suggestions.map((s) => (
+              {suggestions.map((s, i) => (
                 <li
                   key={s.id}
+                  id={`admin-street-option-${i}`}
                   role="option"
-                  aria-selected={selectedStreet?.id === s.id}
-                  className="px-3 py-2 text-sm cursor-pointer hover:bg-accent transition-colors"
+                  aria-selected={i === activeSuggestionIndex}
+                  className={`px-3 py-2 text-sm cursor-pointer transition-colors ${i === activeSuggestionIndex ? 'bg-accent font-semibold' : 'hover:bg-accent'}`}
                   onClick={() => selectStreet(s)}
                 >
                   <span className="font-medium">
@@ -1343,8 +1471,10 @@ const AdminEventForm = () => {
                         if (availableHouseNumbers.length > 0) setShowHouseFromDropdown(true);
                       }}
                       onFocus={() => availableHouseNumbers.length > 0 && setShowHouseFromDropdown(true)}
+                      onKeyDown={handleHouseFromKeyDown}
                       placeholder="np. 1"
                       aria-label="Numer posesji od"
+                      aria-activedescendant={activeHouseFromIndex >= 0 ? `house-from-option-${activeHouseFromIndex}` : undefined}
                       className={houseFromError ? 'border-destructive' : ''}
                       autoComplete="off"
                     />
@@ -1352,17 +1482,25 @@ const AdminEventForm = () => {
                       <p className="text-xs text-destructive mt-1">{houseFromError}</p>
                     )}
                     {showHouseFromDropdown && filteredFromNumbers.length > 0 && (
-                      <ul className="absolute z-20 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
-                        {filteredFromNumbers.slice(0, 20).map((n) => (
+                      <ul
+                        ref={houseFromListRef}
+                        className="absolute z-20 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-40 overflow-y-auto"
+                        role="listbox"
+                      >
+                        {filteredFromNumbers.slice(0, 20).map((n, i) => (
                           <li
                             key={n}
-                            className="px-3 py-1.5 text-sm cursor-pointer hover:bg-accent transition-colors"
+                            id={`house-from-option-${i}`}
+                            role="option"
+                            aria-selected={i === activeHouseFromIndex}
+                            className={`px-3 py-1.5 text-sm cursor-pointer transition-colors ${i === activeHouseFromIndex ? 'bg-accent font-semibold' : 'hover:bg-accent'}`}
                             onMouseDown={(e) => {
                               e.preventDefault();
                               selectionSourceRef.current = 'range';
                               setHouseFrom(n);
                               setHouseFromError(null);
                               setShowHouseFromDropdown(false);
+                              setActiveHouseFromIndex(-1);
                             }}
                           >
                             {n}
@@ -1381,21 +1519,31 @@ const AdminEventForm = () => {
                         if (availableHouseNumbers.length > 0) setShowHouseToDropdown(true);
                       }}
                       onFocus={() => availableHouseNumbers.length > 0 && setShowHouseToDropdown(true)}
+                      onKeyDown={handleHouseToKeyDown}
                       placeholder="np. 20"
                       aria-label="Numer posesji do"
+                      aria-activedescendant={activeHouseToIndex >= 0 ? `house-to-option-${activeHouseToIndex}` : undefined}
                       autoComplete="off"
                     />
                     {showHouseToDropdown && filteredToNumbers.length > 0 && (
-                      <ul className="absolute z-20 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
-                        {filteredToNumbers.slice(0, 20).map((n) => (
+                      <ul
+                        ref={houseToListRef}
+                        className="absolute z-20 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-40 overflow-y-auto"
+                        role="listbox"
+                      >
+                        {filteredToNumbers.slice(0, 20).map((n, i) => (
                           <li
                             key={n}
-                            className="px-3 py-1.5 text-sm cursor-pointer hover:bg-accent transition-colors"
+                            id={`house-to-option-${i}`}
+                            role="option"
+                            aria-selected={i === activeHouseToIndex}
+                            className={`px-3 py-1.5 text-sm cursor-pointer transition-colors ${i === activeHouseToIndex ? 'bg-accent font-semibold' : 'hover:bg-accent'}`}
                             onMouseDown={(e) => {
                               e.preventDefault();
                               selectionSourceRef.current = 'range';
                               setHouseTo(n);
                               setShowHouseToDropdown(false);
+                              setActiveHouseToIndex(-1);
                             }}
                           >
                             {n}
@@ -1612,20 +1760,22 @@ const AdminEventForm = () => {
               className={dateFieldError === 'start_time' || dateFieldError === 'both' ? 'border-destructive' : ''}
             />
           </div>
-          <div>
-            <Label htmlFor="est-end">
-              {eventType === 'planowane_wylaczenie' ? 'Czas zakończenia *' : 'Szacowany czas usunięcia *'}
-            </Label>
-            <Input
-              id="est-end"
-              type="datetime-local"
-              value={estimatedEnd}
-              onChange={(e) => { setEstimatedEnd(e.target.value); setDateFieldError(null); }}
-              required
-              aria-label="Szacowany czas zakończenia"
-              className={dateFieldError === 'estimated_end' || dateFieldError === 'both' ? 'border-destructive' : ''}
-            />
-          </div>
+          {status !== 'usunieta' && (
+            <div>
+              <Label htmlFor="est-end">
+                {eventType === 'planowane_wylaczenie' ? 'Czas zakończenia *' : 'Szacowany czas usunięcia *'}
+              </Label>
+              <Input
+                id="est-end"
+                type="datetime-local"
+                value={estimatedEnd}
+                onChange={(e) => { setEstimatedEnd(e.target.value); setDateFieldError(null); }}
+                required
+                aria-label="Szacowany czas zakończenia"
+                className={dateFieldError === 'estimated_end' || dateFieldError === 'both' ? 'border-destructive' : ''}
+              />
+            </div>
+          )}
           {/* Automatyzacja po upłynięciu szacowanego czasu */}
           <div className="col-span-full space-y-2 pt-1">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">

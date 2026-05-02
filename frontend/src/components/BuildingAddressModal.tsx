@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -42,8 +42,10 @@ export function BuildingAddressModal({ building, onClose, onSaved }: Props) {
   const [houseNumber, setHouseNumber] = useState('');
   const [houseNumberError, setHouseNumberError] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const streetListRef = useRef<HTMLUListElement>(null);
 
   // Wiodące cyfry+spacje (kody TERYT, np. "1 Lipowa") są usuwane przed wysłaniem do API
   const apiQuery = streetQuery.replace(/^\d+\s*/, '').trim();
@@ -62,11 +64,36 @@ export function BuildingAddressModal({ building, onClose, onSaved }: Props) {
     }
   }, [building]);
 
+  useEffect(() => { setActiveSuggestionIndex(-1); }, [streets]);
+
+  useEffect(() => {
+    if (!streetListRef.current || activeSuggestionIndex < 0) return;
+    streetListRef.current.querySelectorAll('li')[activeSuggestionIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [activeSuggestionIndex]);
+
   const handleSelectStreet = (street: Street) => {
     setSelectedStreet(street);
-    setStreetQuery(street.name);  // czysta nazwa bez prefiksu/kodu
+    setStreetQuery(street.name);
     setShowSuggestions(false);
+    setActiveSuggestionIndex(-1);
   };
+
+  const handleStreetKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || streets.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveSuggestionIndex((i) => Math.min(i + 1, streets.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveSuggestionIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter' && activeSuggestionIndex >= 0) {
+      e.preventDefault();
+      handleSelectStreet(streets[activeSuggestionIndex]);
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      setActiveSuggestionIndex(-1);
+    }
+  }, [showSuggestions, streets, activeSuggestionIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async () => {
     if (!building) return;
@@ -155,17 +182,27 @@ export function BuildingAddressModal({ building, onClose, onSaved }: Props) {
                 }}
                 onFocus={() => apiQuery.length >= 3 && setShowSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                onKeyDown={handleStreetKeyDown}
                 autoComplete="off"
+                aria-autocomplete="list"
+                aria-activedescendant={activeSuggestionIndex >= 0 ? `modal-street-option-${activeSuggestionIndex}` : undefined}
               />
               {streetsLoading && (
                 <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
               )}
               {showSuggestions && streets.length > 0 && (
-                <ul className="absolute z-50 left-0 right-0 mt-1 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                  {streets.map((s) => (
+                <ul
+                  ref={streetListRef}
+                  className="absolute z-50 left-0 right-0 mt-1 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto"
+                  role="listbox"
+                >
+                  {streets.map((s, i) => (
                     <li
                       key={s.id}
-                      className="px-3 py-2 text-sm cursor-pointer hover:bg-accent"
+                      id={`modal-street-option-${i}`}
+                      role="option"
+                      aria-selected={i === activeSuggestionIndex}
+                      className={`px-3 py-2 text-sm cursor-pointer transition-colors ${i === activeSuggestionIndex ? 'bg-accent' : 'hover:bg-accent'}`}
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => handleSelectStreet(s)}
                     >

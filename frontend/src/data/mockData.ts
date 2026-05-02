@@ -29,6 +29,7 @@ export interface EventItem {
   house_number_to: string;
   status: EventStatus;
   description: string;
+  custom_message?: string | null;
   start_time: string | null;
   estimated_end: string | null;
   geojson_segment: [number, number][] | GeoJsonFeatureCollection | null;

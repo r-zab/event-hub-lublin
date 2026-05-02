@@ -20,6 +20,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(20), server_default="dispatcher")
     department: Mapped[str | None] = mapped_column(String(5))
     is_active: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    session_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     events: Mapped[list["Event"]] = relationship("Event", back_populates="creator")
