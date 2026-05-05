@@ -46,9 +46,15 @@ const Index = () => {
   useEventWebSocket();
   const { events, isLoading } = useEvents({ limit: 100, refetchInterval: 60_000 });
   const [mapFocus, setMapFocus] = useState<{ id: number; trigger: number } | null>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
 
   const focusEvent = useCallback((id: number) => {
     setMapFocus({ id, trigger: Date.now() });
+    if (window.innerWidth < 1024 && mapRef.current) {
+      setTimeout(() => {
+        mapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 80);
+    }
   }, []);
 
   // --- Wyszukiwanie ulicy ---
@@ -173,11 +179,11 @@ const Index = () => {
       {/* Hero Section */}
       {/* Hero — gradient MPWiK: od hsl(214,65%,36%) do hsl(214,60%,14%) */}
       <section
-        className="hero-section text-white py-12 px-4"
+        className="hero-section text-white py-6 sm:py-10 lg:py-12 px-4"
         style={{ background: 'linear-gradient(135deg, hsl(214,65%,36%) 0%, hsl(214,57%,25%) 50%, hsl(214,60%,14%) 100%)' }}
       >
         <div className="container mx-auto max-w-4xl text-center space-y-6">
-          <h1 className="hero-heading text-2xl md:text-4xl lg:text-5xl font-bold font-heading leading-tight whitespace-normal">
+          <h1 className="hero-heading text-xl sm:text-2xl md:text-4xl lg:text-5xl font-bold font-heading leading-tight whitespace-normal">
             Sprawdź, czy w Twojej okolicy<br className="hidden sm:block" />
             {' '}występują przerwy w dostawie wody
           </h1>
@@ -302,11 +308,11 @@ const Index = () => {
             </p>
           </div>
         ) : (
-          <div className="flex flex-col lg:flex-row h-[80vh] min-h-[500px] w-full border rounded-xl overflow-hidden shadow-sm my-4 bg-background">
+          <div className="flex flex-col lg:flex-row h-auto lg:h-[80vh] lg:min-h-[500px] w-full border rounded-xl overflow-hidden shadow-sm my-4 bg-background">
 
             {/* Lewa kolumna: lista zdarzeń z wewnętrznym scrollem */}
-            <div className="w-full lg:w-[460px] xl:w-[520px] flex flex-col border-r h-[50%] lg:h-full flex-shrink-0">
-              <div className="p-4 space-y-4 flex-1 overflow-y-auto min-h-0">
+            <div className="w-full lg:w-[460px] xl:w-[520px] flex flex-col border-b lg:border-b-0 lg:border-r max-h-[45vh] lg:h-full lg:max-h-none flex-shrink-0">
+              <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 flex-1 overflow-y-auto min-h-0">
                 <h2 className="font-heading text-xl font-bold">
                   Aktywne zdarzenia
                   {searchDescription && (
@@ -330,7 +336,7 @@ const Index = () => {
             </div>
 
             {/* Prawa kolumna: mapa wypełniająca resztę miejsca */}
-            <div className="flex-1 relative min-h-0 h-[50%] lg:h-full">
+            <div ref={mapRef} className="relative h-[60vh] lg:flex-1 lg:h-full">
               <MapErrorBoundary>
                 <EventMap
                   events={filteredEvents}

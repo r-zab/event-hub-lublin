@@ -4,10 +4,10 @@ import { cn } from '@/lib/utils';
 import { AccessibilityWidget } from '@/components/AccessibilityWidget';
 
 const navItems = [
-  { to: '/', label: 'Mapa', icon: Map },
-  { to: '/register', label: 'Rejestracja', icon: UserPlus },
-  { to: '/unsubscribe', label: 'Wyrejestruj', icon: UserMinus },
-  { to: '/about', label: 'O systemie', icon: Info },
+  { to: '/', label: 'Mapa', short: 'Mapa', icon: Map },
+  { to: '/register', label: 'Rejestracja', short: 'Rejestr.', icon: UserPlus },
+  { to: '/unsubscribe', label: 'Wyrejestruj', short: 'Wyrej.', icon: UserMinus },
+  { to: '/about', label: 'O systemie', short: 'O syst.', icon: Info },
 ];
 
 export function PublicLayout() {
@@ -16,26 +16,28 @@ export function PublicLayout() {
   return (
     <div className="h-full overflow-y-auto flex flex-col">
       <header className="sticky top-0 z-50 border-b border-border/60 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-        <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-heading font-bold text-lg text-primary" aria-label="Strona główna — System Powiadomień MPWiK Lublin">
-            <Droplets className="h-6 w-6" aria-hidden="true" />
-            <span className="hidden sm:inline">Powiadomienia MPWiK</span>
+        <div className="container flex h-12 md:h-16 items-center justify-between">
+          <Link to="/" className="flex items-center gap-2 font-heading font-bold text-base md:text-lg text-primary" aria-label="Strona główna — System Powiadomień MPWiK Lublin">
+            <Droplets className="h-5 w-5 md:h-6 md:w-6" aria-hidden="true" />
+            <span className="hidden md:inline">Powiadomienia MPWiK</span>
           </Link>
 
-          <nav className="flex items-center gap-1" aria-label="Nawigacja główna">
-            {navItems.map(({ to, label, icon: Icon }) => (
+          <nav className="flex items-center gap-0.5 md:gap-1" aria-label="Nawigacja główna">
+            {navItems.map(({ to, label, short, icon: Icon }) => (
               <Link
                 key={to}
                 to={to}
+                aria-label={label}
                 className={cn(
-                  'flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                  'flex flex-col md:flex-row items-center gap-0.5 md:gap-1.5 rounded-md px-1.5 md:px-2.5 py-1 md:py-1.5 font-medium transition-colors',
                   'hover:bg-accent hover:text-accent-foreground',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   pathname === to ? 'bg-accent text-primary font-semibold' : 'text-muted-foreground'
                 )}
               >
-                <Icon className="h-4 w-4" aria-hidden="true" />
-                <span className="sr-only sm:not-sr-only sm:inline">{label}</span>
+                <Icon className="h-3.5 w-3.5 md:h-4 md:w-4" aria-hidden="true" />
+                <span className="text-[10px] leading-tight md:hidden">{short}</span>
+                <span className="hidden md:inline text-xs">{label}</span>
               </Link>
             ))}
             <AccessibilityWidget />

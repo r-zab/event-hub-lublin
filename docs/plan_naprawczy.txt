@@ -1,0 +1,304 @@
+ Dobra jest totalna dupa jeśli chodzi o responsywność strony całkowicie jest to do przebudowy jedynie na komputerze wygląda to jakoś normalnie na telefonach jest dramat nieczytele w chuj nie moze to tak być, w folderze
+  docs/ss przesłąłem ci ss jak źle to wygląda obecnie sxczegolnie jesli chodzu o urzadzenia mobnilne jak smartfony ifony na tabletach do zniesienia ale no kumpel wpadł na pomysl i to zrealizował że po kliknieciu w aktywne
+  zdarzenie wyskakuje popup ze wszystkimi adresami to jest chujwy pomysł i trzba to zmienic jak najszybciej nie moze to tak byc bo na tlefonie nic przez to nie widac tak samo na mapce takie ekienko zrobnił ono sie wyswietla 5
+  sekund i znika, trzeba je wyjebać i inaczej rozwiazac problem tego że nie widać na liście wszystkich adresów bo by była za długa, ja mówiłem cos o opcji rozwinicia listy alko pokaz wszystkie adrest ale bez okienek popup
+  dodatkowo na teleofonie legenda jest za duża na mapce nic sie kurwa nie skaluje praktycznie zeby to wygladało okej no trzeba to zmienic parez img_12.png kompletnie przanalizu jto i wdroż plan naprawczy
+
+● Najpierw sprawdzę screenshoty i zorientuję się w kodzie.
+
+  Read 13 files, listed 1 directory (ctrl+o to expand)
+
+● Mam już pełen obraz problemów. Teraz przejdę do eksploracji kodu — równolegle uruchomię agenty na 3 obszary.
+
+● 3 Explore agents finished (ctrl+o to expand)
+   ├ Explore EventCard popup mechanics · 8 tool uses · 28.4k tokens
+   │ ⎿  Done
+   ├ Explore map legend responsiveness · 6 tool uses · 21.5k tokens
+   │ ⎿  Done
+   └ Audit mobile RWD across public pages · 10 tool uses · 37.5k tokens
+     ⎿  Done
+
+● Sprawdzam jeszcze kluczowe fragmenty kodu, których analizy będę używał w planie.
+
+  Read 3 files (ctrl+o to expand)
+
+● Mam wszystkie dane. Piszę plan do pliku.
+
+● Updated plan
+  ⎿  /plan to preview
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Ready to code?
+
+ Here is Claude's plan:
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ Plan naprawczy RWD strony publicznej Event Hub Lublin
+
+ Context
+
+ Strona publiczna (Index.tsx + EventMap.tsx + EventCard.tsx + PublicLayout.tsx) działa poprawnie tylko na desktop. Na smartfonach (Samsung Galaxy S8+, 360x740, screenshot docs/ss/img_12.png) i częściowo na tabletach UX jest
+ niedopuszczalny:
+
+ 1. Popup adresów w EventCard (auto-zniknięcie po 5 s) — kliknięcie kafelka na mobile pokrywa całą listę i mapę (docs/ss/img.png, img_3.png, img_4.png, img_5.png). User explicite prosi o usunięcie popupu i zastąpienie go opcją
+  „rozwiń listę / pokaż wszystkie adresy" inline w karcie.
+ 2. Legenda mapy (MapLegend w EventMap.tsx:174-201) — pozycjonowana absolute bottom-4 right-4 bez max-w, bez breakpointów, z pointer-events-none. Na 360 px zajmuje ~50% kafla mapy (docs/ss/img_12.png).
+ 3. Główny grid lista+mapa (Index.tsx:305) — h-[80vh] min-h-[500px] na S8+ (740 px) zostawia ~290 px na listę i ~290 px na mapę, mieści się 1.5 kafelka.
+ 4. Hero (Index.tsx:175-186) — py-12 + text-2xl zżera ponad 250 px nad fold-em na mobile.
+ 5. EventCard CardHeader (EventCard.tsx:75-97) — flex-row + dwa badge'y po prawej rozpychają kartę na 360 px; break-all na nazwie ulicy łamie polskie wyrazy w nieczytelnych miejscach.
+
+ Cel: usunąć popup adresów (zastąpić inline-expandable listą), zwinąć legendę na mobile, dopasować wysokości i typografię tak, by strona była użyteczna od 360 px wzwyż. Bez zmian w panelu admina (działa).
+
+ Zmiany
+
+ 1. frontend/src/components/EventCard.tsx — usunięcie popupu, inline lista adresów
+
+ Wymienić mechanikę Popover na Collapsible (komponent już istnieje w frontend/src/components/ui/collapsible.tsx, dotąd nieużywany).
+
+ - Usunąć:
+   - Linia 7 — import Popover/PopoverAnchor/PopoverContent.
+   - Linie 27, 29-33 — useState(isOpen) + useEffect z setTimeout(... 5000).
+   - Linia 57 — setIsOpen(true) w handleActivate (zostaje samo onFocus?.(event.id)).
+   - Linie 61-62 + 134-150 — wrapper <Popover> i cały <PopoverContent> (ten fake-leaflet popup z width: 301px).
+ - Dodać:
+   - Import Collapsible, CollapsibleTrigger, CollapsibleContent z @/components/ui/collapsible.
+   - Lokalny useState expanded: boolean.
+   - Wewnątrz CardContent, w wierszu z MapPin (linie 99-112): badge +X bud. zamienić na <CollapsibleTrigger> typu <button> z tekstem Pokaż wszystkie {numList.length} adresy / Ukryj + ikoną ChevronDown (lucide). Trigger MUSI
+ mieć onClick z e.stopPropagation() — w przeciwnym razie zewnętrzny onClick={handleActivate} na <Card> (linia 67) odpali focus mapy przy każdym kliknięciu chevronu.
+   - <CollapsibleContent> renderuje pełną listę z numList jako tekst zawijany (flex flex-wrap gap-x-1 gap-y-0.5 text-xs text-muted-foreground), tytuł sekcji Wszystkie adresy:. Brak tła „popup", brak fixed-width — element
+ rośnie w karcie.
+   - Cała <Card> zostaje w <Collapsible open={expanded} onOpenChange={setExpanded}>.
+ - Responsywność karty (efekt uboczny przy okazji):
+   - Linia 75 CardHeader pb-2 flex flex-row items-start justify-between gap-2 → flex-col sm:flex-row + gap-1.5 sm:gap-2.
+   - Linia 91-93 — badge źródło: MPWiK opakować klasą hidden sm:inline-flex (na 360 px to znacznik bez wartości dla mieszkańca; StatusBadge zostaje).
+   - Linia 101 — line-clamp-1 break-all → line-clamp-2 sm:line-clamp-1 break-words.
+   - Lokalnie nadpisać domyślny shadcn p-6 na <Card> przez className="... p-4 sm:p-6" (NIE zmieniać globalnie card.tsx — Admin używa Card w wielu miejscach).
+
+ 2. frontend/src/components/EventMap.tsx — legenda zwijana na mobile
+
+ Wykorzystać istniejący hook useIsMobile() (frontend/src/hooks/use-mobile.tsx, breakpoint 768 px) oraz Sheet z @/components/ui/sheet.
+
+ - Zachować komponent MapLegend (linie 174-201) jako desktop-default, ale:
+   - Usunąć pointer-events-none (legenda musi być klikalna w trybie zwijania).
+   - Dodać max-w-[14rem] aby na desktop również nie pęczniała.
+ - Dodać drugi komponent MapLegendMobile:
+   - Renderowany gdy useIsMobile() zwróci true.
+   - Trigger: mała kwadratowa ikona Info (lucide) w absolute bottom-4 right-4 z-[1000], rozmiar h-10 w-10 rounded-full bg-white/95 shadow-md border — kciuk-friendly, zajmuje ~40 px zamiast obecnych ~180 px.
+   - Po kliknięciu otwiera Sheet od dołu (side="bottom") z tytułem „Legenda" i pełną listą typów (re-use logiki z MapLegend linie 185-198).
+ - Render warunkowy (linia 399): {isMobile ? <MapLegendMobile … /> : <MapLegend … />}.
+ - Identyczny patch (jeśli czas pozwoli, kosmetyka) zastosować w AdminMapView.tsx:246-259 — ten sam wzorzec, mniejszy priorytet (admin = desktop).
+
+ 3. frontend/src/pages/Index.tsx — układ pionowy na mobile
+
+ - Linia 305 — główny grid:
+   - h-[80vh] min-h-[500px] → h-auto lg:h-[80vh] lg:min-h-[500px].
+ - Linia 308 — sidebar listy:
+   - h-[50%] lg:h-full → max-h-[70vh] lg:h-full lg:max-h-none.
+ - Linia 309 — kontener nagłówka + kart:
+   - p-4 space-y-4 → p-3 sm:p-4 space-y-3 sm:space-y-4.
+ - Linia 333 — kontener mapy:
+   - h-[50%] lg:h-full → h-[55vh] lg:h-full.
+ - Linia 176 — hero:
+   - py-12 px-4 → py-6 sm:py-10 lg:py-12 px-4.
+ - Linia 180 — H1:
+   - text-2xl md:text-4xl lg:text-5xl → text-xl sm:text-2xl md:text-4xl lg:text-5xl.
+ - Linia 184 — opis:
+   - text-sm sm:text-base → bez zmian (już responsywne).
+
+ Te zmiany dadzą na S8+ (740 px wys) realne ~80–120 px więcej dla treści — lista pokaże 2–3 karty bez scroll, mapa zachowa ~400 px.
+
+ 4. frontend/src/components/PublicLayout.tsx — a11y nawigacji (zysk niski, koszt 1 minuta)
+
+ - Linie 25-40 — dodać aria-label do każdego <Link> z menu (obecnie tekst etykiety jest w sr-only-<span>, ale sam <Link> nie ma aria-label, więc bez kropli ikon znikają etykiety dla użytkowników korzystających z hover/voice
+ control).
+
+ 5. ZAKRES POMINIĘTY (świadomie)
+
+ Nie zmieniam w tym kroku:
+
+ - frontend/src/components/ui/card.tsx — globalna zmiana paddingu wywróciłaby Admin (10+ widoków) i wymaga osobnej weryfikacji.
+ - frontend/tailwind.config.ts — bez dodawania custom xs: breakpointu; default Tailwind wystarczy.
+ - Register.tsx, About.tsx, Unsubscribe.tsx, AddressRow.tsx — to osobny pass RWD; wymaga screenshotów konkretnych ekranów (user dostarczył tylko strony głównej + admina). Można obsłużyć w drugiej iteracji.
+ - AdminMapView.tsx — admin działa wystarczająco na tabletach (docs/ss/img_10.png), legenda mobilna jest "nice-to-have", nie blocker.
+
+ Krytyczne pliki do zmiany
+
+ - frontend/src/components/EventCard.tsx (~150 linii) — całkowita przebudowa interakcji (popup → collapsible) + responsywne klasy.
+ - frontend/src/components/EventMap.tsx (linie 174-201 + render w okolicach 399) — drugi wariant legendy + warunkowy render z useIsMobile().
+ - frontend/src/pages/Index.tsx (linie 176-186, 305-340) — wysokości i typografia.
+ - frontend/src/components/PublicLayout.tsx (linie 25-40) — aria-label dla linków.
+
+ Reuse (bez tworzenia nowego kodu)
+
+ - frontend/src/hooks/use-mobile.tsx — gotowy useIsMobile() (breakpoint 768).
+ - frontend/src/components/ui/collapsible.tsx — gotowe re-eksporty Radix.
+ - frontend/src/components/ui/sheet.tsx — używany już w AdminLayout.tsx i ui/sidebar.tsx.
+ - frontend/src/lib/utils.ts:formatEventNumbers (linie 132-153) — już zwraca pełną posortowaną listę numerów; bez zmian.
+ - lucide-react — ChevronDown, Info (większość już importowana w innych miejscach).
+
+ Weryfikacja end-to-end
+
+ 1. Build TS/Vite: cd frontend && npm run build — musi przejść bez błędów (poprzedni build: 5.24 s).
+ 2. Manualny test responsywny w Chrome DevTools (user ma środowisko uruchomione, npm run dev już działa):
+   - 360x740 (Galaxy S8+): kliknięcie w kafelek NIE wywołuje popupu z adresami — pojawia się natomiast trigger „Pokaż wszystkie X adresy", po kliknięciu rozwija się inline lista; mapa zajmuje 55vh, lista zwija się scroll-em do
+  70vh; legenda jest tylko ikoną „i" w prawym dolnym rogu mapy, klik otwiera Sheet z listą.
+   - 768x1024 (iPad): legenda przełącza się na desktopową wersję (max-w-[14rem]); layout grid lista+mapa horyzontalny.
+   - 1280+ (desktop): zachowanie 1:1 ze stanem obecnym (lista 460/520 px + mapa flex-1, legenda w rogu, brak ikony „i").
+ 3. Test scrollowania: na mobile użytkownik powinien móc scrollować listę kafelków pionowo wewnątrz sidebar (overflow-y-auto już ustawione w Index.tsx:309); mapa nie blokuje touch-pan przez nakładkę legendy.
+ 4. Test interakcji mapa↔lista: klik markera na mapie nadal otwiera natywny popup Leaflet (bez zmian); klik kafelka focusuje pin na mapie (onFocus(event.id) zachowane w linii 56).
+ 5. A11y smoke-check: tab przez 5 ikon w nawigacji powinno czytać aria-label po nazwach (nie tylko ikonę).
+ 6. Brak regresji w Admin: /sys-panel/dashboard po buildzie ma identyczny wygląd (zmiany lokalne, card.tsx nietknięty).
+
+ Aktualizacja roadmapy (po implementacji)
+
+ W docs/roadmap_finalna_maj.md sekcja 9 (Log realizacji) — dopisać wiersz w formacie:
+ | Ad-Hoc UI-RWD-mobile | 2026-05-05 | Usunięcie popupu adresów (5s auto-hide) z EventCard → Collapsible inline; legenda mapy zwijana w Sheet na mobile (useIsMobile); zmniejszenie hero py-12→py-6, grid h-[80vh]→h-auto
+ lg:h-[80vh]; CardHeader flex-col sm:flex-row; build ✅ | frontend/src/components/EventCard.tsx, frontend/src/components/EventMap.tsx, frontend/src/pages/Index.tsx, frontend/src/components/PublicLayout.tsx |
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+
+ Claude has written up a plan and is ready to execute. Would you like to proceed?
+
+ ❯ 1. Yes, auto-accept edits
+   2. Yes, manually approve edits
+   3. No, refine with Ultraplan on Claude Code on the web
+   4. Tell Claude what to change
+      shift+tab to approve with this feedback
+
+ ctrl-g to edit in Notepad · ~\.claude\plans\dobra-jest-totalna-dupa-rustling-rabbit.md
+     ⎿  Done
+
+● Sprawdzam jeszcze kluczowe fragmenty kodu, których analizy będę używał w planie.
+
+  Read 3 files (ctrl+o to expand)
+
+● Mam wszystkie dane. Piszę plan do pliku.
+
+● Updated plan
+  ⎿  /plan to preview
+
+● User approved Claude's plan
+  ⎿  Plan saved to: ~\.claude\plans\dobra-jest-totalna-dupa-rustling-rabbit.md · /plan to edit
+     Plan naprawczy RWD strony publicznej Event Hub Lublin
+
+     Context
+
+     Strona publiczna (Index.tsx + EventMap.tsx + EventCard.tsx + PublicLayout.tsx) działa poprawnie tylko na desktop. Na smartfonach (Samsung Galaxy S8+, 360x740, screenshot docs/ss/img_12.png) i częściowo na tabletach UX jest
+      niedopuszczalny:
+
+     1. Popup adresów w EventCard (auto-zniknięcie po 5 s) — kliknięcie kafelka na mobile pokrywa całą listę i mapę (docs/ss/img.png, img_3.png, img_4.png, img_5.png). User explicite prosi o usunięcie popupu i zastąpienie go
+     opcją „rozwiń listę / pokaż wszystkie adresy" inline w karcie.
+     2. Legenda mapy (MapLegend w EventMap.tsx:174-201) — pozycjonowana absolute bottom-4 right-4 bez max-w, bez breakpointów, z pointer-events-none. Na 360 px zajmuje ~50% kafla mapy (docs/ss/img_12.png).
+     3. Główny grid lista+mapa (Index.tsx:305) — h-[80vh] min-h-[500px] na S8+ (740 px) zostawia ~290 px na listę i ~290 px na mapę, mieści się 1.5 kafelka.
+     4. Hero (Index.tsx:175-186) — py-12 + text-2xl zżera ponad 250 px nad fold-em na mobile.
+     5. EventCard CardHeader (EventCard.tsx:75-97) — flex-row + dwa badge'y po prawej rozpychają kartę na 360 px; break-all na nazwie ulicy łamie polskie wyrazy w nieczytelnych miejscach.
+
+     Cel: usunąć popup adresów (zastąpić inline-expandable listą), zwinąć legendę na mobile, dopasować wysokości i typografię tak, by strona była użyteczna od 360 px wzwyż. Bez zmian w panelu admina (działa).
+
+     Zmiany
+
+     1. frontend/src/components/EventCard.tsx — usunięcie popupu, inline lista adresów
+
+     Wymienić mechanikę Popover na Collapsible (komponent już istnieje w frontend/src/components/ui/collapsible.tsx, dotąd nieużywany).
+
+     - Usunąć:
+       - Linia 7 — import Popover/PopoverAnchor/PopoverContent.
+       - Linie 27, 29-33 — useState(isOpen) + useEffect z setTimeout(... 5000).
+       - Linia 57 — setIsOpen(true) w handleActivate (zostaje samo onFocus?.(event.id)).
+       - Linie 61-62 + 134-150 — wrapper <Popover> i cały <PopoverContent> (ten fake-leaflet popup z width: 301px).
+     - Dodać:
+       - Import Collapsible, CollapsibleTrigger, CollapsibleContent z @/components/ui/collapsible.
+       - Lokalny useState expanded: boolean.
+       - Wewnątrz CardContent, w wierszu z MapPin (linie 99-112): badge +X bud. zamienić na <CollapsibleTrigger> typu <button> z tekstem Pokaż wszystkie {numList.length} adresy / Ukryj + ikoną ChevronDown (lucide). Trigger MUSI
+      mieć onClick z e.stopPropagation() — w przeciwnym razie zewnętrzny onClick={handleActivate} na <Card> (linia 67) odpali focus mapy przy każdym kliknięciu chevronu.
+       - <CollapsibleContent> renderuje pełną listę z numList jako tekst zawijany (flex flex-wrap gap-x-1 gap-y-0.5 text-xs text-muted-foreground), tytuł sekcji Wszystkie adresy:. Brak tła „popup", brak fixed-width — element
+     rośnie w karcie.
+       - Cała <Card> zostaje w <Collapsible open={expanded} onOpenChange={setExpanded}>.
+     - Responsywność karty (efekt uboczny przy okazji):
+       - Linia 75 CardHeader pb-2 flex flex-row items-start justify-between gap-2 → flex-col sm:flex-row + gap-1.5 sm:gap-2.
+       - Linia 91-93 — badge źródło: MPWiK opakować klasą hidden sm:inline-flex (na 360 px to znacznik bez wartości dla mieszkańca; StatusBadge zostaje).
+       - Linia 101 — line-clamp-1 break-all → line-clamp-2 sm:line-clamp-1 break-words.
+       - Lokalnie nadpisać domyślny shadcn p-6 na <Card> przez className="... p-4 sm:p-6" (NIE zmieniać globalnie card.tsx — Admin używa Card w wielu miejscach).
+
+     2. frontend/src/components/EventMap.tsx — legenda zwijana na mobile
+
+     Wykorzystać istniejący hook useIsMobile() (frontend/src/hooks/use-mobile.tsx, breakpoint 768 px) oraz Sheet z @/components/ui/sheet.
+
+     - Zachować komponent MapLegend (linie 174-201) jako desktop-default, ale:
+       - Usunąć pointer-events-none (legenda musi być klikalna w trybie zwijania).
+       - Dodać max-w-[14rem] aby na desktop również nie pęczniała.
+     - Dodać drugi komponent MapLegendMobile:
+       - Renderowany gdy useIsMobile() zwróci true.
+       - Trigger: mała kwadratowa ikona Info (lucide) w absolute bottom-4 right-4 z-[1000], rozmiar h-10 w-10 rounded-full bg-white/95 shadow-md border — kciuk-friendly, zajmuje ~40 px zamiast obecnych ~180 px.
+       - Po kliknięciu otwiera Sheet od dołu (side="bottom") z tytułem „Legenda" i pełną listą typów (re-use logiki z MapLegend linie 185-198).
+     - Render warunkowy (linia 399): {isMobile ? <MapLegendMobile … /> : <MapLegend … />}.
+     - Identyczny patch (jeśli czas pozwoli, kosmetyka) zastosować w AdminMapView.tsx:246-259 — ten sam wzorzec, mniejszy priorytet (admin = desktop).
+
+     3. frontend/src/pages/Index.tsx — układ pionowy na mobile
+
+     - Linia 305 — główny grid:
+       - h-[80vh] min-h-[500px] → h-auto lg:h-[80vh] lg:min-h-[500px].
+     - Linia 308 — sidebar listy:
+       - h-[50%] lg:h-full → max-h-[70vh] lg:h-full lg:max-h-none.
+     - Linia 309 — kontener nagłówka + kart:
+       - p-4 space-y-4 → p-3 sm:p-4 space-y-3 sm:space-y-4.
+     - Linia 333 — kontener mapy:
+       - h-[50%] lg:h-full → h-[55vh] lg:h-full.
+     - Linia 176 — hero:
+       - py-12 px-4 → py-6 sm:py-10 lg:py-12 px-4.
+     - Linia 180 — H1:
+       - text-2xl md:text-4xl lg:text-5xl → text-xl sm:text-2xl md:text-4xl lg:text-5xl.
+     - Linia 184 — opis:
+       - text-sm sm:text-base → bez zmian (już responsywne).
+
+     Te zmiany dadzą na S8+ (740 px wys) realne ~80–120 px więcej dla treści — lista pokaże 2–3 karty bez scroll, mapa zachowa ~400 px.
+
+     4. frontend/src/components/PublicLayout.tsx — a11y nawigacji (zysk niski, koszt 1 minuta)
+
+     - Linie 25-40 — dodać aria-label do każdego <Link> z menu (obecnie tekst etykiety jest w sr-only-<span>, ale sam <Link> nie ma aria-label, więc bez kropli ikon znikają etykiety dla użytkowników korzystających z hover/voice
+      control).
+
+     5. ZAKRES POMINIĘTY (świadomie)
+
+     Nie zmieniam w tym kroku:
+
+     - frontend/src/components/ui/card.tsx — globalna zmiana paddingu wywróciłaby Admin (10+ widoków) i wymaga osobnej weryfikacji.
+     - frontend/tailwind.config.ts — bez dodawania custom xs: breakpointu; default Tailwind wystarczy.
+     - Register.tsx, About.tsx, Unsubscribe.tsx, AddressRow.tsx — to osobny pass RWD; wymaga screenshotów konkretnych ekranów (user dostarczył tylko strony głównej + admina). Można obsłużyć w drugiej iteracji.
+     - AdminMapView.tsx — admin działa wystarczająco na tabletach (docs/ss/img_10.png), legenda mobilna jest "nice-to-have", nie blocker.
+
+     Krytyczne pliki do zmiany
+
+     - frontend/src/components/EventCard.tsx (~150 linii) — całkowita przebudowa interakcji (popup → collapsible) + responsywne klasy.
+     - frontend/src/components/EventMap.tsx (linie 174-201 + render w okolicach 399) — drugi wariant legendy + warunkowy render z useIsMobile().
+     - frontend/src/pages/Index.tsx (linie 176-186, 305-340) — wysokości i typografia.
+     - frontend/src/components/PublicLayout.tsx (linie 25-40) — aria-label dla linków.
+
+     Reuse (bez tworzenia nowego kodu)
+
+     - frontend/src/hooks/use-mobile.tsx — gotowy useIsMobile() (breakpoint 768).
+     - frontend/src/components/ui/collapsible.tsx — gotowe re-eksporty Radix.
+     - frontend/src/components/ui/sheet.tsx — używany już w AdminLayout.tsx i ui/sidebar.tsx.
+     - frontend/src/lib/utils.ts:formatEventNumbers (linie 132-153) — już zwraca pełną posortowaną listę numerów; bez zmian.
+     - lucide-react — ChevronDown, Info (większość już importowana w innych miejscach).
+
+     Weryfikacja end-to-end
+
+     1. Build TS/Vite: cd frontend && npm run build — musi przejść bez błędów (poprzedni build: 5.24 s).
+     2. Manualny test responsywny w Chrome DevTools (user ma środowisko uruchomione, npm run dev już działa):
+       - 360x740 (Galaxy S8+): kliknięcie w kafelek NIE wywołuje popupu z adresami — pojawia się natomiast trigger „Pokaż wszystkie X adresy", po kliknięciu rozwija się inline lista; mapa zajmuje 55vh, lista zwija się scroll-em
+      do 70vh; legenda jest tylko ikoną „i" w prawym dolnym rogu mapy, klik otwiera Sheet z listą.
+       - 768x1024 (iPad): legenda przełącza się na desktopową wersję (max-w-[14rem]); layout grid lista+mapa horyzontalny.
+       - 1280+ (desktop): zachowanie 1:1 ze stanem obecnym (lista 460/520 px + mapa flex-1, legenda w rogu, brak ikony „i").
+     3. Test scrollowania: na mobile użytkownik powinien móc scrollować listę kafelków pionowo wewnątrz sidebar (overflow-y-auto już ustawione w Index.tsx:309); mapa nie blokuje touch-pan przez nakładkę legendy.
+     4. Test interakcji mapa↔lista: klik markera na mapie nadal otwiera natywny popup Leaflet (bez zmian); klik kafelka focusuje pin na mapie (onFocus(event.id) zachowane w linii 56).
+     5. A11y smoke-check: tab przez 5 ikon w nawigacji powinno czytać aria-label po nazwach (nie tylko ikonę).
+     6. Brak regresji w Admin: /sys-panel/dashboard po buildzie ma identyczny wygląd (zmiany lokalne, card.tsx nietknięty).
+
+     Aktualizacja roadmapy (po implementacji)
+
+     W docs/roadmap_finalna_maj.md sekcja 9 (Log realizacji) — dopisać wiersz w formacie:
+     | Ad-Hoc UI-RWD-mobile | 2026-05-05 | Usunięcie popupu adresów (5s auto-hide) z EventCard → Collapsible inline; legenda mapy zwijana w Sheet na mobile (useIsMobile); zmniejszenie hero py-12→py-6, grid h-[80vh]→h-auto
+     lg:h-[80vh]; CardHeader flex-col sm:flex-row; build ✅ | frontend/src/components/EventCard.tsx, frontend/src/components/EventMap.tsx, frontend/src/pages/Index.tsx, frontend/src/components/PublicLayout.tsx |
+  ⎿  You've hit your limit · resets 4:20pm (Europe/Warsaw)
+     /upgrade to increase your usage limit.
+
+✻ Baked for 5m 25s

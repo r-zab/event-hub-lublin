@@ -8,6 +8,9 @@ import { StatusBadge } from './StatusBadge';
 import { LUBLIN_BOUNDS, MIN_ZOOM } from '@/lib/mapConfig';
 import { useEventTypes, type EventTypeItem } from '@/hooks/useEventTypes';
 import { resolveIconSvg } from '@/lib/eventTypeIcons';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Info } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 interface Props {
   events: EventItem[];
@@ -171,17 +174,9 @@ function PopupAutoClose() {
 // EventMap
 // ---------------------------------------------------------------------------
 
-function MapLegend({ eventTypes }: { eventTypes: EventTypeItem[] }) {
-  if (eventTypes.length === 0) return null;
+function LegendItems({ eventTypes }: { eventTypes: EventTypeItem[] }) {
   return (
-    <div
-      className="map-overlay-panel absolute bottom-4 right-4 z-[1000] bg-white/95 backdrop-blur-sm shadow-md rounded-lg border border-border p-3 text-sm space-y-1.5 pointer-events-none"
-      role="note"
-      aria-label="Legenda mapy"
-    >
-      <div className="font-semibold text-xs text-muted-foreground uppercase tracking-wide mb-1">
-        Legenda
-      </div>
+    <>
       {eventTypes.map((t) => {
         const inner = resolveIconSvg(t.icon_key);
         return (
@@ -196,12 +191,56 @@ function MapLegend({ eventTypes }: { eventTypes: EventTypeItem[] }) {
           </div>
         );
       })}
+    </>
+  );
+}
+
+function MapLegend({ eventTypes }: { eventTypes: EventTypeItem[] }) {
+  if (eventTypes.length === 0) return null;
+  return (
+    <div
+      className="map-overlay-panel absolute bottom-4 right-4 z-[1000] bg-white/95 backdrop-blur-sm shadow-md rounded-lg border border-border p-3 text-sm space-y-1.5 max-w-[14rem]"
+      role="note"
+      aria-label="Legenda mapy"
+    >
+      <div className="font-semibold text-xs text-muted-foreground uppercase tracking-wide mb-1">
+        Legenda
+      </div>
+      <LegendItems eventTypes={eventTypes} />
     </div>
+  );
+}
+
+function MapLegendMobile({ eventTypes }: { eventTypes: EventTypeItem[] }) {
+  const [open, setOpen] = useState(false);
+  if (eventTypes.length === 0) return null;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="absolute bottom-4 right-4 z-[1000] h-10 w-10 rounded-full bg-white/95 shadow-md border border-border flex items-center justify-center hover:bg-white transition-colors"
+        aria-label="Otwórz legendę mapy"
+      >
+        <Info className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+      </button>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="bottom" className="max-h-[60vh]">
+          <SheetHeader>
+            <SheetTitle>Legenda</SheetTitle>
+          </SheetHeader>
+          <div className="text-sm space-y-2 mt-4">
+            <LegendItems eventTypes={eventTypes} />
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 
 export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
   const { eventTypes } = useEventTypes();
+  const isMobile = useIsMobile();
 
   // Mapy: kod → kolor, nazwa, icon_key — odświeżane gdy zmieni się słownik
   const typeColorMap = useMemo(() => {
@@ -396,7 +435,10 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
         );
       })}
     </MapContainer>
-      <MapLegend eventTypes={visibleEventTypes} />
+      {isMobile
+        ? <MapLegendMobile eventTypes={visibleEventTypes} />
+        : <MapLegend eventTypes={visibleEventTypes} />
+      }
     </div>
   );
 }

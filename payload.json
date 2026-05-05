@@ -1,0 +1,13 @@
+{
+  "event_type": "awaria",
+  "source": "LPEC",
+  "street_name": "Organowa",
+  "house_number_from": "7",
+  "house_number_to": "15B",
+  "status": "zgloszona",
+  "estimated_end": "2026-05-04T16:00:00Z",
+  "custom_message": "Integracja LPEC: Planowe płukanie sieci ciepłowniczej. Możliwe wahania temperatury wody.",
+  "auto_extend": false,
+  "auto_close": false,
+  "created_by_department": "LPEC"
+}
