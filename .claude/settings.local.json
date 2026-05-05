@@ -43,7 +43,9 @@
       "Bash(Select-Object Name)",
       "Bash(Get-ChildItem -Path \"C:\\\\MPWIK\\\\mpwik-lublin\\\\frontend\\\\src\\\\components\" -File -Name)",
       "Bash(Select-String -Pattern \"\\(?i\\)\\(street|auto|address|search|input|dropdown\\)\")",
-      "Bash(Head -20)"
+      "Bash(Head -20)",
+      "Bash(node -e \"const l = require\\('lucide-react'\\); const icons=['Gauge','Waves','Thermometer','Hammer','Truck','CircleAlert','Lock','Zap','TrafficCone','Shovel','Pipette']; icons.forEach\\(n => console.log\\(n, typeof l[n]\\)\\)\")",
+      "Bash(node *)"
     ],
     "deny": [
       "Bash(git push*)",

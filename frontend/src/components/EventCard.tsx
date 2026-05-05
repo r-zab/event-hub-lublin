@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, MapPin, TriangleAlert, Wrench, CalendarClock } from 'lucide-react';
+import { Clock, MapPin, CalendarClock } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 import { type EventItem } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
@@ -7,12 +7,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { formatEventNumbers, formatDateTime } from '@/lib/utils';
 import { useEventTypes } from '@/hooks/useEventTypes';
-
-const typeIcons: Partial<Record<string, typeof TriangleAlert>> = {
-  awaria: TriangleAlert,
-  planowane_wylaczenie: CalendarClock,
-  remont: Wrench,
-};
+import { resolveIcon } from '@/lib/eventTypeIcons';
 
 const DATETIME_FORMAT: Intl.DateTimeFormatOptions = {
   day: 'numeric',
@@ -41,7 +36,7 @@ export function EventCard({ event, onFocus }: EventCardProps) {
   const eventColor = eventTypeDef?.default_color_rgb ?? '#6B7280';
   const eventLabel = eventTypeDef?.name_pl ?? (typesLoading ? ' ' : event.event_type);
 
-  const Icon = typeIcons[event.event_type] ?? TriangleAlert;
+  const Icon = resolveIcon(eventTypeDef?.icon_key);
   const numbers = formatEventNumbers(event);
   let displayNumbers = numbers;
   let hiddenCount = 0;
@@ -100,7 +95,7 @@ export function EventCard({ event, onFocus }: EventCardProps) {
               <StatusBadge status={event.status} />
             </div>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-2.5">
             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
               <MapPin className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
               <span className="line-clamp-1 break-all">
@@ -117,14 +112,11 @@ export function EventCard({ event, onFocus }: EventCardProps) {
             </div>
             <p className="text-sm text-muted-foreground line-clamp-2">{event.custom_message || event.description}</p>
             {showPlannedRange ? (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                <span>
-                  Czas rozpoczęcia planowego wyłączenia:{' '}
-                  {formatDateTime(event.start_time!, DATETIME_FORMAT)}
-                  {', czas zakończenia: '}
-                  {formatDateTime(event.estimated_end!, DATETIME_FORMAT)}
-                </span>
+              <div className="grid grid-cols-[1rem_1fr] gap-x-2 gap-y-1 text-xs text-muted-foreground items-start">
+                <CalendarClock className="h-3.5 w-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+                <span>Rozpoczęcie: {formatDateTime(event.start_time!, DATETIME_FORMAT)}</span>
+                <Clock className="h-3.5 w-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+                <span>Zakończenie: {formatDateTime(event.estimated_end!, DATETIME_FORMAT)}</span>
               </div>
             ) : !isDeleted && event.estimated_end && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">

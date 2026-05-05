@@ -305,7 +305,7 @@ const Index = () => {
           <div className="flex flex-col lg:flex-row h-[80vh] min-h-[500px] w-full border rounded-xl overflow-hidden shadow-sm my-4 bg-background">
 
             {/* Lewa kolumna: lista zdarzeń z wewnętrznym scrollem */}
-            <div className="w-full lg:w-[400px] xl:w-[450px] flex flex-col border-r h-[50%] lg:h-full flex-shrink-0">
+            <div className="w-full lg:w-[460px] xl:w-[520px] flex flex-col border-r h-[50%] lg:h-full flex-shrink-0">
               <div className="p-4 space-y-4 flex-1 overflow-y-auto min-h-0">
                 <h2 className="font-heading text-xl font-bold">
                   Aktywne zdarzenia

@@ -44,6 +44,29 @@ import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
+const CODE_RE = /^[a-z][a-z0-9_]{0,29}$/;
+const DIACRITICS: Record<string, string> = {
+  ą: 'a', ć: 'c', ę: 'e', ł: 'l', ń: 'n', ó: 'o', ś: 's', ź: 'z', ż: 'z',
+  Ą: 'a', Ć: 'c', Ę: 'e', Ł: 'l', Ń: 'n', Ó: 'o', Ś: 's', Ź: 'z', Ż: 'z',
+};
+
+function slugify(value: string): string {
+  return value
+    .split('')
+    .map((ch) => DIACRITICS[ch] ?? ch)
+    .join('')
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '');
+}
+
+function validateCode(v: string): string {
+  if (!v) return 'Kod jest wymagany.';
+  if (!CODE_RE.test(v))
+    return 'Musi zaczynać się od litery i zawierać tylko małe litery, cyfry i podkreślenia (max 30 znaków).';
+  return '';
+}
+
 interface MessageTemplateItem {
   id: number;
   code: string;
@@ -102,6 +125,7 @@ export default function AdminMessageTemplates() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [newCode, setNewCode] = useState('');
+  const [newCodeError, setNewCodeError] = useState('');
   const [newBody, setNewBody] = useState('');
   const [newType, setNewType] = useState<string>(NONE_VALUE);
   const [newActive, setNewActive] = useState(true);
@@ -109,6 +133,7 @@ export default function AdminMessageTemplates() {
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState<MessageTemplateItem | null>(null);
   const [editCode, setEditCode] = useState('');
+  const [editCodeError, setEditCodeError] = useState('');
   const [editBody, setEditBody] = useState('');
   const [editType, setEditType] = useState<string>(NONE_VALUE);
   const [editActive, setEditActive] = useState(true);
@@ -131,6 +156,7 @@ export default function AdminMessageTemplates() {
       toast({ title: 'Szablon utworzony' });
       setAddOpen(false);
       setNewCode('');
+      setNewCodeError('');
       setNewBody('');
       setNewType(NONE_VALUE);
       setNewActive(true);
@@ -146,6 +172,7 @@ export default function AdminMessageTemplates() {
       toast({ title: 'Szablon zaktualizowany' });
       setEditOpen(false);
       setEditItem(null);
+      setEditCodeError('');
       invalidate();
     },
     onError: (err: Error) => toast({ title: 'Błąd', description: err.message, variant: 'destructive' }),
@@ -163,6 +190,7 @@ export default function AdminMessageTemplates() {
   const openEdit = (item: MessageTemplateItem) => {
     setEditItem(item);
     setEditCode(item.code);
+    setEditCodeError('');
     setEditBody(item.body);
     setEditType(item.event_type_id === null ? NONE_VALUE : String(item.event_type_id));
     setEditActive(item.is_active);
@@ -175,12 +203,17 @@ export default function AdminMessageTemplates() {
   };
 
   const handleCreate = () => {
-    if (!newCode.trim() || !newBody.trim()) {
-      toast({ title: 'Uzupełnij kod i treść', variant: 'destructive' });
+    const codeErr = validateCode(newCode);
+    if (codeErr) {
+      setNewCodeError(codeErr);
+      return;
+    }
+    if (!newBody.trim()) {
+      toast({ title: 'Uzupełnij treść', variant: 'destructive' });
       return;
     }
     createMutation.mutate({
-      code: newCode.trim(),
+      code: newCode,
       body: newBody.trim(),
       event_type_id: newType === NONE_VALUE ? null : parseInt(newType, 10),
       is_active: newActive,
@@ -189,14 +222,19 @@ export default function AdminMessageTemplates() {
 
   const handleEdit = () => {
     if (!editItem) return;
-    if (!editCode.trim() || !editBody.trim()) {
-      toast({ title: 'Kod i treść nie mogą być puste', variant: 'destructive' });
+    const codeErr = validateCode(editCode);
+    if (codeErr) {
+      setEditCodeError(codeErr);
+      return;
+    }
+    if (!editBody.trim()) {
+      toast({ title: 'Treść nie może być pusta', variant: 'destructive' });
       return;
     }
     updateMutation.mutate({
       id: editItem.id,
       body: {
-        code: editCode.trim(),
+        code: editCode,
         body: editBody.trim(),
         event_type_id: editType === NONE_VALUE ? null : parseInt(editType, 10),
         is_active: editActive,
@@ -213,7 +251,7 @@ export default function AdminMessageTemplates() {
             Gotowe teksty wstawiane do pola „Opis" w formularzu zdarzenia. Można je przypisać do typu lub pozostawić uniwersalne.
           </p>
         </div>
-        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <Dialog open={addOpen} onOpenChange={(open) => { setAddOpen(open); if (!open) setNewCodeError(''); }}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
@@ -230,9 +268,20 @@ export default function AdminMessageTemplates() {
                 <Input
                   id="mt-code"
                   value={newCode}
-                  onChange={(e) => setNewCode(e.target.value)}
+                  onChange={(e) => {
+                    const slug = slugify(e.target.value);
+                    setNewCode(slug);
+                    setNewCodeError(validateCode(slug));
+                  }}
                   placeholder="kod_szablonu"
+                  className={newCodeError ? 'border-destructive' : ''}
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Dozwolone są tylko małe litery łacińskie, cyfry i podkreślenia.
+                </p>
+                {newCodeError && (
+                  <p className="text-xs text-destructive mt-0.5">{newCodeError}</p>
+                )}
               </div>
               <div>
                 <Label htmlFor="mt-type">Typ zdarzenia (opcjonalnie)</Label>
@@ -348,7 +397,7 @@ export default function AdminMessageTemplates() {
         </Table>
       )}
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      <Dialog open={editOpen} onOpenChange={(open) => { setEditOpen(open); if (!open) setEditCodeError(''); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edytuj szablon</DialogTitle>
@@ -359,8 +408,19 @@ export default function AdminMessageTemplates() {
               <Input
                 id="mt-edit-code"
                 value={editCode}
-                onChange={(e) => setEditCode(e.target.value)}
+                onChange={(e) => {
+                  const slug = slugify(e.target.value);
+                  setEditCode(slug);
+                  setEditCodeError(validateCode(slug));
+                }}
+                className={editCodeError ? 'border-destructive' : ''}
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Dozwolone są tylko małe litery łacińskie, cyfry i podkreślenia.
+              </p>
+              {editCodeError && (
+                <p className="text-xs text-destructive mt-0.5">{editCodeError}</p>
+              )}
             </div>
             <div>
               <Label htmlFor="mt-edit-type">Typ zdarzenia</Label>

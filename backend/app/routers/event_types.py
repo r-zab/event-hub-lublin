@@ -60,6 +60,7 @@ async def create_event_type(
         code=body.code,
         name_pl=body.name_pl,
         default_color_rgb=body.default_color_rgb,
+        icon_key=body.icon_key,
         is_active=body.is_active,
         sort_order=body.sort_order,
     )

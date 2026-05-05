@@ -6,6 +6,7 @@ export interface EventTypeItem {
   code: string;
   name_pl: string;
   default_color_rgb: string;
+  icon_key: string | null;
   is_active: boolean;
   sort_order: number;
 }

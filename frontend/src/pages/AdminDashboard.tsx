@@ -2,8 +2,9 @@ import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus, Search, ChevronDown, ChevronRight, Mail, Loader2, AlertTriangle,
-  Wrench, Calendar, Pencil, CheckCircle, Timer, Archive, HardHat, X, AlertCircle, Download,
+  Wrench, Calendar, Pencil, CheckCircle, Timer, Archive, X, AlertCircle, Download,
 } from 'lucide-react';
+import { resolveIcon } from '@/lib/eventTypeIcons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -34,12 +35,6 @@ import { useToast } from '@/hooks/use-toast';
 import { formatEventNumbers, formatDate, formatDateTime } from '@/lib/utils';
 import { AdminMapView } from '@/components/AdminMapView';
 
-// Ikony dla znanych typów zdarzeń (fallback dla typów spoza DB)
-const TYPE_ICON_MAP: Record<string, { Icon: typeof Wrench; cls: string }> = {
-  awaria: { Icon: Wrench, cls: 'text-red-500' },
-  planowane_wylaczenie: { Icon: Calendar, cls: 'text-blue-500' },
-  remont: { Icon: HardHat, cls: 'text-amber-500' },
-};
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250] as const;
 
@@ -428,13 +423,13 @@ const AdminDashboard = () => {
                 ) : (
                   events.map((event) => {
                     const isOpen = expandedRows.has(event.id);
-                    const typeConfig = TYPE_ICON_MAP[event.event_type];
-                    const TypeIcon = typeConfig?.Icon;
+                    const eventTypeDef = eventTypes.find((t) => t.code === event.event_type);
+                    const TypeIcon = resolveIcon(eventTypeDef?.icon_key);
                     const typeLabel =
-                      eventTypes.find((t) => t.code === event.event_type)?.name_pl
+                      eventTypeDef?.name_pl
                       ?? TYPE_LABELS[event.event_type as EventType]
                       ?? event.event_type;
-                    const typeColor = eventTypes.find((t) => t.code === event.event_type)?.default_color_rgb;
+                    const typeColor = eventTypeDef?.default_color_rgb;
                     const numbersStr = formatEventNumbers(event);
                     let displayNums = numbersStr;
                     let hiddenNumsCount = 0;
@@ -474,16 +469,11 @@ const AdminDashboard = () => {
                           </TableCell>
                           <TableCell className="text-sm">
                             <span className="inline-flex items-center gap-1.5">
-                              {TypeIcon
-                                ? <TypeIcon className={`h-3.5 w-3.5 flex-shrink-0 ${typeConfig.cls}`} aria-hidden="true" />
-                                : typeColor && (
-                                  <span
-                                    className="h-2.5 w-2.5 rounded-full flex-shrink-0"
-                                    style={{ backgroundColor: typeColor }}
-                                    aria-hidden="true"
-                                  />
-                                )
-                              }
+                              <TypeIcon
+                                className="h-3.5 w-3.5 flex-shrink-0"
+                                style={typeColor ? { color: typeColor } : undefined}
+                                aria-hidden="true"
+                              />
                               {typeLabel}
                             </span>
                           </TableCell>

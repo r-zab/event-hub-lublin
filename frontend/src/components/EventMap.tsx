@@ -7,6 +7,7 @@ import { formatEventNumbers } from '@/lib/utils';
 import { StatusBadge } from './StatusBadge';
 import { LUBLIN_BOUNDS, MIN_ZOOM } from '@/lib/mapConfig';
 import { useEventTypes, type EventTypeItem } from '@/hooks/useEventTypes';
+import { resolveIconSvg } from '@/lib/eventTypeIcons';
 
 interface Props {
   events: EventItem[];
@@ -30,27 +31,22 @@ function isValidFeatureCollection(
   );
 }
 
-// Ikony SVG dla znanych typów — nieznane typy dostają ikonę awarii jako fallback
-const ICON_SVGS: Partial<Record<string, string>> = {
-  awaria: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.73 18 13.73 3.99a2 2 0 0 0-3.46 0L2.27 18a2 2 0 0 0 1.73 3h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`,
-  planowane_wylaczenie: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><path d="M17.5 17.5 16 16.3V14"/><circle cx="16" cy="16" r="6"/></svg>`,
-  remont: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
-};
+const SVG_WRAPPER = (inner: string, color: string) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
 
-// Kolor przekazywany jako argument — pochodzi z default_color_rgb słownika event_types
-function makeIcon(eventType: string, color: string) {
-  const svg = ICON_SVGS[eventType] ?? ICON_SVGS.awaria;
+function makeIcon(iconKey: string | null | undefined, color: string) {
+  const inner = resolveIconSvg(iconKey);
   return L.divIcon({
     className: '',
     html: `
-      <div class="relative flex items-center justify-center w-8 h-8 bg-white border-2 rounded-full shadow-md" style="border-color:${color};color:${color}">
-        ${svg}
-        <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px]" style="border-top-color:${color}"></div>
+      <div style="position:relative;display:flex;align-items:center;justify-content:center;width:32px;height:32px;background:white;border:2px solid ${color};border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.3)">
+        ${SVG_WRAPPER(inner, color)}
+        <div style="position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid ${color}"></div>
       </div>
     `,
-    iconSize: [32, 40],
-    iconAnchor: [16, 40],
-    popupAnchor: [0, -40],
+    iconSize: [32, 39],
+    iconAnchor: [16, 39],
+    popupAnchor: [0, -39],
   });
 }
 
@@ -186,16 +182,20 @@ function MapLegend({ eventTypes }: { eventTypes: EventTypeItem[] }) {
       <div className="font-semibold text-xs text-muted-foreground uppercase tracking-wide mb-1">
         Legenda
       </div>
-      {eventTypes.map((t) => (
-        <div key={t.code} className="flex items-center gap-2">
-          <span
-            className="map-event-legend-dot inline-block w-3 h-3 rounded-full border"
-            style={{ backgroundColor: t.default_color_rgb, borderColor: t.default_color_rgb }}
-            aria-hidden="true"
-          />
-          <span>{t.name_pl}</span>
-        </div>
-      ))}
+      {eventTypes.map((t) => {
+        const inner = resolveIconSvg(t.icon_key);
+        return (
+          <div key={t.code} className="flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              dangerouslySetInnerHTML={{
+                __html: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${t.default_color_rgb}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`,
+              }}
+            />
+            <span>{t.name_pl}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -203,7 +203,7 @@ function MapLegend({ eventTypes }: { eventTypes: EventTypeItem[] }) {
 export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
   const { eventTypes } = useEventTypes();
 
-  // Mapy: kod → kolor i kod → przyjazna nazwa — odświeżane gdy zmieni się słownik
+  // Mapy: kod → kolor, nazwa, icon_key — odświeżane gdy zmieni się słownik
   const typeColorMap = useMemo(() => {
     const m = new Map<string, string>();
     eventTypes.forEach((t) => m.set(t.code, t.default_color_rgb));
@@ -213,6 +213,12 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
   const typeNameMap = useMemo(() => {
     const m = new Map<string, string>();
     eventTypes.forEach((t) => m.set(t.code, t.name_pl));
+    return m;
+  }, [eventTypes]);
+
+  const typeIconKeyMap = useMemo(() => {
+    const m = new Map<string, string | null>();
+    eventTypes.forEach((t) => m.set(t.code, t.icon_key));
     return m;
   }, [eventTypes]);
 
@@ -234,6 +240,7 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
 
   const getColor = (code: string) => typeColorMap.get(code) ?? '#6B7280';
   const getName = (code: string) => typeNameMap.get(code) ?? code;
+  const getIconKey = (code: string) => typeIconKeyMap.get(code) ?? null;
 
   return (
     <div className="relative w-full h-full">
@@ -338,7 +345,7 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
               <Marker
                 key={`pin-${event.id}`}
                 position={markerPos}
-                icon={makeIcon(event.event_type, color)}
+                icon={makeIcon(getIconKey(event.event_type), color)}
                 eventHandlers={markerEvents}
                 title={`Zdarzenie: ${event.street_name}`}
                 alt={`Marker zdarzenia na ulicy ${event.street_name}`}
@@ -363,7 +370,7 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
               <Marker
                 key={`pin-${event.id}`}
                 position={markerPos}
-                icon={makeIcon(event.event_type, color)}
+                icon={makeIcon(getIconKey(event.event_type), color)}
                 eventHandlers={markerEvents}
                 title={`Zdarzenie: ${event.street_name}`}
                 alt={`Marker zdarzenia na ulicy ${event.street_name}`}
@@ -379,7 +386,7 @@ export function EventMap({ events, focusedEventId, setFocusedEventId }: Props) {
           <Marker
             key={event.id}
             position={markerPos}
-            icon={makeIcon(event.event_type, color)}
+            icon={makeIcon(getIconKey(event.event_type), color)}
             eventHandlers={markerEvents}
             title={`Zdarzenie: ${event.street_name}`}
             alt={`Marker zdarzenia na ulicy ${event.street_name}`}

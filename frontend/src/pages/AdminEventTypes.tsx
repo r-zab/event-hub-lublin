@@ -35,12 +35,37 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { EVENT_TYPE_ICONS, resolveIcon } from '@/lib/eventTypeIcons';
+
+const CODE_RE = /^[a-z][a-z0-9_]{0,29}$/;
+const DIACRITICS: Record<string, string> = {
+  ą: 'a', ć: 'c', ę: 'e', ł: 'l', ń: 'n', ó: 'o', ś: 's', ź: 'z', ż: 'z',
+  Ą: 'a', Ć: 'c', Ę: 'e', Ł: 'l', Ń: 'n', Ó: 'o', Ś: 's', Ź: 'z', Ż: 'z',
+};
+
+function slugify(value: string): string {
+  return value
+    .split('')
+    .map((ch) => DIACRITICS[ch] ?? ch)
+    .join('')
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '');
+}
+
+function validateCode(v: string): string {
+  if (!v) return 'Kod jest wymagany.';
+  if (!CODE_RE.test(v))
+    return 'Musi zaczynać się od litery i zawierać tylko małe litery, cyfry i podkreślenia (max 30 znaków).';
+  return '';
+}
 
 interface EventTypeItem {
   id: number;
   code: string;
   name_pl: string;
   default_color_rgb: string;
+  icon_key: string | null;
   is_active: boolean;
   sort_order: number;
 }
@@ -53,6 +78,7 @@ async function createEventType(body: {
   code: string;
   name_pl: string;
   default_color_rgb: string;
+  icon_key: string | null;
   is_active: boolean;
   sort_order: number;
 }): Promise<EventTypeItem> {
@@ -82,8 +108,10 @@ export default function AdminEventTypes() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [newCode, setNewCode] = useState('');
+  const [newCodeError, setNewCodeError] = useState('');
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState('#1F2937');
+  const [newIcon, setNewIcon] = useState<string>('alert_triangle');
   const [newSort, setNewSort] = useState<number>(0);
   const [newActive, setNewActive] = useState(true);
 
@@ -91,6 +119,7 @@ export default function AdminEventTypes() {
   const [editItem, setEditItem] = useState<EventTypeItem | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('#1F2937');
+  const [editIcon, setEditIcon] = useState<string>('alert_triangle');
   const [editSort, setEditSort] = useState<number>(0);
   const [editActive, setEditActive] = useState(true);
 
@@ -99,7 +128,10 @@ export default function AdminEventTypes() {
     queryFn: fetchEventTypes,
   });
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['admin-event-types'] });
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ['admin-event-types'] });
+    qc.invalidateQueries({ queryKey: ['event-types-active'] });
+  };
 
   const createMutation = useMutation({
     mutationFn: createEventType,
@@ -107,8 +139,10 @@ export default function AdminEventTypes() {
       toast({ title: 'Typ utworzony', description: `Dodano typ „${item.code}".` });
       setAddOpen(false);
       setNewCode('');
+      setNewCodeError('');
       setNewName('');
       setNewColor('#1F2937');
+      setNewIcon('alert_triangle');
       setNewSort(0);
       setNewActive(true);
       invalidate();
@@ -141,20 +175,27 @@ export default function AdminEventTypes() {
     setEditItem(item);
     setEditName(item.name_pl);
     setEditColor(item.default_color_rgb);
+    setEditIcon(item.icon_key ?? 'alert_triangle');
     setEditSort(item.sort_order);
     setEditActive(item.is_active);
     setEditOpen(true);
   };
 
   const handleCreate = () => {
-    if (!newCode.trim() || !newName.trim()) {
-      toast({ title: 'Uzupełnij kod i nazwę', variant: 'destructive' });
+    const codeErr = validateCode(newCode);
+    if (codeErr) {
+      setNewCodeError(codeErr);
+      return;
+    }
+    if (!newName.trim()) {
+      toast({ title: 'Uzupełnij nazwę', variant: 'destructive' });
       return;
     }
     createMutation.mutate({
-      code: newCode.trim(),
+      code: newCode,
       name_pl: newName.trim(),
       default_color_rgb: newColor,
+      icon_key: newIcon,
       is_active: newActive,
       sort_order: newSort,
     });
@@ -171,6 +212,7 @@ export default function AdminEventTypes() {
       body: {
         name_pl: editName.trim(),
         default_color_rgb: editColor,
+        icon_key: editIcon,
         sort_order: editSort,
         is_active: editActive,
       },
@@ -186,7 +228,7 @@ export default function AdminEventTypes() {
             Słownik typów zdarzeń wykorzystywanych przez dyspozytorów. Kod jest niemodyfikowalny po utworzeniu.
           </p>
         </div>
-        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <Dialog open={addOpen} onOpenChange={(open) => { setAddOpen(open); if (!open) setNewCodeError(''); }}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
@@ -203,9 +245,20 @@ export default function AdminEventTypes() {
                 <Input
                   id="et-code"
                   value={newCode}
-                  onChange={(e) => setNewCode(e.target.value)}
+                  onChange={(e) => {
+                    const slug = slugify(e.target.value);
+                    setNewCode(slug);
+                    setNewCodeError(validateCode(slug));
+                  }}
                   placeholder="kod_typu"
+                  className={newCodeError ? 'border-destructive' : ''}
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Dozwolone są tylko małe litery łacińskie, cyfry i podkreślenia.
+                </p>
+                {newCodeError && (
+                  <p className="text-xs text-destructive mt-0.5">{newCodeError}</p>
+                )}
               </div>
               <div>
                 <Label htmlFor="et-name">Nazwa polska</Label>
@@ -215,6 +268,29 @@ export default function AdminEventTypes() {
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="np. Awaria kanalizacji"
                 />
+              </div>
+              <div>
+                <Label>Ikona</Label>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {EVENT_TYPE_ICONS.map(({ key, label, Icon }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      title={label}
+                      aria-label={label}
+                      aria-pressed={newIcon === key}
+                      onClick={() => setNewIcon(key)}
+                      className={`flex flex-col items-center gap-1 p-2 rounded-lg border text-xs transition-colors ${
+                        newIcon === key
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border hover:bg-muted'
+                      }`}
+                    >
+                      <Icon className="h-5 w-5" aria-hidden="true" />
+                      <span>{label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -276,6 +352,7 @@ export default function AdminEventTypes() {
             <TableRow>
               <TableHead>Kod</TableHead>
               <TableHead>Nazwa</TableHead>
+              <TableHead>Ikona</TableHead>
               <TableHead>Kolor</TableHead>
               <TableHead className="text-center">Sort</TableHead>
               <TableHead className="text-center">Aktywny</TableHead>
@@ -287,6 +364,18 @@ export default function AdminEventTypes() {
               <TableRow key={item.id}>
                 <TableCell className="font-mono text-xs">{item.code}</TableCell>
                 <TableCell>{item.name_pl}</TableCell>
+                <TableCell>
+                  {(() => {
+                    const IconComp = resolveIcon(item.icon_key);
+                    return (
+                      <IconComp
+                        className="h-5 w-5"
+                        style={{ color: item.default_color_rgb }}
+                        aria-hidden="true"
+                      />
+                    );
+                  })()}
+                </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <span
@@ -351,6 +440,29 @@ export default function AdminEventTypes() {
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
               />
+            </div>
+            <div>
+              <Label>Ikona</Label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {EVENT_TYPE_ICONS.map(({ key, label, Icon }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    title={label}
+                    aria-label={label}
+                    aria-pressed={editIcon === key}
+                    onClick={() => setEditIcon(key)}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-lg border text-xs transition-colors ${
+                      editIcon === key
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border hover:bg-muted'
+                    }`}
+                  >
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>

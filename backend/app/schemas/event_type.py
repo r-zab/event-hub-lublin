@@ -26,6 +26,7 @@ class EventTypeCreate(BaseModel):
     code: str = Field(min_length=1, max_length=30)
     name_pl: str = Field(min_length=1, max_length=100)
     default_color_rgb: str
+    icon_key: str | None = Field(default="alert_triangle", max_length=50)
     is_active: bool = True
     sort_order: int = 0
 
@@ -43,6 +44,7 @@ class EventTypeCreate(BaseModel):
 class EventTypeUpdate(BaseModel):
     name_pl: str | None = Field(default=None, min_length=1, max_length=100)
     default_color_rgb: str | None = None
+    icon_key: str | None = Field(default=None, max_length=50)
     is_active: bool | None = None
     sort_order: int | None = None
 
@@ -57,6 +59,7 @@ class EventTypeResponse(BaseModel):
     code: str
     name_pl: str
     default_color_rgb: str
+    icon_key: str | None = "alert_triangle"
     is_active: bool
     sort_order: int
 

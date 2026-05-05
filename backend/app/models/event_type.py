@@ -15,6 +15,7 @@ class EventType(Base):
     code: Mapped[str] = mapped_column(String(30), unique=True, nullable=False, index=True)
     name_pl: Mapped[str] = mapped_column(String(100), nullable=False)
     default_color_rgb: Mapped[str] = mapped_column(String(7), nullable=False)  # #RRGGBB
+    icon_key: Mapped[str | None] = mapped_column(String(50), nullable=True, server_default="alert_triangle")
     is_active: Mapped[bool] = mapped_column(Boolean, server_default="true", nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
     created_at: Mapped[datetime] = mapped_column(
