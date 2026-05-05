@@ -45,7 +45,8 @@
       "Bash(Select-String -Pattern \"\\(?i\\)\\(street|auto|address|search|input|dropdown\\)\")",
       "Bash(Head -20)",
       "Bash(node -e \"const l = require\\('lucide-react'\\); const icons=['Gauge','Waves','Thermometer','Hammer','Truck','CircleAlert','Lock','Zap','TrafficCone','Shovel','Pipette']; icons.forEach\\(n => console.log\\(n, typeof l[n]\\)\\)\")",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(git check-ignore *)"
     ],
     "deny": [
       "Bash(git push*)",
